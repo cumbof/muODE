@@ -1,0 +1,276 @@
+"""Dynamic Flux Balance Analysis -- the muODE simulation engine.
+
+This implements the **Static Optimization Approach** (SOA) to dynamic FBA
+(Mahadevan, Edwards & Doyle, *Biophys. J.* 2002), extended to communities of
+several genome-scale models sharing one extracellular pool.
+
+At each time step of size ``dt``:
+
+1. For every species *i* and every extracellular metabolite *j*, the maximum
+   uptake rate is set from the current concentration via Michaelis-Menten
+   kinetics, ``v_max,ij = Vmax * M_j / (Km + M_j)`` (:mod:`muode.kinetics`),
+   additionally capped so a species cannot consume more of *j* than is present
+   within the step (``M_j / (X_i * dt)``) -- a CFL-style stability bound.
+2. Each species' intracellular LP is solved for maximum biomass, yielding a
+   growth rate ``mu_i`` and a set of exchange fluxes ``v_(j,i)``.
+3. The extracellular ODEs are integrated one Euler step::
+
+       X_i  += (mu_i - death) * X_i * dt
+       M_j  += (sum_i v_(j,i) * X_i + influx_j - D * M_j) * dt
+
+   with optional first-order cell death and chemostat dilution ``D``.  Negative
+   concentrations are clamped to zero.
+
+This is the formulation the README's "Mathematical Framework" section describes;
+the engine is what turns a *steady-state* community model (a snapshot of who
+grows on what) into a *time course* of biomass and metabolite concentrations.
+
+Why not MICOM directly?  MICOM computes a single regularised steady-state
+community solution -- excellent for one snapshot of cross-feeding, but it is not
+a time integrator.  muODE's SOA loop *is* the dynamics; a MICOM/cobra community
+model can be plugged in as the per-step solver.
+"""
+
+from __future__ import annotations
+
+import warnings
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import numpy as np
+import pandas as pd
+
+from muode.community import Community
+from muode.diet import Diet
+from muode.kinetics import KineticParameters
+from muode.perturb import Perturbation
+
+
+@dataclass
+class SimulationResult:
+    """Time-course output of a dynamic-FBA run."""
+
+    times: np.ndarray
+    biomass: pd.DataFrame          # index=time, columns=organism ids (gDW/L)
+    metabolites: pd.DataFrame      # index=time, columns=metabolite ids (mmol/L)
+    growth_rates: pd.DataFrame     # index=time, columns=organism ids (1/h)
+    exchange_fluxes: Dict[str, pd.DataFrame] = field(default_factory=dict)
+    meta: dict = field(default_factory=dict)
+
+    # -- summaries ----------------------------------------------------------
+    def final_biomass(self) -> Dict[str, float]:
+        return self.biomass.iloc[-1].to_dict()
+
+    def extinct(self, abs_threshold: float = 1e-6, rel_threshold: float = 1e-3) -> List[str]:
+        """Species whose final biomass collapsed.
+
+        A species counts as extinct if its final biomass is below
+        ``abs_threshold`` (gDW/L) or has fallen below ``rel_threshold`` times its
+        initial biomass.
+        """
+        out = []
+        first, last = self.biomass.iloc[0], self.biomass.iloc[-1]
+        for sp in self.biomass.columns:
+            if last[sp] < abs_threshold or last[sp] < rel_threshold * max(first[sp], 1e-12):
+                out.append(sp)
+        return out
+
+    def cross_feeding(self, flux_threshold: float = 1e-6) -> pd.DataFrame:
+        """Infer cross-feeding interactions from the recorded exchange fluxes.
+
+        Returns one row per ``(producer, metabolite, consumer)`` for which, at
+        any recorded time point, the producer secreted a metabolite that the
+        consumer simultaneously took up.  The reported strength is the maximum
+        co-occurring secretion flux over the trajectory.
+        """
+        if not self.exchange_fluxes:
+            return pd.DataFrame(columns=["producer", "metabolite", "consumer", "strength"])
+        species = list(self.exchange_fluxes)
+        mets = list(next(iter(self.exchange_fluxes.values())).columns)
+        rows = []
+        for met in mets:
+            for prod in species:
+                sec = self.exchange_fluxes[prod][met]
+                for cons in species:
+                    if cons == prod:
+                        continue
+                    upt = self.exchange_fluxes[cons][met]
+                    coupled = (sec > flux_threshold) & (upt < -flux_threshold)
+                    if coupled.any():
+                        rows.append(
+                            {
+                                "producer": prod,
+                                "metabolite": met,
+                                "consumer": cons,
+                                "strength": float(sec[coupled].max()),
+                            }
+                        )
+        return pd.DataFrame(rows, columns=["producer", "metabolite", "consumer", "strength"])
+
+    # -- IO -----------------------------------------------------------------
+    def to_csv(self, outdir: str | Path) -> None:
+        outdir = Path(outdir)
+        outdir.mkdir(parents=True, exist_ok=True)
+        self.biomass.to_csv(outdir / "biomass.csv", index_label="time_h")
+        self.metabolites.to_csv(outdir / "metabolites.csv", index_label="time_h")
+        self.growth_rates.to_csv(outdir / "growth_rates.csv", index_label="time_h")
+        cf = self.cross_feeding()
+        if not cf.empty:
+            cf.to_csv(outdir / "cross_feeding.csv", index=False)
+
+
+@dataclass
+class DynamicFBA:
+    """Configurable dynamic-FBA community integrator.
+
+    Parameters
+    ----------
+    t_end:
+        Total simulated time (h).
+    dt:
+        Integration step (h).  Smaller is more accurate and reduces the chance
+        of substrate over-depletion warnings.
+    death_rate:
+        First-order biomass decay (1/h), applied to every species.
+    dilution_rate:
+        Chemostat dilution ``D`` (1/h); also washes out biomass and metabolites.
+    min_biomass:
+        Biomass floor (gDW/L); species below it stop contributing flux (a numeric
+        proxy for local extinction) but can recover if it rises again.
+    record_fluxes:
+        Keep per-species exchange-flux trajectories (needed for cross-feeding
+        inference).  Disable for very large communities to save memory.
+    """
+
+    t_end: float = 24.0
+    dt: float = 0.1
+    death_rate: float = 0.0
+    dilution_rate: float = 0.0
+    min_biomass: float = 1e-9
+    record_fluxes: bool = True
+
+    def run(
+        self,
+        community: Community,
+        diet: Diet,
+        kinetics: Optional[KineticParameters] = None,
+        perturbation: Optional[Perturbation] = None,
+    ) -> SimulationResult:
+        kinetics = kinetics or KineticParameters()
+
+        # Apply any perturbation to the baseline bounds *once*, up front, so it
+        # persists across every step (an antibiotic does not wear off mid-run).
+        if perturbation is not None:
+            perturbation.apply(community)
+
+        organisms = community.organisms
+        env_mets = sorted(set(community.environment_metabolites()) | set(diet.metabolites()))
+
+        # state vectors
+        X = dict(community.initial_biomass())
+        M = {m: diet.initial_concentration(m) for m in env_mets}
+
+        n_steps = int(round(self.t_end / self.dt))
+        times = np.linspace(0.0, n_steps * self.dt, n_steps + 1)
+
+        # history buffers
+        bio_hist = {o.id: np.empty(n_steps + 1) for o in organisms}
+        mu_hist = {o.id: np.empty(n_steps + 1) for o in organisms}
+        met_hist = {m: np.empty(n_steps + 1) for m in env_mets}
+        flux_hist: Dict[str, Dict[str, np.ndarray]] = (
+            {o.id: {m: np.zeros(n_steps + 1) for m in env_mets} for o in organisms}
+            if self.record_fluxes
+            else {}
+        )
+
+        depletion_warned = False
+
+        for step in range(n_steps + 1):
+            # record current state
+            for o in organisms:
+                bio_hist[o.id][step] = X[o.id]
+            for m in env_mets:
+                met_hist[m][step] = M[m]
+
+            # --- solve each species' FBA under current medium ---------------
+            step_growth: Dict[str, float] = {}
+            step_flux: Dict[str, Dict[str, float]] = {}
+            for o in organisms:
+                if X[o.id] <= self.min_biomass:
+                    step_growth[o.id] = 0.0
+                    step_flux[o.id] = {m: 0.0 for m in env_mets}
+                    mu_hist[o.id][step] = 0.0
+                    continue
+
+                o.reset_bounds()
+                for m in env_mets:
+                    conc = M[m]
+                    mm = kinetics.michaelis_menten(o.id, m, conc)
+                    # CFL-style cap: do not let one species take more than exists.
+                    cap = conc / (X[o.id] * self.dt) if self.dt > 0 else np.inf
+                    o.set_uptake_bound(m, min(mm, cap))
+
+                sol = o.optimize()
+                step_growth[o.id] = sol.growth_rate if sol.feasible else 0.0
+                step_flux[o.id] = {m: sol.exchange_fluxes.get(m, 0.0) for m in env_mets}
+                mu_hist[o.id][step] = step_growth[o.id]
+
+            if self.record_fluxes:
+                for o in organisms:
+                    for m in env_mets:
+                        flux_hist[o.id][m][step] = step_flux[o.id][m]
+
+            if step == n_steps:
+                break  # state recorded; no integration past the horizon
+
+            # --- integrate one Euler step -----------------------------------
+            for o in organisms:
+                mu = step_growth[o.id]
+                X[o.id] = max(
+                    0.0,
+                    X[o.id] + (mu - self.death_rate - self.dilution_rate) * X[o.id] * self.dt,
+                )
+
+            for m in env_mets:
+                dM = diet.influx_rate(m) - self.dilution_rate * M[m]
+                for o in organisms:
+                    dM += step_flux[o.id][m] * X[o.id]
+                new = M[m] + dM * self.dt
+                if new < 0.0:
+                    new = 0.0
+                    if not depletion_warned:
+                        warnings.warn(
+                            "A metabolite was fully depleted within a step; consider a "
+                            "smaller dt for better accuracy.",
+                            RuntimeWarning,
+                            stacklevel=2,
+                        )
+                        depletion_warned = True
+                M[m] = new
+
+        # --- assemble result -------------------------------------------------
+        biomass_df = pd.DataFrame(bio_hist, index=times)
+        mu_df = pd.DataFrame(mu_hist, index=times)
+        met_df = pd.DataFrame(met_hist, index=times)
+        exch = (
+            {oid: pd.DataFrame(flux_hist[oid], index=times) for oid in flux_hist}
+            if self.record_fluxes
+            else {}
+        )
+        return SimulationResult(
+            times=times,
+            biomass=biomass_df,
+            metabolites=met_df,
+            growth_rates=mu_df,
+            exchange_fluxes=exch,
+            meta={
+                "t_end": self.t_end,
+                "dt": self.dt,
+                "death_rate": self.death_rate,
+                "dilution_rate": self.dilution_rate,
+                "diet": diet.name,
+                "n_species": len(organisms),
+                "perturbation": None if perturbation is None else perturbation.describe(),
+            },
+        )

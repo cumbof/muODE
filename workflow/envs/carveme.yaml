@@ -1,0 +1,12 @@
+# Reconstruction environment (Phase 1). CarveMe emits BiGG-namespace models,
+# which is what keeps a large multi-MAG community on a shared metabolite pool.
+name: muode-carveme
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.10
+  - carveme>=1.6
+  - prodigal>=2.6
+  - diamond>=2.1
+  - pip

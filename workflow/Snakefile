@@ -1,0 +1,191 @@
+# muODE Snakemake workflow
+# =========================
+# Orchestrates the embarrassingly-parallel per-MAG phases (QC -> reconstruct ->
+# refine) and the integrative per-sample phases (assemble -> simulate -> perturb).
+#
+# Design notes
+# ------------
+# * Per-MAG work (reconstruction, refinement) fans out: one job per genome, so it
+#   scales to hundreds/thousands of MAGs on a cluster (see profiles/slurm).
+# * A *checkpoint* (`select_mags`) makes the set of MAGs that survive QC a
+#   first-class, data-dependent input to the downstream aggregation, so only
+#   good bins are ever modelled or simulated.
+# * External tools (CarveMe, CheckM2) run in their own conda envs via `--use-conda`.
+#   The muODE engine steps run in the active `muode` env (where you `pip install -e .`).
+#
+# Run (from the repo root):
+#   conda activate muode
+#   snakemake --use-conda --cores 8 --configfile config/config.yaml
+
+import glob
+import os
+from pathlib import Path
+
+configfile: "config/config.yaml"
+
+OUT = config["outdir"]
+MAGS_DIR = config["mags_dir"]
+EXT = config.get("mag_extension", "fna")
+ENGINE = config.get("engine", "carveme")
+UNIVERSE = config.get("universe", "bacteria")
+SCRIPTS = os.path.join(workflow.basedir, "scripts")
+
+MAGS = sorted(Path(p).stem for p in glob.glob(os.path.join(MAGS_DIR, f"*.{EXT}")))
+
+
+# --- final targets ---------------------------------------------------------
+def final_targets():
+    targets = [f"{OUT}/simulation/biomass.csv"]
+    if config.get("perturbation"):
+        targets.append(f"{OUT}/perturbation/biomass.csv")
+    return targets
+
+
+rule all:
+    input:
+        final_targets(),
+
+
+# --- Phase 0: MAG quality control -----------------------------------------
+rule checkm2:
+    input:
+        MAGS_DIR,
+    output:
+        report=f"{OUT}/qc/quality_report.tsv",
+    log:
+        f"{OUT}/logs/checkm2.log",
+    threads: config.get("threads", 4)
+    conda:
+        "envs/checkm2.yaml"
+    shell:
+        "checkm2 predict --input {input} --output-directory {OUT}/qc "
+        "-x {EXT} --threads {threads} --force > {log} 2>&1"
+
+
+checkpoint select_mags:
+    # Decide which MAGs pass QC. If CheckM2 is disabled, keep them all. The
+    # output list is what downstream aggregation expands over.
+    input:
+        report=(f"{OUT}/qc/quality_report.tsv" if config.get("run_checkm2", False) else []),
+    output:
+        passing=f"{OUT}/qc/passing_mags.txt",
+    run:
+        Path(output.passing).parent.mkdir(parents=True, exist_ok=True)
+        if config.get("run_checkm2", False):
+            from muode.qc import filter_mags
+
+            keep = filter_mags(
+                input.report,
+                min_completeness=config.get("min_completeness", 50.0),
+                max_contamination=config.get("max_contamination", 10.0),
+            )
+        else:
+            keep = MAGS
+        Path(output.passing).write_text("\n".join(keep) + "\n")
+
+
+# --- Phase 1: reconstruction (per MAG) ------------------------------------
+rule reconstruct:
+    input:
+        genome=f"{MAGS_DIR}/{{mag}}.{EXT}",
+    output:
+        model=f"{OUT}/models/draft/{{mag}}.xml",
+    params:
+        proteins=f"{OUT}/models/draft/{{mag}}.faa",
+        media_flag=(f"-g {config['gapfill_media']}" if config.get("gapfill_media") else ""),
+    log:
+        f"{OUT}/logs/reconstruct/{{mag}}.log",
+    conda:
+        "envs/carveme.yaml"
+    shell:
+        # gene calling (Prodigal, metagenomic mode) then CarveMe (BiGG namespace)
+        "prodigal -i {input.genome} -a {params.proteins} -p meta -q > {log} 2>&1 && "
+        "carve {params.proteins} -o {output.model} -u %s {params.media_flag} >> {log} 2>&1"
+        % UNIVERSE
+
+
+# --- Phase 2/3: gap-filling + kinetics QC (per MAG) -----------------------
+rule refine:
+    input:
+        model=f"{OUT}/models/draft/{{mag}}.xml",
+    output:
+        model=f"{OUT}/models/refined/{{mag}}.xml",
+        qc=f"{OUT}/models/refined/{{mag}}.qc.json",
+    params:
+        universal=(f"--universal {config['universal_model']}" if config.get("universal_model") else ""),
+    log:
+        f"{OUT}/logs/refine/{{mag}}.log",
+    shell:
+        "python {SCRIPTS}/refine_one.py {input.model} {output.model} "
+        "--qc-json {output.qc} {params.universal} > {log} 2>&1"
+
+
+# --- Phase 4a: assemble the community -------------------------------------
+def passing_models(wildcards):
+    ck = checkpoints.select_mags.get(**wildcards).output.passing
+    mags = [m.strip() for m in open(ck) if m.strip()]
+    return expand(f"{OUT}/models/refined/{{mag}}.xml", mag=mags)
+
+
+rule assemble:
+    input:
+        models=passing_models,
+    output:
+        community=f"{OUT}/simulation/community.json",
+    params:
+        abundance=(f"--abundance {config['abundance']}" if config.get("abundance") else ""),
+        diet=config.get("diet", "western_gut"),
+        total_biomass=config.get("total_biomass", 0.01),
+    shell:
+        "python {SCRIPTS}/assemble.py --models {input.models} --diet {params.diet} "
+        "--total-biomass {params.total_biomass} --out {output.community} {params.abundance}"
+
+
+# --- Phase 4b: dynamic simulation -----------------------------------------
+rule simulate:
+    input:
+        community=f"{OUT}/simulation/community.json",
+    output:
+        biomass=f"{OUT}/simulation/biomass.csv",
+    params:
+        time=config.get("t_end", 24.0),
+        step=config.get("dt", 0.1),
+        vmax=config.get("default_vmax", 10.0),
+        km=config.get("default_km", 0.01),
+    log:
+        f"{OUT}/logs/simulate.log",
+    shell:
+        "muode simulate --community {input.community} --time {params.time} --step {params.step} "
+        "--default-vmax {params.vmax} --default-km {params.km} "
+        "--outdir {OUT}/simulation > {log} 2>&1"
+
+
+# --- Phase 5: perturbation (optional) -------------------------------------
+def _perturb_flags():
+    cfg = config.get("perturbation") or {}
+    flags = []
+    if cfg.get("target_pathway"):
+        flags.append('--target-pathway "%s"' % cfg["target_pathway"])
+        flags.append("--efficacy %s" % cfg.get("efficacy", 0.95))
+    if cfg.get("remove_species"):
+        flags.append("--remove-species %s" % cfg["remove_species"])
+    if cfg.get("knockout"):
+        flags.append("--knockout %s" % cfg["knockout"])
+    return " ".join(flags)
+
+
+rule perturb:
+    input:
+        community=f"{OUT}/simulation/community.json",
+    output:
+        biomass=f"{OUT}/perturbation/biomass.csv",
+    params:
+        flags=_perturb_flags(),
+        time=config.get("t_end", 24.0),
+        step=config.get("dt", 0.1),
+    log:
+        f"{OUT}/logs/perturb.log",
+    shell:
+        "muode perturb --community {input.community} {params.flags} "
+        "--time {params.time} --step {params.step} "
+        "--outdir {OUT}/perturbation > {log} 2>&1"

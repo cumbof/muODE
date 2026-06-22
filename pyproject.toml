@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "muode"
+version = "0.1.0"
+description = "Automated ODE-based simulation engine for large-scale microbial community dynamics from MAGs"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Fabio Cumbo" }]
+keywords = [
+    "metagenomics",
+    "metabolic-modeling",
+    "dynamic-fba",
+    "microbial-community",
+    "systems-biology",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: MIT License",
+]
+
+# NOTE: the *core* engine deliberately depends only on the scientific-Python
+# stack so that the dynamic-FBA solver, perturbation engine and tests run
+# without any heavyweight or platform-specific dependency. The constraint-based
+# modelling backend (cobra), the reconstruction tools (CarveMe, gapseq) and the
+# deep-learning kinetic predictors are *optional* extras, each pulled in only by
+# the pipeline phase that needs them. This keeps an end-to-end run possible even
+# before the ML layers are wired up.
+dependencies = [
+    "numpy>=1.23",
+    "scipy>=1.10",
+    "pandas>=1.5",
+    "pyyaml>=6.0",
+    "typer>=0.9",
+    "rich>=13.0",
+    "networkx>=3.0",
+]
+
+[project.optional-dependencies]
+cobra = ["cobra>=0.29"]
+viz = ["matplotlib>=3.6"]
+ml = ["torch>=2.0"]            # DLKcat / Km predictors (optional refinement layer)
+workflow = ["snakemake>=8.0"]
+dev = ["pytest>=7.0", "pytest-cov", "ruff"]
+all = ["cobra>=0.29", "matplotlib>=3.6", "snakemake>=8.0", "pytest>=7.0"]
+
+[project.scripts]
+muode = "muode.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/cumbof/muODE"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

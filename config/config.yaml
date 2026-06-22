@@ -1,0 +1,42 @@
+# muODE pipeline configuration.
+# Mirrors muode.config.PipelineConfig. Paths are relative to the repo root.
+
+# --- inputs / outputs ------------------------------------------------------
+mags_dir: "data/raw_mags"     # directory of MAG FASTA files
+mag_extension: "fna"          # extension (without dot) of the MAG files
+abundance: null               # path to a MetaSBT-style abundance TSV (or null)
+outdir: "results"
+
+# --- Phase 0: MAG quality gate --------------------------------------------
+run_checkm2: false            # set true to gate on CheckM2 (needs the checkm2 env)
+min_completeness: 50.0
+max_contamination: 10.0
+
+# --- Phase 1: reconstruction ----------------------------------------------
+engine: "carveme"             # carveme (default, BiGG) | gapseq (ModelSEED)
+universe: "bacteria"          # CarveMe universe / template
+gapfill_media: null           # e.g. "M9" to gap-fill during reconstruction
+
+# --- Phase 2/3: refinement -------------------------------------------------
+universal_model: null         # SBML universal model for LP gap-filling (optional)
+predict_kinetics: false       # opt-in DLKcat/Km refinement (needs the ml extra)
+default_vmax: 10.0
+default_km: 0.01
+
+# --- Phase 4: simulation ---------------------------------------------------
+diet: "western_gut"           # preset name or path to a diet CSV
+total_biomass: 0.01
+t_end: 24.0
+dt: 0.1
+
+# --- compute ---------------------------------------------------------------
+threads: 4
+
+# --- Phase 5: perturbation (optional) -------------------------------------
+# Provide a mapping to additionally run the perturbation arm, e.g.:
+# perturbation:
+#   target_pathway: "Folate Biosynthesis"
+#   efficacy: 0.95
+#   # remove_species: "Bin.42"
+#   # knockout: "FOLD,DHFR"
+perturbation: null

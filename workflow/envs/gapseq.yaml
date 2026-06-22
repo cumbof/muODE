@@ -1,0 +1,8 @@
+# Alternative reconstruction engine (Phase 1, optional). ModelSEED namespace --
+# do NOT mix gapseq and CarveMe models in one community.
+name: muode-gapseq
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - gapseq>=1.3

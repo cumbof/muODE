@@ -1,0 +1,8 @@
+# MAG quality-control environment (Phase 0).
+name: muode-checkm2
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.8
+  - checkm2>=1.0

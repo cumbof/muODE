@@ -1,0 +1,24 @@
+# Core muODE engine environment (refine / assemble / simulate / perturb).
+# After creating it, install the package itself:  pip install -e .
+name: muode
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - cobra>=0.29
+  - numpy>=1.23
+  - scipy>=1.10
+  - pandas>=1.5
+  - networkx>=3.0
+  - matplotlib>=3.6
+  - pyyaml>=6.0
+  - typer>=0.9
+  - rich>=13.0
+  - pytest>=7.0
+  - pip
+  # Optional but recommended free LP solver for large communities:
+  - highspy
+  # Optional gene caller (Phase 1, pure-Python):
+  - pyrodigal
+  - biopython
