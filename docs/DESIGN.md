@@ -55,6 +55,12 @@ species rather than rebuilding one giant LP.
 
 - **Abundance:** 2-column TSV `mag_id, abundance` (e.g. a MetaSBT profile).
 - **Diet:** preset name or CSV `metabolite, concentration[, influx]`.
+- **Per-MAG QC** (`{mag}.qc.json`): gap-fill + sanity-check report emitted by
+  `refine`, one per model.
+- **Reconstruction summary** (`reconstruction_summary.tsv`): one row per MAG
+  (`grows_now`, `n_reactions_added`, `energy_generating_cycle`, `simulatable`, …),
+  aggregated by `reconstruct_report`. `assemble` reads its `simulatable` column to
+  drop pathological models, so a single bad MAG never aborts a large run.
 - **Community manifest** (`community.json`): `{models[], abundances{}, diet,
   total_biomass}` — produced by `assemble`, consumed by `simulate`/`perturb`.
 - **Results:** `biomass.csv`, `metabolites.csv`, `growth_rates.csv`,

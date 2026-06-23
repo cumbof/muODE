@@ -158,10 +158,17 @@ non-negativity clamping.
 - [x] Snakemake workflow (per-MAG fan-out, QC checkpoint, SLURM profile)
 - [x] Test suite (toy cross-feeding + real *E. coli* core dFBA)
 
-**Milestone 1 — Reconstruction at scale**
-- [ ] Validate CarveMe + Prodigal rules on a real MAG set
-- [ ] CheckM2 gate end-to-end; memote reporting
-- [ ] Universal model packaging for LP gap filling
+**Milestone 1 — Reconstruction at scale (in progress)**
+- [x] End-to-end per-MAG DAG fan-out; a dependency-free `stub` engine runs the
+      *whole* pipeline (reconstruct → refine → QC → assemble → simulate) on any
+      architecture, validated locally on bundled toy MAGs
+- [x] `reconstruction_summary.tsv` aggregation across all MAGs (one QC table per run)
+- [x] QC-driven failure isolation: non-simulatable models are dropped from the
+      community rather than aborting the run
+- [x] Optional memote rule; LP gap-fill universal-model wiring (`universal_model`)
+- [x] CheckM2 kept in the pipeline but gated by `run_checkm2` (off where it can't run)
+- [ ] Validate CarveMe + Prodigal + CheckM2 on a real MAG set on a capable host
+- [ ] Multi-threading / resource tuning for very large clusters (>500 MAGs)
 
 **Milestone 2 — Kinetics refinement (optional layer)**
 - [ ] DLKcat / Km predictor wrappers (`ml` extra) + namespace mapping

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Snakemake
+.snakemake/
+
+# muODE working dirs / heavy artifacts
+results/
+models/draft_gems/
+models/kinetic_gems/
+simulation_env/
+*.xml
+*.sbml
+!examples/**/*.xml
+*.log
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

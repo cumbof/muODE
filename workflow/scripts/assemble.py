@@ -20,21 +20,36 @@ def main() -> None:
     p.add_argument("--abundance", help="MAG abundance TSV (MetaSBT profile)")
     p.add_argument("--diet", default="western_gut", help="diet preset name or CSV path")
     p.add_argument("--total-biomass", type=float, default=0.01)
+    p.add_argument("--summary", help="reconstruction_summary.tsv to drop non-simulatable models")
     p.add_argument("--out", required=True, help="output community.json")
     args = p.parse_args()
 
-    abund = read_abundance(args.abundance) if args.abundance else {
-        Path(m).stem: 1.0 for m in args.models
-    }
+    models = [Path(m) for m in args.models]
+
+    # Failure isolation at scale: keep only models flagged simulatable by QC so a
+    # single dead/pathological model never aborts the whole community simulation.
+    if args.summary:
+        from muode.qc import simulatable_mags
+
+        ok = set(simulatable_mags(args.summary))
+        kept = [m for m in models if m.stem in ok]
+        dropped = [m.stem for m in models if m.stem not in ok]
+        if dropped:
+            print(f"dropping {len(dropped)} non-simulatable model(s): {', '.join(dropped)}")
+        models = kept
+    if not models:
+        raise SystemExit("no simulatable models remain after QC filtering; nothing to assemble")
+
+    abund = read_abundance(args.abundance) if args.abundance else {m.stem: 1.0 for m in models}
     manifest = {
-        "models": [str(Path(m).resolve()) for m in args.models],
-        "abundances": {Path(m).stem: abund.get(Path(m).stem, 0.0) for m in args.models},
+        "models": [str(m.resolve()) for m in models],
+        "abundances": {m.stem: abund.get(m.stem, 0.0) for m in models},
         "diet": args.diet,
         "total_biomass": args.total_biomass,
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(manifest, indent=2))
-    print(f"assembled community with {len(args.models)} model(s) -> {args.out}")
+    print(f"assembled community with {len(models)} model(s) -> {args.out}")
 
 
 if __name__ == "__main__":

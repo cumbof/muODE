@@ -55,7 +55,7 @@ muode = "muode.cli:app"
 Homepage = "https://github.com/cumbof/muODE"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+include = ["muode*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

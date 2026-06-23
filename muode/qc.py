@@ -52,6 +52,61 @@ def filter_mags(report_tsv: str | Path, min_completeness: float = 50.0,
 
 
 # ---------------------------------------------------------------------------
+# Reconstruction-at-scale reporting
+# ---------------------------------------------------------------------------
+
+
+def summarize_reconstruction(qc_json_paths):
+    """Aggregate per-MAG refine/QC JSONs into one tidy reconstruction table.
+
+    This is the deliverable you read after a large run: one row per MAG telling
+    you whether its model grows, whether it carries an energy-generating cycle,
+    how many reactions gap-filling added, and -- via the derived ``simulatable``
+    column -- whether it is safe to include in the community.  Returns a
+    :class:`pandas.DataFrame` (empty if no inputs).
+    """
+    import json
+
+    import pandas as pd
+
+    rows = []
+    for path in qc_json_paths:
+        path = Path(path)
+        try:
+            d = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            rows.append({"mag": path.stem.replace(".qc", ""), "grows_now": False,
+                         "error": "missing or unreadable QC report"})
+            continue
+        qc = d.get("qc", {}) or {}
+        rows.append({
+            "mag": d.get("model", path.stem.replace(".qc", "")),
+            "grew_initially": d.get("grew_initially"),
+            "n_reactions_added": len(d.get("reactions_added") or []),
+            "grows_now": bool(d.get("grows_now")),
+            "n_mass_unbalanced": qc.get("n_mass_unbalanced"),
+            "energy_generating_cycle": qc.get("energy_generating_cycle"),
+            "qc_passed": qc.get("passed"),
+        })
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df.sort_values("mag").reset_index(drop=True)
+        egc = df.get("energy_generating_cycle")
+        df["simulatable"] = df["grows_now"].fillna(False) & (egc.fillna(False) == False)  # noqa: E712
+    return df
+
+
+def simulatable_mags(summary_tsv: str | Path) -> List[str]:
+    """Read a reconstruction summary TSV and return the ids safe to simulate."""
+    import pandas as pd
+
+    df = pd.read_csv(summary_tsv, sep="\t")
+    if "simulatable" not in df.columns or df.empty:
+        return []
+    return df.loc[df["simulatable"] == True, "mag"].astype(str).tolist()  # noqa: E712
+
+
+# ---------------------------------------------------------------------------
 # Model quality
 # ---------------------------------------------------------------------------
 

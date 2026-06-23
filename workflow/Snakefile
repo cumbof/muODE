@@ -10,16 +10,31 @@
 # * A *checkpoint* (`select_mags`) makes the set of MAGs that survive QC a
 #   first-class, data-dependent input to the downstream aggregation, so only
 #   good bins are ever modelled or simulated.
+# * `reconstruct_report` aggregates every per-MAG QC into one
+#   `reconstruction_summary.tsv` -- the table you read after a large run -- and
+#   `assemble` uses it to drop non-simulatable models instead of aborting.
 # * External tools (CarveMe, CheckM2) run in their own conda envs via `--use-conda`.
 #   The muODE engine steps run in the active `muode` env (where you `pip install -e .`).
 #
+# Engines (`engine:` in config)
+# ------------------------------
+# * `carveme` (default) -- real reconstruction; needs the carveme conda env.
+# * `stub`              -- dependency-free placeholder models so the whole DAG can
+#                          be validated locally (e.g. aarch64). Run WITHOUT
+#                          `--use-conda` in your active `muode` env. NOT science.
+#
 # Run (from the repo root):
 #   conda activate muode
+#   # full pipeline on a capable machine:
 #   snakemake --use-conda --cores 8 --configfile config/config.yaml
+#   # local end-to-end DAG smoke-test on the bundled stub MAGs:
+#   snakemake --cores 4 --configfile config/config.demo.yaml
 
 import glob
 import os
 from pathlib import Path
+
+from snakemake.exceptions import WorkflowError
 
 configfile: "config/config.yaml"
 
@@ -32,10 +47,37 @@ SCRIPTS = os.path.join(workflow.basedir, "scripts")
 
 MAGS = sorted(Path(p).stem for p in glob.glob(os.path.join(MAGS_DIR, f"*.{EXT}")))
 
+# --- reconstruction engine dispatch (chosen once, at parse time) -----------
+# CarveMe runs in its own conda env from the rule shell; the dependency-free
+# `stub` engine is driven from Python in the active muode env.
+if ENGINE == "carveme":
+    RECON_CONDA = "envs/carveme.yaml"
+    RECON_SHELL = (
+        "prodigal -i {input.genome} -a {params.proteins} -p meta -q > {log} 2>&1 && "
+        "carve {params.proteins} -o {output.model} -u %s {params.media_flag} >> {log} 2>&1"
+        % UNIVERSE
+    )
+elif ENGINE == "stub":
+    RECON_CONDA = "envs/muode.yaml"
+    RECON_SHELL = (
+        "python {SCRIPTS}/reconstruct_one.py {input.genome} {output.model} "
+        "--engine stub > {log} 2>&1"
+    )
+else:
+    raise WorkflowError(
+        f"engine '{ENGINE}' is not wired into the workflow; use 'carveme' (default) "
+        "or 'stub' (local DAG test). gapseq is available via `muode build --engine gapseq`."
+    )
+
 
 # --- final targets ---------------------------------------------------------
 def final_targets():
-    targets = [f"{OUT}/simulation/biomass.csv"]
+    targets = [
+        f"{OUT}/qc/reconstruction_summary.tsv",
+        f"{OUT}/simulation/biomass.csv",
+    ]
+    if config.get("run_memote", False):
+        targets.append(f"{OUT}/qc/memote/summary.txt")
     if config.get("perturbation"):
         targets.append(f"{OUT}/perturbation/biomass.csv")
     return targets
@@ -47,6 +89,9 @@ rule all:
 
 
 # --- Phase 0: MAG quality control -----------------------------------------
+# CheckM2 is kept in the pipeline at all times but gated by `run_checkm2`.
+# It is disabled by default (it cannot run on every architecture, e.g. aarch64);
+# enable it on a capable machine by setting `run_checkm2: true`.
 rule checkm2:
     input:
         MAGS_DIR,
@@ -93,15 +138,13 @@ rule reconstruct:
     params:
         proteins=f"{OUT}/models/draft/{{mag}}.faa",
         media_flag=(f"-g {config['gapfill_media']}" if config.get("gapfill_media") else ""),
+    threads: config.get("threads", 4)
     log:
         f"{OUT}/logs/reconstruct/{{mag}}.log",
     conda:
-        "envs/carveme.yaml"
+        RECON_CONDA
     shell:
-        # gene calling (Prodigal, metagenomic mode) then CarveMe (BiGG namespace)
-        "prodigal -i {input.genome} -a {params.proteins} -p meta -q > {log} 2>&1 && "
-        "carve {params.proteins} -o {output.model} -u %s {params.media_flag} >> {log} 2>&1"
-        % UNIVERSE
+        RECON_SHELL
 
 
 # --- Phase 2/3: gap-filling + kinetics QC (per MAG) -----------------------
@@ -120,6 +163,60 @@ rule refine:
         "--qc-json {output.qc} {params.universal} > {log} 2>&1"
 
 
+# --- Phase 3b: reconstruction QC summary (aggregate over surviving MAGs) ---
+def refined_qc(wildcards):
+    ck = checkpoints.select_mags.get(**wildcards).output.passing
+    mags = [m.strip() for m in open(ck) if m.strip()]
+    return expand(f"{OUT}/models/refined/{{mag}}.qc.json", mag=mags)
+
+
+rule reconstruct_report:
+    input:
+        qc=refined_qc,
+    output:
+        summary=f"{OUT}/qc/reconstruction_summary.tsv",
+    run:
+        from muode.qc import summarize_reconstruction
+
+        Path(output.summary).parent.mkdir(parents=True, exist_ok=True)
+        df = summarize_reconstruction(list(input.qc))
+        df.to_csv(output.summary, sep="\t", index=False)
+        n_ok = int(df["simulatable"].sum()) if "simulatable" in df.columns and not df.empty else 0
+        print(f"reconstruction summary: {n_ok}/{len(df)} models simulatable -> {output.summary}")
+
+
+# --- Phase 3c: full memote model QC (optional, `run_memote: true`) ---------
+rule memote:
+    input:
+        model=f"{OUT}/models/refined/{{mag}}.xml",
+    output:
+        html=f"{OUT}/qc/memote/{{mag}}.html",
+    log:
+        f"{OUT}/logs/memote/{{mag}}.log",
+    conda:
+        "envs/carveme.yaml"
+    shell:
+        "memote report snapshot --filename {output.html} {input.model} > {log} 2>&1"
+
+
+def memote_reports(wildcards):
+    ck = checkpoints.select_mags.get(**wildcards).output.passing
+    mags = [m.strip() for m in open(ck) if m.strip()]
+    return expand(f"{OUT}/qc/memote/{{mag}}.html", mag=mags)
+
+
+rule memote_all:
+    input:
+        memote_reports,
+    output:
+        summary=f"{OUT}/qc/memote/summary.txt",
+    run:
+        Path(output.summary).parent.mkdir(parents=True, exist_ok=True)
+        Path(output.summary).write_text(
+            "memote snapshot reports:\n" + "\n".join(sorted(map(str, input))) + "\n"
+        )
+
+
 # --- Phase 4a: assemble the community -------------------------------------
 def passing_models(wildcards):
     ck = checkpoints.select_mags.get(**wildcards).output.passing
@@ -130,6 +227,7 @@ def passing_models(wildcards):
 rule assemble:
     input:
         models=passing_models,
+        summary=f"{OUT}/qc/reconstruction_summary.tsv",
     output:
         community=f"{OUT}/simulation/community.json",
     params:
@@ -138,7 +236,8 @@ rule assemble:
         total_biomass=config.get("total_biomass", 0.01),
     shell:
         "python {SCRIPTS}/assemble.py --models {input.models} --diet {params.diet} "
-        "--total-biomass {params.total_biomass} --out {output.community} {params.abundance}"
+        "--total-biomass {params.total_biomass} --summary {input.summary} "
+        "--out {output.community} {params.abundance}"
 
 
 # --- Phase 4b: dynamic simulation -----------------------------------------

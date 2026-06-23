@@ -1,0 +1,35 @@
+# muODE local end-to-end demo configuration.
+# Runs the FULL Snakemake DAG (reconstruct -> refine -> QC -> assemble ->
+# simulate) on two bundled toy MAGs using the dependency-free `stub` engine, so
+# the pipeline can be validated on any machine (including aarch64) before moving
+# to a capable host. NOT a scientific run.
+#
+#   conda activate muode
+#   snakemake --cores 4 --configfile config/config.demo.yaml   # no --use-conda
+
+mags_dir: "examples/data/mags"
+mag_extension: "fna"
+abundance: null
+outdir: "results/demo_pipeline"
+
+# Phase 0 -- CheckM2 stays in the pipeline but is off here (cannot run on aarch64).
+run_checkm2: false
+
+# Phase 1 -- dependency-free placeholder reconstruction.
+engine: "stub"
+
+# Phase 2/3 -- no universal model / kinetic prediction for the smoke test.
+universal_model: null
+default_vmax: 10.0
+default_km: 0.01
+
+# Phase 4 -- the built-in Western-gut demo diet provides glucose; the fermenter
+# stub secretes acetate that the consumer stub cross-feeds on.
+diet: "western_gut"
+total_biomass: 0.02
+t_end: 24.0
+dt: 0.1
+
+run_memote: false
+threads: 2
+perturbation: null

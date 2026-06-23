@@ -21,14 +21,19 @@ class PipelineConfig:
     outdir: str = "results"
 
     # --- MAG quality gate (Phase 0) ---------------------------------------
+    run_checkm2: bool = False        # gate MAGs on CheckM2 (off by default; see config)
     min_completeness: float = 50.0   # CheckM2 completeness (%)
     max_contamination: float = 10.0  # CheckM2 contamination (%)
 
     # --- reconstruction (Phase 1) -----------------------------------------
     gene_caller: str = "pyrodigal"   # pyrodigal | prodigal
-    engine: str = "carveme"          # carveme | gapseq
+    engine: str = "carveme"          # carveme | gapseq | stub
     universe: str = "bacteria"       # CarveMe universe / template
     gapfill_media: Optional[str] = None  # e.g. "M9" or a media db entry
+
+    # --- model QC (Phase 3b) ----------------------------------------------
+    universal_model: Optional[str] = None  # SBML universal for LP gap-filling
+    run_memote: bool = False         # generate full per-model memote reports
 
     # --- kinetics (Phase 3) -----------------------------------------------
     predict_kinetics: bool = False   # opt-in DLKcat/Km refinement layer

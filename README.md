@@ -52,9 +52,20 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
 - **Michaelis–Menten kinetics + diets**, cross-feeding inference, time-course CSVs
   and figures.
 - A **Snakemake workflow** that fans reconstruction/refinement out per MAG (QC
-  checkpoint + SLURM profile included).
+  checkpoint + SLURM profile included), aggregates a per-run
+  `reconstruction_summary.tsv`, and **drops non-simulatable models** instead of
+  aborting the whole run.
+- A dependency-free **`stub` reconstruction engine** so the *entire* pipeline
+  (reconstruct → refine → QC → assemble → simulate) can be run and validated on
+  any machine — including ones where CarveMe/CheckM2 cannot run — before scaling
+  out on a cluster:
+
+  ```bash
+  snakemake --cores 4 --configfile config/config.demo.yaml   # full DAG on toy MAGs
+  ```
+
 - A **test suite** asserting the biology (cross-feeding-supported growth; secondary
-  extinction; the *E. coli* acetate switch).
+  extinction; the *E. coli* acetate switch; stub-MAG cross-feeding through SBML).
 
 ## 🧬 The µODE Pipeline Architecture
 
@@ -155,6 +166,13 @@ conda activate muode
 snakemake --use-conda --cores 8 --configfile config/config.yaml
 ```
 
+**Validate the whole pipeline locally first (no external tools, any architecture):**
+
+```bash
+# uses the dependency-free `stub` engine on two bundled toy MAGs; no --use-conda
+snakemake --cores 4 --configfile config/config.demo.yaml
+```
+
 ## 📊 Inputs and Outputs
 
 **Inputs**
@@ -201,7 +219,7 @@ This restricts the flux capacity of the targeted pathway by 95%, letting you wat
 See **[docs/EVALUATION.md](docs/EVALUATION.md)** for the full, justified plan.
 
 - [x] **M0 — Core engine & scaffold:** native dFBA integrator, perturbation engine, kinetics/diet layer, cross-feeding inference, CLI, Snakemake workflow, tests.
-- [ ] **M1 — Reconstruction at scale:** validate CarveMe/Prodigal + CheckM2 + memote on real MAG sets; universal-model packaging for gap filling; multi-threading for large clusters (>500 MAGs).
+- [~] **M1 — Reconstruction at scale (in progress):** ✅ end-to-end DAG fan-out per MAG with a `stub` engine that runs the *whole* pipeline locally; ✅ `reconstruction_summary.tsv` aggregation; ✅ QC-driven failure isolation (non-simulatable models dropped, not fatal); ✅ optional memote rule + universal-model gap-fill wiring. **Remaining:** validate CarveMe/Prodigal + CheckM2 on real MAG sets on a capable host; multi-threading tuning for large clusters (>500 MAGs).
 - [ ] **M2 — Kinetics refinement (optional):** DLKcat/Km predictor wrappers (`ml` extra) + KEGG↔BiGG mapping; enzyme-constrained (GECKO-style) bounds; ESM-2 integration.
 - [ ] **M3 — Validation & scale:** benchmark against known synthetic/gut communities (SCFA, growth rates); COMETS backend; abundance-aware subsampling; MetaSBT ingestion contract.
 - [ ] **M4 — Reach:** spatiotemporal (PDE) 2D colony/biofilm simulation; GUI dashboard for real-time visualization.

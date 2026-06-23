@@ -30,6 +30,25 @@ cross-feeding network).
 The demo is built from `muode.examples` using the dependency-light
 `LinprogOrganism` backend, so it runs with only numpy/scipy.
 
+## Whole-pipeline smoke test (the `stub` engine)
+
+`data/mags/` holds two tiny toy MAGs (`fermenter.fna`, `consumer.fna`) tagged
+with `muode-stub:<role>` in their FASTA headers. The dependency-free `stub`
+reconstruction engine turns them into simulatable placeholder GEMs, so the
+*entire* Snakemake DAG runs on any machine — including ones where CarveMe and
+CheckM2 cannot:
+
+```bash
+conda activate muode
+snakemake --cores 4 --configfile config/config.demo.yaml   # note: no --use-conda
+```
+
+This reconstructs, refines, QCs (writing `reconstruction_summary.tsv`),
+assembles and simulates the two stubs into the same glucose→acetate cross-feeding
+community as the toy demo — end to end through real SBML files. It validates the
+pipeline plumbing before you swap `engine: carveme` on a capable host. The stub
+models are **not** science.
+
 ## Real GEMs
 
 To run on genome-scale models, point the pipeline at a directory of MAG FASTA
