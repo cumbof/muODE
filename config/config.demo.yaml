@@ -39,3 +39,6 @@ dt: 0.1
 run_memote: false
 threads: 2
 perturbation: null
+
+# Phase 6 -- validate the run reproduces the intended cross-feeding biology.
+benchmark: "examples/benchmarks/stub_pipeline.yaml"

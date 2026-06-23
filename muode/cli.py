@@ -178,10 +178,14 @@ def refine(
 @app.command()
 def assemble(
     models: Path = typer.Option(..., help="Directory of refined GEMs."),
-    abundance: Optional[Path] = typer.Option(None, help="MAG abundance TSV (MetaSBT profile)."),
+    abundance: Optional[Path] = typer.Option(None, help="MAG abundance TSV (2-column or MetaSBT profile)."),
+    metasbt: bool = typer.Option(False, help="Parse --abundance as a MetaSBT profile (auto-detect columns)."),
     diet: str = typer.Option("western_gut", help="Diet preset name or CSV path."),
     outdir: Path = typer.Option("simulation_env", help="Output directory."),
     total_biomass: float = typer.Option(0.01, help="Total community biomass (gDW/L)."),
+    max_species: Optional[int] = typer.Option(None, help="Keep only the N most abundant MAGs."),
+    min_abundance: Optional[float] = typer.Option(None, help="Drop MAGs below this relative abundance."),
+    coverage: Optional[float] = typer.Option(None, help="Keep the fewest top MAGs reaching this cumulative abundance (e.g. 0.95)."),
 ) -> None:
     """Phase 4a -- write a community manifest (models + abundances + diet)."""
     from muode.io_utils import list_models, read_abundance
@@ -190,10 +194,33 @@ def assemble(
     files = [str(p) for p in list_models(models)]
     if not files:
         raise typer.BadParameter(f"no models found in {models}")
-    abund = read_abundance(abundance) if abundance else {Path(f).stem: 1.0 for f in files}
+
+    if abundance and metasbt:
+        from muode.metasbt import read_metasbt_profile
+
+        abund = read_metasbt_profile(abundance).abundances
+    elif abundance:
+        abund = read_abundance(abundance)
+    else:
+        abund = {Path(f).stem: 1.0 for f in files}
+
+    # abundance-aware subsampling for very large communities
+    if any(v is not None for v in (max_species, min_abundance, coverage)):
+        from muode.subsample import select_by_abundance
+
+        stem_to_file = {Path(f).stem: f for f in files}
+        present = {s: abund.get(s, 0.0) for s in stem_to_file}
+        keep = select_by_abundance(present, top_n=max_species,
+                                   min_abundance=min_abundance, coverage=coverage)
+        dropped = len(files) - len(keep)
+        files = [stem_to_file[s] for s in keep if s in stem_to_file]
+        if dropped:
+            console.print(f"[yellow]Subsampled to {len(files)} MAG(s) by abundance "
+                          f"(dropped {dropped}).[/yellow]")
+
     manifest = {
         "models": files,
-        "abundances": abund,
+        "abundances": {Path(f).stem: abund.get(Path(f).stem, 0.0) for f in files},
         "diet": diet,
         "total_biomass": total_biomass,
     }
@@ -332,6 +359,26 @@ def qc(
     report = sanity_check_model(cobra.io.read_sbml_model(str(model)))
     console.print_json(json.dumps(report, default=str))
     if not report["passed"]:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def validate(
+    results: Path = typer.Option(..., help="Results directory written by `simulate`/`demo`."),
+    expected: Path = typer.Option(..., help="Benchmark expectation YAML (see examples/benchmarks/)."),
+    report: Optional[Path] = typer.Option(None, help="Write the JSON validation report here."),
+) -> None:
+    """Validate a simulation against a known/expected community (Phase 6)."""
+    from muode.validate import BenchmarkExpectation, validate_outputs
+
+    expectation = BenchmarkExpectation.from_file(expected)
+    rep = validate_outputs(results, expectation)
+    console.print_json(json.dumps(rep.to_dict(), default=str))
+    if report:
+        rep.to_json(report)
+    status = "[green]PASSED[/green]" if rep.passed else "[red]FAILED[/red]"
+    console.print(f"[bold]Benchmark '{rep.name}': {status}[/bold]")
+    if not rep.passed:
         raise typer.Exit(code=1)
 
 

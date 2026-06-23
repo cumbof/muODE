@@ -96,3 +96,25 @@ class Community:
             CobraOrganism.from_file(p, id=p.stem) for p in paths
         ]
         return cls(organisms, dict(abundance or {}), total_biomass)
+
+    # -- scaling ------------------------------------------------------------
+    def subsample(
+        self,
+        top_n: Optional[int] = None,
+        min_abundance: Optional[float] = None,
+        coverage: Optional[float] = None,
+    ) -> "Community":
+        """Return a smaller community keeping only the most abundant members.
+
+        Picks members by :func:`muode.subsample.select_by_abundance`; the kept
+        abundances are renormalised by the new :class:`Community` automatically.
+        A no-op (returns a copy) when no policy is given.
+        """
+        from muode.subsample import select_by_abundance
+
+        keep = set(select_by_abundance(self.abundances, top_n, min_abundance, coverage))
+        organisms = [o for o in self.organisms if o.id in keep]
+        if not organisms:
+            raise ValueError("subsampling removed every organism; loosen the thresholds")
+        kept_ab = {i: a for i, a in self.abundances.items() if i in keep}
+        return Community(organisms, kept_ab, total_biomass=self.total_biomass)

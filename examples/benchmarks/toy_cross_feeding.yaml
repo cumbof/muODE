@@ -1,0 +1,24 @@
+# Expected outcome of the bundled two-species cross-feeding community
+# (`muode demo`, and the stub-engine demo pipeline). Used to validate that the
+# engine reproduces the known biology: glucose is fully fermented to acetate,
+# which the acetate specialist cross-feeds on, ending slightly more abundant.
+#
+#   muode demo --outdir results/demo
+#   muode validate --results results/demo --expected examples/benchmarks/toy_cross_feeding.yaml
+name: toy_cross_feeding
+
+relative_abundances:
+  A_glucose: 0.41
+  B_acetate: 0.59
+
+metabolites:
+  glc_e: 0.0          # glucose fully consumed
+  ac_e: 0.0           # acetate produced then fully cross-fed
+
+cross_feeding:
+  - [A_glucose, ac_e, B_acetate]
+
+tolerances:
+  abundance_mae: 0.05     # mean abs error of relative abundance
+  metabolite_mae: 1.0     # mmol/L
+  min_f1: 0.99            # cross-feeding edge F1

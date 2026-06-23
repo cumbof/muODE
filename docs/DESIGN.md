@@ -70,6 +70,13 @@ species rather than rebuilding one giant LP.
   total_biomass}` — produced by `assemble`, consumed by `simulate`/`perturb`.
 - **Results:** `biomass.csv`, `metabolites.csv`, `growth_rates.csv`,
   `cross_feeding.csv`, `meta.json`, and PNG figures.
+- **Abundance (MetaSBT):** a MetaSBT profile is ingested by `muode.metasbt`
+  (auto-detected id/abundance/taxonomy columns) into the same `{mag_id:
+  rel_abundance}` contract; `assemble --metasbt` does this in the workflow.
+- **Benchmark expectation** (YAML, `examples/benchmarks/`): expected
+  `relative_abundances`, `metabolites`, `cross_feeding` edges + tolerances.
+  Consumed by `muode validate` / the `validate` rule, which emits
+  `validation/report.json` (per-component metrics + overall pass/fail).
 
 See [EVALUATION.md](EVALUATION.md) for the scientific rationale behind these
 choices.

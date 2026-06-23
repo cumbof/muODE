@@ -78,6 +78,8 @@ def final_targets():
     ]
     if config.get("run_memote", False):
         targets.append(f"{OUT}/qc/memote/summary.txt")
+    if config.get("benchmark"):
+        targets.append(f"{OUT}/validation/report.json")
     if config.get("perturbation"):
         targets.append(f"{OUT}/perturbation/biomass.csv")
     return targets
@@ -234,6 +236,17 @@ def passing_kinetics(wildcards):
     return expand(f"{OUT}/models/refined/{{mag}}.kinetics.json", mag=mags)
 
 
+def _subsample_flags():
+    flags = []
+    if config.get("max_species"):
+        flags.append("--max-species %s" % config["max_species"])
+    if config.get("min_abundance"):
+        flags.append("--min-abundance %s" % config["min_abundance"])
+    if config.get("abundance_coverage"):
+        flags.append("--coverage %s" % config["abundance_coverage"])
+    return " ".join(flags)
+
+
 rule assemble:
     input:
         models=passing_models,
@@ -242,12 +255,15 @@ rule assemble:
         community=f"{OUT}/simulation/community.json",
     params:
         abundance=(f"--abundance {config['abundance']}" if config.get("abundance") else ""),
+        metasbt=("--metasbt" if config.get("metasbt", False) else ""),
+        subsample=_subsample_flags(),
         diet=config.get("diet", "western_gut"),
         total_biomass=config.get("total_biomass", 0.01),
     shell:
         "python {SCRIPTS}/assemble.py --models {input.models} --diet {params.diet} "
         "--total-biomass {params.total_biomass} --summary {input.summary} "
-        "--out {output.community} {params.abundance}"
+        "{params.abundance} {params.metasbt} {params.subsample} "
+        "--out {output.community}"
 
 
 # --- Phase 4b: dynamic simulation -----------------------------------------
@@ -273,6 +289,24 @@ rule simulate:
         "--default-vmax {params.vmax} --default-km {params.km} "
         "{params.kinetics_flag} {params.enzyme_flag} "
         "--outdir {OUT}/simulation > {log} 2>&1"
+
+
+# --- Phase 6: validation against a known community (optional) -------------
+rule validate:
+    input:
+        biomass=f"{OUT}/simulation/biomass.csv",
+    output:
+        report=f"{OUT}/validation/report.json",
+    params:
+        expected=config.get("benchmark", ""),
+    run:
+        from muode.validate import BenchmarkExpectation, validate_outputs
+
+        Path(output.report).parent.mkdir(parents=True, exist_ok=True)
+        expectation = BenchmarkExpectation.from_file(params.expected)
+        rep = validate_outputs(f"{OUT}/simulation", expectation)
+        rep.to_json(output.report)
+        print(f"benchmark '{rep.name}': {'PASSED' if rep.passed else 'FAILED'}")
 
 
 # --- Phase 5: perturbation (optional) -------------------------------------

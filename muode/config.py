@@ -18,6 +18,7 @@ class PipelineConfig:
     # --- inputs / outputs --------------------------------------------------
     mags_dir: str = "data/raw_mags"
     abundance: Optional[str] = None
+    metasbt: bool = False            # parse `abundance` as a MetaSBT profile
     outdir: str = "results"
 
     # --- MAG quality gate (Phase 0) ---------------------------------------
@@ -49,6 +50,12 @@ class PipelineConfig:
     dt: float = 0.1
     death_rate: float = 0.0
     dilution_rate: float = 0.0
+
+    # --- scale & validation -----------------------------------------------
+    max_species: Optional[int] = None        # keep only the N most abundant MAGs
+    min_abundance: Optional[float] = None     # drop MAGs below this relative abundance
+    abundance_coverage: Optional[float] = None  # keep top MAGs reaching this cumulative abundance
+    benchmark: Optional[str] = None           # benchmark expectation YAML for validation
 
     # --- solver / compute --------------------------------------------------
     solver: str = "highs"            # highs (free) | gurobi | cplex

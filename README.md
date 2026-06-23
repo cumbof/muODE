@@ -55,6 +55,10 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
   for $K_m$/$k_{cat}$ (opt-in DLKcat/Kroll wrappers behind the `ml` extra) and a
   **GECKO-lite enzyme-constraint layer** (`muode.enzyme`) that caps intracellular
   reaction velocities from $k_{cat}$.
+- **Validation & scale:** a **benchmark framework** (`muode validate`) scoring a
+  run against a known community (relative-abundance error, SCFA/metabolite error,
+  cross-feeding-edge F1), **abundance-aware subsampling** for huge communities,
+  and **MetaSBT profile ingestion** (`muode.metasbt`).
 - A **Snakemake workflow** that fans reconstruction/refinement out per MAG (QC
   checkpoint + SLURM profile included), aggregates a per-run
   `reconstruction_summary.tsv`, and **drops non-simulatable models** instead of
@@ -166,12 +170,21 @@ muode simulate --community ./simulation_env/community.json \
 ```bash
 muode assemble --models ./models/kinetic_gems/ --abundance ./data/profile.tsv \
                --diet western_gut --outdir ./simulation_env/
+# huge community? subsample by abundance, and read a MetaSBT profile directly:
+muode assemble --models ./models/kinetic_gems/ --abundance ./data/metasbt_profile.tsv \
+               --metasbt --coverage 0.95 --outdir ./simulation_env/
 ```
 
 **4. Run the Dynamic Simulation ✅**
 
 ```bash
 muode simulate --community ./simulation_env/community.json --time 24 --step 0.1 --outdir ./results/
+```
+
+**5. Validate Against a Known Community ✅**
+
+```bash
+muode validate --results ./results/ --expected examples/benchmarks/toy_cross_feeding.yaml
 ```
 
 **Or run the whole pipeline with Snakemake (recommended for many MAGs):**
@@ -236,7 +249,7 @@ See **[docs/EVALUATION.md](docs/EVALUATION.md)** for the full, justified plan.
 - [x] **M0 — Core engine & scaffold:** native dFBA integrator, perturbation engine, kinetics/diet layer, cross-feeding inference, CLI, Snakemake workflow, tests.
 - [~] **M1 — Reconstruction at scale (in progress):** ✅ end-to-end DAG fan-out per MAG with a `stub` engine that runs the *whole* pipeline locally; ✅ `reconstruction_summary.tsv` aggregation; ✅ QC-driven failure isolation (non-simulatable models dropped, not fatal); ✅ optional memote rule + universal-model gap-fill wiring. **Remaining:** validate CarveMe/Prodigal + CheckM2 on real MAG sets on a capable host; multi-threading tuning for large clusters (>500 MAGs).
 - [~] **M2 — Kinetics refinement (in progress):** ✅ kinetic-parameter store with $k_{cat}$ + persistence; ✅ dependency-free heuristic predictor (default); ✅ GECKO-lite enzyme-constraint layer wired through CLI + workflow + dFBA; ✅ opt-in DLKcat/Kroll wrappers + BiGG→(sequence, SMILES) context. **Remaining:** bundle/validate real DLKcat & Kroll checkpoints on a GPU host; full protein-*pool* GECKO budget; ESM-2 embeddings.
-- [ ] **M3 — Validation & scale:** benchmark against known synthetic/gut communities (SCFA, growth rates); COMETS backend; abundance-aware subsampling; MetaSBT ingestion contract.
+- [~] **M3 — Validation & scale (in progress):** ✅ benchmark/validation framework (`muode validate`: relative-abundance MAE + Spearman, SCFA/metabolite error, cross-feeding edge F1, pass/fail vs. tolerances); ✅ abundance-aware subsampling (`top_n`/`min_abundance`/`coverage`) for huge communities; ✅ MetaSBT profile ingestion contract (`muode.metasbt`). **Remaining:** benchmark against real synthetic/gut datasets on a capable host; COMETS alternative dynamic backend.
 - [ ] **M4 — Reach:** spatiotemporal (PDE) 2D colony/biofilm simulation; GUI dashboard for real-time visualization.
 
 ## 🙏 Acknowledgments

@@ -4,7 +4,8 @@
 # --- inputs / outputs ------------------------------------------------------
 mags_dir: "data/raw_mags"     # directory of MAG FASTA files
 mag_extension: "fna"          # extension (without dot) of the MAG files
-abundance: null               # path to a MetaSBT-style abundance TSV (or null)
+abundance: null               # path to an abundance TSV (or null)
+metasbt: false                # parse `abundance` as a MetaSBT profile (auto-detect columns)
 outdir: "results"
 
 # --- Phase 0: MAG quality gate --------------------------------------------
@@ -41,6 +42,15 @@ diet: "western_gut"           # preset name or path to a diet CSV
 total_biomass: 0.01
 t_end: 24.0
 dt: 0.1
+
+# --- scale: abundance-aware subsampling for very large communities ---------
+# (any combination; all null = simulate every passing MAG)
+max_species: null             # keep only the N most abundant MAGs
+min_abundance: null           # drop MAGs below this relative abundance (0-1)
+abundance_coverage: null      # keep top MAGs reaching this cumulative abundance (e.g. 0.95)
+
+# --- Phase 6: validation (optional) ----------------------------------------
+benchmark: null               # path to a benchmark expectation YAML (examples/benchmarks/)
 
 # --- compute ---------------------------------------------------------------
 threads: 4

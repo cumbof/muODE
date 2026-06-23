@@ -181,10 +181,18 @@ non-negativity clamping.
 - [ ] Bundle/validate real DLKcat & Kroll checkpoints on a GPU host
 - [ ] Full protein-*pool* GECKO budget (needs enzyme MW + proteome fraction); ESM-2
 
-**Milestone 3 — Validation & scale**
-- [ ] Benchmark against a known synthetic/gut community (SCFA, growth rates)
-- [ ] COMETS backend option; abundance-aware subsampling for huge communities
-- [ ] MetaSBT profile ingestion contract
+**Milestone 3 — Validation & scale (in progress)**
+- [x] Benchmark/validation framework (`muode.validate`, `muode validate`):
+      relative-abundance MAE + Spearman, metabolite/SCFA error, cross-feeding
+      edge precision/recall/F1, pass-fail vs. explicit tolerances; wired as an
+      optional workflow `validate` rule
+- [x] Abundance-aware subsampling (`muode.subsample`, `Community.subsample`:
+      top-N / min-abundance / cumulative-coverage) for huge communities
+- [x] MetaSBT profile ingestion contract (`muode.metasbt`, permissive column
+      auto-detection + taxonomy)
+- [ ] Benchmark against real synthetic/gut datasets on a capable host
+- [ ] COMETS alternative dynamic backend (the engine's solver abstraction is the
+      integration point; deferred — heavy external dependency)
 
 **Milestone 4 — Reach (unchanged future scope)**
 - [ ] ESM-2 kinetics, spatiotemporal PDE biofilms, GUI dashboard

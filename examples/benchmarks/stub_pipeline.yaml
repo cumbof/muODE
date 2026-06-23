@@ -1,0 +1,21 @@
+# Expected outcome of the stub-engine demo pipeline (config/config.demo.yaml):
+# the fermenter ferments glucose to acetate, the consumer cross-feeds on it, and
+# the two end roughly equal. Used by the workflow `validate` rule to check the
+# whole pipeline reproduces the intended biology.
+name: stub_pipeline
+
+relative_abundances:
+  fermenter: 0.5
+  consumer: 0.5
+
+metabolites:
+  glc_e: 0.1          # glucose drawn down (small standing influx in the diet)
+  ac_e: 0.1           # acetate produced then cross-fed down
+
+cross_feeding:
+  - [fermenter, ac_e, consumer]
+
+tolerances:
+  abundance_mae: 0.05
+  metabolite_mae: 1.0
+  min_f1: 0.99
