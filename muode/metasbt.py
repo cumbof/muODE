@@ -1,19 +1,22 @@
-"""MetaSBT profile ingestion -- the upstream contract (Phase -1).
+"""Quantitative-profile ingestion -- the upstream abundance contract.
 
-muODE is designed to consume the output of `MetaSBT <https://github.com/cumbof/MetaSBT>`_:
-a set of MAGs plus a profile that says *who is there and how much*.  This module
-turns a MetaSBT-style profile table into the two things the rest of the pipeline
-needs:
+.. warning::
 
-* a ``{mag_id: relative_abundance}`` mapping (the abundance contract used by
-  :func:`muode.io_utils.read_abundance` and ``assemble``), and
-* an optional ``{mag_id: taxonomy_lineage}`` mapping for labelling/QC.
+   **MetaSBT itself does not produce abundances.**  MetaSBT is a genome
+   *clustering / taxonomic-characterization* framework: its ``profile`` module
+   reports a genome's closest genome/species/genus/family in the database, not
+   how much of it is present.  Relative abundance for a community must therefore
+   come from a *separate* quantitative step (read mapping / coverage).  This
+   module reads such a quantitative ``{mag_id: abundance}`` table; proper ingestion
+   of MetaSBT's *taxonomy* characterization (for labelling MAGs and known/unknown
+   cluster assignment) is a separate contract still to be built during M1–M3
+   hardening (see the dev branch at https://github.com/cumbof/MetaSBT).
 
-The reader is deliberately *permissive*: profile exports vary, so it auto-detects
-the identifier, abundance and taxonomy columns by common header names and lets
-the caller override any of them.  Raw counts are normalised to relative
-abundance.  If your MetaSBT export uses different column names, pass them
-explicitly (``id_column=...`` / ``abundance_column=...``).
+The reader is deliberately *permissive*: quantitative exports vary, so it
+auto-detects the identifier, abundance and (optional) taxonomy columns by common
+header names and lets the caller override any of them.  Raw counts are normalised
+to relative abundance.  Pass columns explicitly (``id_column=...`` /
+``abundance_column=...``) when auto-detection is wrong.
 """
 
 from __future__ import annotations
