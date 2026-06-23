@@ -4,16 +4,16 @@ An automated, ODE-based simulation engine for modeling large-scale microbial com
 
 µODE (pronounced micro-O-D-E) bridges the gap between compositional metagenomics (knowing *who* is there) and functional, predictive systems biology (knowing *what* they are doing, and *how* they will interact over time).
 
-Designed to seamlessly ingest species classifications and Metagenome-Assembled Genomes (MAGs) from upstream binning/taxonomy pipelines (e.g., [MetaSBT](https://github.com/cumbof/MetaSBT)), µODE automates the construction of Genome-Scale Metabolic Models (GEMs), uses deep learning to predict missing kinetic parameters, and simulates dynamic community evolution using **dynamic Flux Balance Analysis (dFBA)**.
+µODE automates the construction of Genome-Scale Metabolic Models (GEMs) from MAGs, uses deep learning to predict missing kinetic parameters, and simulates dynamic community evolution using **dynamic Flux Balance Analysis (dFBA)**.
 
 > **Status — v0.1 (core engine working).** The dynamic-FBA community engine, the
 > perturbation engine, the diet/kinetics layer, the CLI and the Snakemake workflow
 > scaffold are implemented and tested (toy cross-feeding community **and** a real
 > *E. coli* core dFBA that reproduces the textbook acetate-overflow result). The
 > reconstruction/AI phases are wired as tool wrappers + workflow rules and are the
-> focus of the next milestone. See **[docs/EVALUATION.md](docs/EVALUATION.md)** for
-> the scientific assessment and **[docs/DESIGN.md](docs/DESIGN.md)** for the
-> architecture.
+> focus of the next milestone. See the **[docs/](docs/)** directory for detailed
+> per-feature documentation, and **[docs/EVALUATION.md](docs/EVALUATION.md)** for
+> the scientific assessment and roadmap.
 
 ## 📑 Table of Contents
 
@@ -58,10 +58,6 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
 - **Validation & scale:** a **benchmark framework** (`muode validate`) scoring a
   run against a known community (relative-abundance error, SCFA/metabolite error,
   cross-feeding-edge F1) and **abundance-aware subsampling** for huge communities.
-- **Quantitative profiling** (`muode quantify`): joins a **MetaSBT** taxonomic
-  characterization (per-MAG closest species cluster — *identity*, not abundance)
-  with **Bracken** read abundances (from a Kraken2/Bracken DB built off the
-  MetaSBT database) into the `{mag_id: rel_abundance}` profile the engine consumes.
 - **Spatial dynamic FBA** (`muode.spatial`, `muode spatial`): a 2D reaction-
   diffusion colony/biofilm engine — per-cell community FBA with metabolite
   diffusion — reproducing **spatial cross-feeding gradients**.
@@ -183,36 +179,16 @@ muode refine --models ./models/draft_gems/ --outdir ./models/kinetic_gems/ --pre
 
 ---
 
-**3. Quantify Relative Abundances ⚙️**
+**3. Assemble the Community ✅**
 
-*Consumes:* two files produced by **external tools** (not part of muODE):
-
-- `data/metasbt_profiles/` — MetaSBT `profile` output: one TSV per MAG reporting
-  the closest species cluster at each taxonomic rank (run `MetaSBT profile` against
-  a MetaSBT database you have built or downloaded).
-- `data/sample.bracken.tsv` — Bracken per-taxon abundance report from your
-  sample's sequencing reads. Requires a Kraken2 + Bracken database built from the
-  same MetaSBT database (`MetaSBT kraken` → `bracken-build` → `kraken2` →
-  `bracken`; see `muode.quantify` for command scaffolds for all of these).
-
-*Produces:* `data/abundance.tsv` — a 2-column `(mag_id, rel_abundance)` TSV for `assemble`.
-
-```bash
-muode quantify \
-  --bracken          ./data/sample.bracken.tsv \
-  --metasbt-profiles ./data/metasbt_profiles/ \
-  --out              ./data/abundance.tsv
-```
-
-> **No MetaSBT/Bracken yet?** Skip this step and supply a hand-crafted 2-column
-> TSV (`mag_id`, `rel_abundance`) directly to `muode assemble --abundance`.
-
----
-
-**4. Assemble the Community ✅**
-
-*Consumes:* gap-filled GEMs from step 2 + abundance TSV from step 3.  
+*Consumes:* gap-filled GEMs from step 2 + a user-supplied abundance TSV.  
 *Produces:* `simulation_env/community.json` — consumed by all downstream commands.
+
+**Abundance TSV** is a simple 2-column file (`mag_id`, `rel_abundance`) that
+you produce with whatever profiler you ran on the sample (MetaSBT, Bracken,
+Kraken2, mOTUs, MetaPhlAn, or a manual estimate). muODE does not care how the
+sample was profiled — the TSV is the interface. If you omit it, equal abundance
+is assumed for every MAG.
 
 ```bash
 muode assemble \
@@ -237,9 +213,9 @@ muode assemble ... --min-abundance 0.001
 
 ---
 
-**5. Run the Dynamic Simulation ✅**
+**4. Run the Dynamic Simulation ✅**
 
-*Consumes:* `community.json` from step 4 (+ optionally the kinetics files from step 2).  
+*Consumes:* `community.json` from step 3 (+ optionally the kinetics files from step 2).  
 *Produces:* `results/biomass.csv`, `metabolites.csv`, `growth_rates.csv`,
 `cross_feeding.csv` and figures.
 
@@ -256,7 +232,7 @@ muode simulate --community ./simulation_env/community.json \
 
 ---
 
-**6. Validate Against a Known Community ✅**
+**5. Validate Against a Known Community ✅**
 
 *Consumes:* results directory from step 5 + a benchmark expectation YAML.  
 A ready-made YAML for the built-in toy community is in `examples/benchmarks/`.
@@ -269,7 +245,7 @@ muode validate --results ./results/ \
 
 ---
 
-**7. Spatial (colony / biofilm) Simulation ✅**
+**6. Spatial (colony / biofilm) Simulation ✅**
 
 Standalone — no previous steps required. Uses the same built-in cross-feeding
 demo community on a 2D reaction-diffusion grid.
@@ -298,10 +274,10 @@ snakemake --cores 4 --configfile config/config.demo.yaml
 
 **Inputs**
 - **Genomes:** `.fasta`/`.fna` MAG files you provide (one per bin).
-- **Abundance profile:** a 2-column TSV (`mag_id`, `rel_abundance`). Produced by
-  `muode quantify` (joining a MetaSBT taxonomy characterization with a Bracken
-  read-abundance report), or hand-crafted if you have abundances from another
-  source.
+- **Abundance profile:** a 2-column TSV (`mag_id`, `rel_abundance`) you provide.
+  Any upstream profiler works — MetaSBT, Bracken, Kraken2, mOTUs, MetaPhlAn, or
+  a manual estimate. muODE is agnostic to how the sample was profiled; the TSV
+  is the interface. Omit it to use equal abundance for all MAGs.
 - **Diet / media profile:** a preset name (e.g. `western_gut`) or a CSV of
   metabolite concentrations (mmol/L) with an optional influx column.
 
@@ -341,14 +317,14 @@ This restricts the flux capacity of the targeted pathway by 95%, letting you wat
 
 ## 🗺️ Roadmap
 
-See **[docs/EVALUATION.md](docs/EVALUATION.md)** for the full, justified plan.
+See **[docs/EVALUATION.md](docs/EVALUATION.md)** for the full, justified plan. Detailed per-feature documentation is in the **[docs/](docs/)** directory.
 
 - [x] **M0 — Core engine & scaffold:** native dFBA integrator, perturbation engine, kinetics/diet layer, cross-feeding inference, CLI, Snakemake workflow, tests.
 - [~] **M1 — Reconstruction at scale (in progress):** ✅ end-to-end DAG fan-out per MAG with a `stub` engine that runs the *whole* pipeline locally; ✅ `reconstruction_summary.tsv` aggregation; ✅ QC-driven failure isolation (non-simulatable models dropped, not fatal); ✅ optional memote rule + universal-model gap-fill wiring. **Remaining:** validate CarveMe/Prodigal + CheckM2 on real MAG sets on a capable host; multi-threading tuning for large clusters (>500 MAGs).
 - [~] **M2 — Kinetics refinement (in progress):** ✅ kinetic-parameter store with $k_{cat}$ + persistence; ✅ dependency-free heuristic predictor (default); ✅ GECKO-lite enzyme-constraint layer wired through CLI + workflow + dFBA; ✅ opt-in DLKcat/Kroll wrappers + BiGG→(sequence, SMILES) context. **Remaining:** bundle/validate real DLKcat & Kroll checkpoints on a GPU host; full protein-*pool* GECKO budget; ESM-2 embeddings.
-- [~] **M3 — Validation & scale (in progress):** ✅ benchmark/validation framework (`muode validate`: relative-abundance MAE + Spearman, SCFA/metabolite error, cross-feeding edge F1, pass/fail vs. tolerances); ✅ abundance-aware subsampling (`top_n`/`min_abundance`/`coverage`) for huge communities; ✅ upstream abundance contract: MetaSBT taxonomy parser (`muode.metasbt`, reads per-MAG species-cluster identity) + Bracken abundance parser (`muode.bracken`) + join (`muode.quantify`, `muode quantify`), with command scaffolds for the MetaSBT→Kraken2→Bracken toolchain. **Remaining:** benchmark against real synthetic/gut datasets on a capable host; COMETS alternative dynamic backend.
+- [~] **M3 — Validation & scale (in progress):** ✅ benchmark/validation framework (`muode validate`: relative-abundance MAE + Spearman, SCFA/metabolite error, cross-feeding edge F1, pass/fail vs. tolerances); ✅ abundance-aware subsampling (`top_n`/`min_abundance`/`coverage`) for huge communities; ✅ upstream abundance contract simplified — any 2-column TSV (`mag_id`, `rel_abundance`) is accepted; muODE is agnostic to the profiler. **Remaining:** benchmark against real synthetic/gut datasets on a capable host; COMETS alternative dynamic backend.
 - [~] **M4 — Reach (in progress):** ✅ spatiotemporal (PDE) 2D reaction-diffusion colony/biofilm engine (`muode.spatial`, `muode spatial`) — per-cell community FBA + metabolite diffusion, reproducing spatial cross-feeding gradients; ✅ spatial figures. **Remaining:** interactive GUI dashboard (deferred — not headless-testable); performance work for large GEMs on large grids; ESM-2 embeddings.
 
 ## 🙏 Acknowledgments
 
-µODE stands on the shoulders of giants in the open-source systems-biology community, including the dynamic-FBA formulation of **Mahadevan et al. (2002)**, **COBRApy**, **CarveMe**, **gapseq**, **MICOM**, **COMETS**, **MetaPathPredict**, **DLKcat**, **CheckM2**, and **memote**. See [docs/EVALUATION.md](docs/EVALUATION.md) for citations.
+µODE stands on the shoulders of giants in the open-source systems-biology community, including the dynamic-FBA formulation of **Mahadevan et al. (2002)**, **COBRApy**, **CarveMe**, **gapseq**, **MICOM**, **COMETS**, **MetaPathPredict**, **DLKcat**, **CheckM2**, and **memote**. See [docs/EVALUATION.md](docs/EVALUATION.md) for full citations.

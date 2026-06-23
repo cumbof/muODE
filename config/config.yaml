@@ -7,17 +7,6 @@ mag_extension: "fna"          # extension (without dot) of the MAG files
 abundance: null               # precomputed 2-column abundance TSV (mag_id, rel_abundance), or null
 outdir: "results"
 
-# --- quantitative abundance (MetaSBT taxonomy + Bracken) -------------------
-# MetaSBT only *characterizes* taxonomy (closest species cluster per MAG); it is
-# NOT an abundance profiler. Quantitative abundance comes from Bracken, run on a
-# Kraken2/Bracken database built from the MetaSBT database (see muode.quantify and
-# the upstream docs). Set both of these to join them into `abundance` via the
-# `quantify` rule (takes precedence over `abundance` above):
-bracken: null                 # Bracken report TSV (per-taxon abundance)
-metasbt_profiles: null        # MetaSBT profile file or directory (per-MAG taxonomy)
-quantify_level: "species"     # taxonomic level to join MAGs to Bracken taxa on
-bracken_value: "fraction"     # fraction | reads | kraken_reads
-
 # --- Phase 0: MAG quality gate --------------------------------------------
 # CheckM2 is always part of the pipeline (rule `checkm2`) but is gated by this
 # flag. It is OFF by default because it cannot run on every architecture (e.g.

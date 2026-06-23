@@ -188,15 +188,10 @@ non-negativity clamping.
       optional workflow `validate` rule
 - [x] Abundance-aware subsampling (`muode.subsample`, `Community.subsample`:
       top-N / min-abundance / cumulative-coverage) for huge communities
-- [x] Upstream abundance contract — **MetaSBT taxonomy + Bracken abundance**
-      (hardened). MetaSBT only *characterizes* taxonomy: `muode.metasbt` parses
-      its `profile` output (closest species cluster per MAG). Quantitative
-      abundance is Bracken (`muode.bracken`), whose Kraken2/Bracken DB is built
-      from the MetaSBT database; `muode.quantify` joins them (MAG → species
-      cluster → Bracken taxon) into the `{mag_id: rel_abundance}` contract via
-      `muode quantify` / the workflow `quantify` rule. Heavy-tool wrappers
-      (`MetaSBT profile|kraken`, `kraken2`, `bracken-build`, `bracken`) are
-      command scaffolds for a capable host (not run on aarch64; builders tested).
+- [x] Upstream abundance contract simplified: muODE accepts any 2-column TSV
+      (`mag_id, rel_abundance`) produced by whatever upstream profiler the user
+      ran (MetaSBT, Bracken, Kraken2, custom scripts, manual). muODE is agnostic
+      to the profiling method — the TSV is the interface.
 - [ ] Benchmark against real synthetic/gut datasets on a capable host
 - [ ] COMETS alternative dynamic backend (the engine's solver abstraction is the
       integration point; deferred — heavy external dependency)

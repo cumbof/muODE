@@ -20,15 +20,6 @@ class PipelineConfig:
     abundance: Optional[str] = None  # precomputed 2-column abundance TSV, or None
     outdir: str = "results"
 
-    # --- quantitative abundance (MetaSBT taxonomy + Bracken) --------------
-    # MetaSBT only characterizes taxonomy; abundance comes from Bracken (built on
-    # a Kraken2/Bracken DB derived from the MetaSBT database). Set both to join
-    # them into `abundance` via the workflow `quantify` rule. See muode.quantify.
-    bracken: Optional[str] = None            # Bracken report TSV
-    metasbt_profiles: Optional[str] = None   # MetaSBT profile file/dir
-    quantify_level: str = "species"          # level to join MAGs to Bracken taxa
-    bracken_value: str = "fraction"          # fraction | reads | kraken_reads
-
     # --- MAG quality gate (Phase 0) ---------------------------------------
     run_checkm2: bool = False        # gate MAGs on CheckM2 (off by default; see config)
     min_completeness: float = 50.0   # CheckM2 completeness (%)

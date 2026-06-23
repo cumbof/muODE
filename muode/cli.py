@@ -178,7 +178,7 @@ def refine(
 @app.command()
 def assemble(
     models: Path = typer.Option(..., help="Directory of refined GEMs."),
-    abundance: Optional[Path] = typer.Option(None, help="MAG abundance TSV (2-column: mag_id, rel_abundance; e.g. from `muode quantify`)."),
+    abundance: Optional[Path] = typer.Option(None, help="MAG abundance TSV (2-column: mag_id, rel_abundance)."),
     diet: str = typer.Option("western_gut", help="Diet preset name or CSV path."),
     outdir: Path = typer.Option("simulation_env", help="Output directory."),
     total_biomass: float = typer.Option(0.01, help="Total community biomass (gDW/L)."),
@@ -222,44 +222,6 @@ def assemble(
     out = outdir / "community.json"
     out.write_text(json.dumps(manifest, indent=2))
     console.print(f"[bold]Wrote community manifest with {len(files)} model(s) to {out}[/bold]")
-
-
-@app.command()
-def quantify(
-    bracken: Path = typer.Option(..., help="Bracken report TSV (quantitative abundance)."),
-    metasbt_profiles: Path = typer.Option(..., help="MetaSBT profile file or directory (taxonomic identity)."),
-    out: Path = typer.Option("abundance.tsv", help="Output 2-column abundance TSV (mag_id, abundance)."),
-    level: str = typer.Option("species", help="Taxonomic level to join on (species|genus|...)."),
-    value: str = typer.Option("fraction", help="Bracken value: fraction | reads | kraken_reads."),
-    split_shared: bool = typer.Option(True, help="Split a taxon's abundance across MAGs that share its cluster."),
-) -> None:
-    """Join a MetaSBT characterization with Bracken abundances into a MAG profile.
-
-    MetaSBT gives each MAG its species cluster (identity); Bracken gives each
-    cluster its abundance. This writes the ``{mag_id: rel_abundance}`` TSV that
-    ``assemble``/``simulate`` consume. (Run MetaSBT/Kraken2/Bracken upstream on a
-    capable host; see ``muode.quantify``.)
-    """
-    from muode.bracken import read_bracken
-    from muode.io_utils import write_abundance
-    from muode.metasbt import read_metasbt_profiles
-    from muode.quantify import mag_abundance_from_bracken, match_profiles_to_bracken
-
-    profiles = read_metasbt_profiles(metasbt_profiles)
-    if not profiles:
-        raise typer.BadParameter(f"no MetaSBT profiles found at {metasbt_profiles}")
-    brk = read_bracken(bracken, level={"species": "S", "genus": "G", "family": "F"}.get(level, "S"), value=value)
-
-    abund = mag_abundance_from_bracken(brk, profiles, level=level, split_shared=split_shared)
-    matched = match_profiles_to_bracken(profiles, brk, level=level)
-    n_matched = sum(1 for v in matched.values() if v is not None)
-    write_abundance(abund, out)
-    console.print(f"[bold]Joined {n_matched}/{len(profiles)} MAG(s) to Bracken abundance -> {out}[/bold]")
-    unmatched = [m for m, v in matched.items() if v is None]
-    if unmatched:
-        console.print(f"[yellow]{len(unmatched)} MAG(s) had no matching {level} taxon "
-                      f"(abundance 0): {', '.join(unmatched[:8])}"
-                      f"{'...' if len(unmatched) > 8 else ''}[/yellow]")
 
 
 def _community_from_manifest(path: Path):

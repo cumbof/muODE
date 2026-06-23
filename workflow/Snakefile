@@ -247,32 +247,9 @@ def _subsample_flags():
     return " ".join(flags)
 
 
-# Abundance source. MetaSBT only characterizes taxonomy; quantitative abundance
-# comes from Bracken (a Kraken2/Bracken DB built from the MetaSBT database). When
-# both `bracken` and `metasbt_profiles` are configured the `quantify` rule joins
-# them into an abundance TSV; otherwise a precomputed `abundance` TSV is used.
-USE_QUANTIFY = bool(config.get("bracken") and config.get("metasbt_profiles"))
-
-
-rule quantify:
-    input:
-        bracken=(config["bracken"] if USE_QUANTIFY else []),
-        profiles=(config["metasbt_profiles"] if USE_QUANTIFY else []),
-    output:
-        abundance=f"{OUT}/simulation/abundance.tsv",
-    params:
-        level=config.get("quantify_level", "species"),
-        value=config.get("bracken_value", "fraction"),
-    log:
-        f"{OUT}/logs/quantify.log",
-    shell:
-        "muode quantify --bracken {input.bracken} --metasbt-profiles {input.profiles} "
-        "--level {params.level} --value {params.value} --out {output.abundance} > {log} 2>&1"
-
-
 def _abundance_input(wildcards):
-    if USE_QUANTIFY:
-        return [f"{OUT}/simulation/abundance.tsv"]
+    # abundance is a user-supplied 2-column TSV (mag_id, rel_abundance); any
+    # profiler is fine -- muODE does not care how the sample was profiled.
     return [config["abundance"]] if config.get("abundance") else []
 
 
