@@ -188,8 +188,15 @@ non-negativity clamping.
       optional workflow `validate` rule
 - [x] Abundance-aware subsampling (`muode.subsample`, `Community.subsample`:
       top-N / min-abundance / cumulative-coverage) for huge communities
-- [x] MetaSBT profile ingestion contract (`muode.metasbt`, permissive column
-      auto-detection + taxonomy)
+- [x] Upstream abundance contract — **MetaSBT taxonomy + Bracken abundance**
+      (hardened). MetaSBT only *characterizes* taxonomy: `muode.metasbt` parses
+      its `profile` output (closest species cluster per MAG). Quantitative
+      abundance is Bracken (`muode.bracken`), whose Kraken2/Bracken DB is built
+      from the MetaSBT database; `muode.quantify` joins them (MAG → species
+      cluster → Bracken taxon) into the `{mag_id: rel_abundance}` contract via
+      `muode quantify` / the workflow `quantify` rule. Heavy-tool wrappers
+      (`MetaSBT profile|kraken`, `kraken2`, `bracken-build`, `bracken`) are
+      command scaffolds for a capable host (not run on aarch64; builders tested).
 - [ ] Benchmark against real synthetic/gut datasets on a capable host
 - [ ] COMETS alternative dynamic backend (the engine's solver abstraction is the
       integration point; deferred — heavy external dependency)

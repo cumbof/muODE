@@ -70,9 +70,15 @@ species rather than rebuilding one giant LP.
   total_biomass}` — produced by `assemble`, consumed by `simulate`/`perturb`.
 - **Results:** `biomass.csv`, `metabolites.csv`, `growth_rates.csv`,
   `cross_feeding.csv`, `meta.json`, and PNG figures.
-- **Abundance (MetaSBT):** a MetaSBT profile is ingested by `muode.metasbt`
-  (auto-detected id/abundance/taxonomy columns) into the same `{mag_id:
-  rel_abundance}` contract; `assemble --metasbt` does this in the workflow.
+- **Abundance (MetaSBT + Bracken):** MetaSBT only *characterizes* taxonomy — its
+  `profile` output (`muode.metasbt`, header `# level/closest/ani/confidence`,
+  one row per rank) gives each MAG its closest species cluster (*identity*, not
+  quantity). Quantitative abundance comes from **Bracken** (`muode.bracken`),
+  whose Kraken2/Bracken database is built from the MetaSBT database so reads
+  classify to the same clusters. `muode.quantify.mag_abundance_from_bracken`
+  joins them (MAG → MetaSBT species cluster → Bracken `name` → abundance) into
+  the `{mag_id: rel_abundance}` contract; `muode quantify` / the workflow
+  `quantify` rule write it as the 2-column abundance TSV.
 - **Benchmark expectation** (YAML, `examples/benchmarks/`): expected
   `relative_abundances`, `metabolites`, `cross_feeding` edges + tolerances.
   Consumed by `muode validate` / the `validate` rule, which emits

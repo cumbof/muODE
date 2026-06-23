@@ -22,8 +22,7 @@ def _none(value):
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--models", nargs="+", required=True, help="refined SBML model paths")
-    p.add_argument("--abundance", help="MAG abundance TSV (2-column or MetaSBT profile)")
-    p.add_argument("--metasbt", action="store_true", help="parse --abundance as a MetaSBT profile")
+    p.add_argument("--abundance", help="MAG abundance TSV (2-column mag_id, rel_abundance; e.g. from `muode quantify`)")
     p.add_argument("--diet", default="western_gut", help="diet preset name or CSV path")
     p.add_argument("--total-biomass", type=float, default=0.01)
     p.add_argument("--summary", help="reconstruction_summary.tsv to drop non-simulatable models")
@@ -49,12 +48,9 @@ def main() -> None:
     if not models:
         raise SystemExit("no simulatable models remain after QC filtering; nothing to assemble")
 
-    # Abundance profile (MetaSBT or plain 2-column).
-    if _none(args.abundance) and args.metasbt:
-        from muode.metasbt import read_metasbt_profile
-
-        abund = read_metasbt_profile(args.abundance).abundances
-    elif _none(args.abundance):
+    # Abundance profile: a plain 2-column TSV (mag_id, rel_abundance). For
+    # MetaSBT+Bracken communities this is produced upstream by `muode quantify`.
+    if _none(args.abundance):
         abund = read_abundance(args.abundance)
     else:
         abund = {m.stem: 1.0 for m in models}

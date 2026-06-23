@@ -57,8 +57,11 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
   reaction velocities from $k_{cat}$.
 - **Validation & scale:** a **benchmark framework** (`muode validate`) scoring a
   run against a known community (relative-abundance error, SCFA/metabolite error,
-  cross-feeding-edge F1), **abundance-aware subsampling** for huge communities,
-  and a quantitative-profile reader (`muode.metasbt`).
+  cross-feeding-edge F1) and **abundance-aware subsampling** for huge communities.
+- **Quantitative profiling** (`muode quantify`): joins a **MetaSBT** taxonomic
+  characterization (per-MAG closest species cluster — *identity*, not abundance)
+  with **Bracken** read abundances (from a Kraken2/Bracken DB built off the
+  MetaSBT database) into the `{mag_id: rel_abundance}` profile the engine consumes.
 - **Spatial dynamic FBA** (`muode.spatial`, `muode spatial`): a 2D reaction-
   diffusion colony/biofilm engine — per-cell community FBA with metabolite
   diffusion — reproducing **spatial cross-feeding gradients**.
@@ -171,11 +174,16 @@ muode simulate --community ./simulation_env/community.json \
 **3. Assemble Community & Diet ✅**
 
 ```bash
-muode assemble --models ./models/kinetic_gems/ --abundance ./data/profile.tsv \
+# Quantitative abundance: join MetaSBT taxonomy (identity) with Bracken (abundance).
+# Run MetaSBT/Kraken2/Bracken upstream on a capable host (see muode.quantify); then:
+muode quantify --bracken ./data/sample.bracken.tsv \
+               --metasbt-profiles ./data/metasbt_profiles/ --out ./data/abundance.tsv
+
+muode assemble --models ./models/kinetic_gems/ --abundance ./data/abundance.tsv \
                --diet western_gut --outdir ./simulation_env/
-# huge community? subsample by abundance, and read a MetaSBT profile directly:
-muode assemble --models ./models/kinetic_gems/ --abundance ./data/metasbt_profile.tsv \
-               --metasbt --coverage 0.95 --outdir ./simulation_env/
+# huge community? subsample by abundance:
+muode assemble --models ./models/kinetic_gems/ --abundance ./data/abundance.tsv \
+               --coverage 0.95 --outdir ./simulation_env/
 ```
 
 **4. Run the Dynamic Simulation ✅**

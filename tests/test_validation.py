@@ -1,8 +1,9 @@
-"""M3 -- validation & scale: MetaSBT ingestion, abundance subsampling, and the
-benchmark/validation framework.
+"""M3 -- validation & scale: abundance subsampling and the benchmark/validation
+framework.
 
 These are dependency-light (numpy/pandas/scipy only); the end-to-end validation
-test reuses the bundled toy cross-feeding community.
+test reuses the bundled toy cross-feeding community. The upstream abundance
+contract (MetaSBT taxonomy + Bracken) is covered in test_upstream.py.
 """
 
 from pathlib import Path
@@ -10,39 +11,6 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
-
-
-# ---------------------------------------------------------------------------
-# MetaSBT profile ingestion
-# ---------------------------------------------------------------------------
-
-
-def test_metasbt_autodetect_and_normalise(tmp_path):
-    from muode.metasbt import read_metasbt_profile
-
-    prof = tmp_path / "profile.tsv"
-    prof.write_text(
-        "genome\ttaxonomy\trelative_abundance\n"
-        "MAG_1\tk__Bacteria|p__Firmicutes\t0.6\n"
-        "MAG_2\tk__Bacteria|p__Bacteroidetes\t0.4\n"
-    )
-    p = read_metasbt_profile(prof)
-    assert p.abundances == {"MAG_1": pytest.approx(0.6), "MAG_2": pytest.approx(0.4)}
-    assert p.taxonomy["MAG_1"].startswith("k__Bacteria")
-    assert p.abundance_column == "relative_abundance"
-
-
-def test_metasbt_counts_normalised_and_override(tmp_path):
-    from muode.metasbt import read_metasbt_profile
-
-    prof = tmp_path / "counts.tsv"
-    prof.write_text("bin\treads\nA\t30\nB\t10\n")     # raw counts -> relative
-    p = read_metasbt_profile(prof)
-    assert p.abundances == {"A": pytest.approx(0.75), "B": pytest.approx(0.25)}
-
-    # explicit columns + no normalisation
-    p2 = read_metasbt_profile(prof, id_column="bin", abundance_column="reads", normalize=False)
-    assert p2.abundances == {"A": 30.0, "B": 10.0}
 
 
 # ---------------------------------------------------------------------------

@@ -1,123 +1,192 @@
-"""Quantitative-profile ingestion -- the upstream abundance contract.
+"""MetaSBT ingestion -- taxonomic *characterization* of MAGs (not abundance).
 
-.. warning::
+.. note::
 
-   **MetaSBT itself does not produce abundances.**  MetaSBT is a genome
-   *clustering / taxonomic-characterization* framework: its ``profile`` module
-   reports a genome's closest genome/species/genus/family in the database, not
-   how much of it is present.  Relative abundance for a community must therefore
-   come from a *separate* quantitative step (read mapping / coverage).  This
-   module reads such a quantitative ``{mag_id: abundance}`` table; proper ingestion
-   of MetaSBT's *taxonomy* characterization (for labelling MAGs and known/unknown
-   cluster assignment) is a separate contract still to be built during M1–M3
-   hardening (see the dev branch at https://github.com/cumbof/MetaSBT).
+   **MetaSBT does not produce abundances.**  MetaSBT (https://github.com/cumbof/MetaSBT)
+   is a framework for *clustering genomes into known and unknown taxonomic
+   clusters* (species clusters, and also higher ranks).  Its ``profile`` module
+   *characterizes* a genome: for each taxonomic level it reports the closest
+   cluster in the database (its label, the ANI distance and a confidence).  That
+   is taxonomic **identity**, not **quantity**.
 
-The reader is deliberately *permissive*: quantitative exports vary, so it
-auto-detects the identifier, abundance and (optional) taxonomy columns by common
-header names and lets the caller override any of them.  Raw counts are normalised
-to relative abundance.  Pass columns explicitly (``id_column=...`` /
-``abundance_column=...``) when auto-detection is wrong.
+   Relative abundance comes from a *separate* quantitative step.  In muODE the
+   plan is: MetaSBT database -> custom Kraken2 DB (``metasbt kraken``) -> custom
+   Bracken DB -> Bracken read assignment, parsed by :mod:`muode.bracken`.  The
+   two are joined in :mod:`muode.quantify`: a MAG's MetaSBT species cluster is
+   matched to its Bracken abundance.
+
+This module parses MetaSBT ``profile`` outputs.  One file per genome
+(``{genome}.txt`` or ``{genome}.split.txt``) with a header
+``# level<TAB>closest<TAB>ani<TAB>confidence`` and one row per taxonomic level
+(plus a ``genome`` row for the single closest genome).
 """
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
-# candidate header names (lower-cased), in priority order
-_ID_HINTS = ("mag", "genome", "bin", "cluster", "mag_id", "genome_id", "input", "id", "name", "#")
-_ABUNDANCE_HINTS = (
-    "relative_abundance", "rel_abundance", "relative abundance", "abundance",
-    "rel_ab", "fraction", "proportion", "count", "counts", "reads", "coverage", "depth",
-)
-_TAXONOMY_HINTS = ("taxonomy", "lineage", "classification", "taxon", "taxa", "tax")
+#: the seven standard taxonomic levels MetaSBT characterizes, coarse -> fine.
+LEVELS = ("kingdom", "phylum", "class", "order", "family", "genus", "species")
+
+#: column order of a MetaSBT profile table (used when the header is absent).
+_COLUMNS = ("level", "closest", "ani", "confidence")
+
+
+@dataclass(frozen=True)
+class ProfileMatch:
+    """A single ``profile`` row: the closest cluster at one taxonomic level."""
+
+    level: str
+    closest: str
+    ani: Optional[float] = None
+    confidence: Optional[float] = None
 
 
 @dataclass
 class MetaSBTProfile:
-    """Parsed MetaSBT profile: normalised abundances + optional taxonomy."""
+    """A genome's MetaSBT characterization: closest cluster per taxonomic level.
 
-    abundances: Dict[str, float]
-    taxonomy: Dict[str, str] = field(default_factory=dict)
-    id_column: Optional[str] = None
-    abundance_column: Optional[str] = None
+    ``matches`` is keyed by level name; it may also contain a ``genome`` entry
+    for the single closest genome (MetaSBT emits one).  Use the level
+    properties (:attr:`species`, :attr:`lineage`, ...) for the common joins.
+    """
 
-    def mags(self):
-        return list(self.abundances)
+    genome_id: str
+    matches: Dict[str, ProfileMatch] = field(default_factory=dict)
 
-    def to_abundance_tsv(self, path: str | Path) -> None:
-        from muode.io_utils import write_abundance
+    # -- per-level accessors ------------------------------------------------
+    def label(self, level: str = "species") -> Optional[str]:
+        """Closest cluster label at ``level`` (``None`` if not characterized)."""
+        m = self.matches.get(level)
+        return m.closest if m else None
 
-        write_abundance(self.abundances, path)
+    @property
+    def species(self) -> Optional[str]:
+        return self.label("species")
+
+    @property
+    def genus(self) -> Optional[str]:
+        return self.label("genus")
+
+    @property
+    def closest_genome(self) -> Optional[str]:
+        return self.label("genome")
+
+    @property
+    def lineage(self) -> "OrderedDict[str, str]":
+        """Ordered ``{level: closest}`` for the standard ranks present."""
+        return OrderedDict(
+            (lvl, self.matches[lvl].closest) for lvl in LEVELS if lvl in self.matches
+        )
+
+    @property
+    def lineage_string(self) -> str:
+        """Pipe-separated lineage (e.g. ``k__Bacteria|...|s__E_coli``)."""
+        return "|".join(self.lineage.values())
+
+    def confidence(self, level: str = "species") -> Optional[float]:
+        m = self.matches.get(level)
+        return m.confidence if m else None
 
 
-def _pick(columns, hints) -> Optional[str]:
-    lower = {c.lower().strip(): c for c in columns}
-    for h in hints:
-        if h in lower:
-            return lower[h]
-    # substring fallback (e.g. "estimated_relative_abundance")
-    for h in hints:
-        for lc, original in lower.items():
-            if h in lc:
-                return original
-    return None
+def _coerce_float(value: str) -> Optional[float]:
+    value = (value or "").strip()
+    if not value or value.lower() in ("na", "nan", "none", "-"):
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _genome_id_from_path(path: Path) -> str:
+    name = path.name
+    for suffix in (".split.txt", ".profile.txt", ".txt", ".tsv", ".profile"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
 
 
 def read_metasbt_profile(
     path: str | Path,
-    id_column: Optional[str] = None,
-    abundance_column: Optional[str] = None,
-    taxonomy_column: Optional[str] = None,
-    normalize: bool = True,
-    sep: Optional[str] = None,
+    genome_id: Optional[str] = None,
 ) -> MetaSBTProfile:
-    """Read a MetaSBT-style profile into a :class:`MetaSBTProfile`.
+    """Parse a single MetaSBT ``profile`` file into a :class:`MetaSBTProfile`.
 
-    Columns are auto-detected from common header names unless given explicitly.
-    Abundances are coerced to floats; non-positive/blank values become 0 and,
-    when ``normalize`` is set, the column is rescaled to sum to 1.
+    The header (``# level<TAB>closest<TAB>ani<TAB>confidence``) is honoured when
+    present to locate columns; otherwise the default order is assumed.  Blank
+    and comment-only lines are ignored.  ``genome_id`` defaults to the file stem
+    (with MetaSBT's ``.split``/``.txt`` suffixes stripped).
     """
-    import pandas as pd
-
     path = Path(path)
-    if sep is None:
-        sep = "," if path.suffix.lower() == ".csv" else "\t"
-    df = pd.read_csv(path, sep=sep)
-    if df.empty or df.shape[1] < 2:
-        raise ValueError(f"{path}: expected a table with an id and an abundance column")
+    if genome_id is None:
+        genome_id = _genome_id_from_path(path)
 
-    id_col = id_column or _pick(df.columns, _ID_HINTS) or df.columns[0]
-    ab_col = abundance_column or _pick(df.columns, _ABUNDANCE_HINTS)
-    if ab_col is None:
-        # fall back to the first numeric column that is not the id column
-        for c in df.columns:
-            if c != id_col and pd.api.types.is_numeric_dtype(pd.to_numeric(df[c], errors="coerce")):
-                ab_col = c
-                break
-    if ab_col is None:
-        raise ValueError(
-            f"{path}: could not find an abundance column; pass abundance_column=... "
-            f"(columns: {list(df.columns)})"
+    header: Optional[List[str]] = None
+    matches: "OrderedDict[str, ProfileMatch]" = OrderedDict()
+
+    for raw in path.read_text().splitlines():
+        line = raw.rstrip("\n")
+        if not line.strip():
+            continue
+        is_comment = line.lstrip().startswith("#")
+        cells = [c.strip() for c in line.lstrip("#").strip().split("\t")]
+        if is_comment:
+            lowered = [c.lower() for c in cells]
+            if "level" in lowered and "closest" in lowered:
+                header = lowered
+            continue  # any other comment line is metadata, skip it
+
+        cols = header or list(_COLUMNS)
+        row = dict(zip(cols, cells))
+        level = (row.get("level") or (cells[0] if cells else "")).strip().lower()
+        closest = (row.get("closest") or (cells[1] if len(cells) > 1 else "")).strip()
+        if not level or not closest:
+            continue
+        matches[level] = ProfileMatch(
+            level=level,
+            closest=closest,
+            ani=_coerce_float(row.get("ani", "")),
+            confidence=_coerce_float(row.get("confidence", "")),
         )
-    tax_col = taxonomy_column or _pick(df.columns, _TAXONOMY_HINTS)
 
-    ids = df[id_col].astype(str).str.strip()
-    vals = pd.to_numeric(df[ab_col], errors="coerce").fillna(0.0).clip(lower=0.0)
-    abundances: Dict[str, float] = {}
-    for i, v in zip(ids, vals):
-        if i and i.lower() != "nan":
-            abundances[i] = abundances.get(i, 0.0) + float(v)
+    return MetaSBTProfile(genome_id=genome_id, matches=matches)
 
-    total = sum(abundances.values())
-    if normalize and total > 0:
-        abundances = {i: v / total for i, v in abundances.items()}
 
-    taxonomy: Dict[str, str] = {}
-    if tax_col is not None:
-        for i, t in zip(ids, df[tax_col].astype(str)):
-            if i and t and t.lower() != "nan":
-                taxonomy[i] = t.strip()
+def read_metasbt_profiles(
+    source: str | Path,
+    pattern: str = "*.txt",
+) -> Dict[str, MetaSBTProfile]:
+    """Read every MetaSBT profile in a directory (or a single file).
 
-    return MetaSBTProfile(abundances, taxonomy, id_column=id_col, abundance_column=ab_col)
+    Returns ``{genome_id: MetaSBTProfile}``.  ``*.split.txt`` files (MetaSBT's
+    split variant) take precedence over a plain ``*.txt`` for the same genome.
+    """
+    source = Path(source)
+    if source.is_file():
+        prof = read_metasbt_profile(source)
+        return {prof.genome_id: prof}
+
+    profiles: Dict[str, MetaSBTProfile] = {}
+    # plain files first, then let .split.txt override (it is the refined call)
+    files = sorted(source.glob(pattern), key=lambda p: (".split." in p.name, p.name))
+    for f in files:
+        prof = read_metasbt_profile(f)
+        profiles[prof.genome_id] = prof
+    return profiles
+
+
+def mag_taxa(
+    profiles: Dict[str, MetaSBTProfile],
+    level: str = "species",
+) -> Dict[str, str]:
+    """Map ``{genome_id: closest cluster label}`` at ``level`` (skipping misses)."""
+    out: Dict[str, str] = {}
+    for gid, prof in profiles.items():
+        lab = prof.label(level)
+        if lab:
+            out[gid] = lab
+    return out
