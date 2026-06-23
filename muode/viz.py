@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from muode.dfba import SimulationResult
+    from muode.spatial import SpatialResult
 
 
 def _mpl():
@@ -95,3 +96,71 @@ def save_all(result: "SimulationResult", outdir: str | Path) -> None:
     plot_biomass(result, outdir / "biomass.png")
     plot_metabolites(result, outdir / "metabolites.png")
     plot_cross_feeding_network(result, outdir / "cross_feeding.png")
+
+
+# ---------------------------------------------------------------------------
+# spatial (M4)
+# ---------------------------------------------------------------------------
+
+
+def _plot_field(ax, field, title):
+    """Render a final spatial field as a 1D profile (thin grids) or a heatmap."""
+    ny, nx = field.shape
+    if ny == 1:
+        ax.plot(range(nx), field[0], marker="o", ms=3)
+        ax.set_xlabel("x (cell)")
+        ax.set_ylabel("amount")
+    else:
+        im = ax.imshow(field, origin="lower", aspect="auto", cmap="viridis")
+        ax.figure.colorbar(im, ax=ax, fraction=0.046)
+    ax.set_title(title, fontsize=8)
+
+
+def plot_spatial_final(result: "SpatialResult", path: str | Path) -> None:
+    """Heatmaps/profiles of the final biomass (per species) and metabolite fields."""
+    import numpy as np
+
+    plt = _mpl()
+    species = list(result.biomass)
+    # show metabolites that actually vary across the grid at the end
+    mets = [m for m, arr in result.metabolites.items() if float(np.ptp(arr[-1])) > 1e-9]
+    panels = [("biomass", s) for s in species] + [("metabolite", m) for m in mets]
+    if not panels:
+        return
+    ncols = min(3, len(panels))
+    nrows = (len(panels) + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3 * nrows), squeeze=False)
+    for ax in axes.flat:
+        ax.axis("off")
+    for ax, (kind, name) in zip(axes.flat, panels):
+        ax.axis("on")
+        field = result.biomass[name][-1] if kind == "biomass" else result.metabolites[name][-1]
+        _plot_field(ax, field, f"{kind}: {name}")
+    fig.suptitle("Final spatial fields")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def plot_spatial_total_biomass(result: "SpatialResult", path: str | Path) -> None:
+    """Total biomass per species over time (summed across the grid)."""
+    plt = _mpl()
+    tb = result.total_biomass()
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for sp in tb.columns:
+        ax.plot(tb.index, tb[sp], label=sp)
+    ax.set_xlabel("time (h)")
+    ax.set_ylabel("total biomass (gDW)")
+    ax.set_title("Spatial community biomass over time")
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def save_spatial(result: "SpatialResult", outdir: str | Path) -> None:
+    """Write the standard spatial figure set to ``outdir``."""
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    plot_spatial_total_biomass(result, outdir / "spatial_total_biomass.png")
+    plot_spatial_final(result, outdir / "spatial_final.png")

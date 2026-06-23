@@ -30,6 +30,21 @@ cross-feeding network).
 The demo is built from `muode.examples` using the dependency-light
 `LinprogOrganism` backend, so it runs with only numpy/scipy.
 
+## Spatial (colony / biofilm) demo
+
+```bash
+muode spatial --nx 24 --time 12 --outdir results/spatial
+```
+
+Runs the 2D reaction-diffusion engine on the same two-species cross-feeding
+community, but **spatially**: the glucose fermenter is inoculated in one half of
+a strip and the acetate specialist in the other. The fermenter grows on the
+ambient glucose and secretes acetate, which must *diffuse* across the grid before
+the acetate specialist can use it — so the consumer grows fastest near the
+interface and barely at the far edge (a spatial cross-feeding gradient). Writes
+`spatial.npz`, `spatial_total_biomass.csv`, and field/time-course figures. The
+engine reuses the same models, diet and kinetics as the well-mixed demo.
+
 ## Whole-pipeline smoke test (the `stub` engine)
 
 `data/mags/` holds two tiny toy MAGs (`fermenter.fna`, `consumer.fna`) tagged

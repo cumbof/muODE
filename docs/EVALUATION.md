@@ -194,8 +194,13 @@ non-negativity clamping.
 - [ ] COMETS alternative dynamic backend (the engine's solver abstraction is the
       integration point; deferred — heavy external dependency)
 
-**Milestone 4 — Reach (unchanged future scope)**
-- [ ] ESM-2 kinetics, spatiotemporal PDE biofilms, GUI dashboard
+**Milestone 4 — Reach (in progress)**
+- [x] Spatiotemporal (PDE) 2D reaction-diffusion dynamic-FBA engine
+      (`muode.spatial`): per-cell community FBA + metabolite diffusion under
+      no-flux boundaries, with spatial-cross-feeding tests and figures
+- [ ] Interactive GUI dashboard (deferred — not headless-testable; the saved
+      spatial fields are the data a dashboard would render)
+- [ ] Performance for large GEMs on large grids; ESM-2 kinetics
 
 ---
 

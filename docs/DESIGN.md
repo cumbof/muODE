@@ -77,6 +77,10 @@ species rather than rebuilding one giant LP.
   `relative_abundances`, `metabolites`, `cross_feeding` edges + tolerances.
   Consumed by `muode validate` / the `validate` rule, which emits
   `validation/report.json` (per-component metrics + overall pass/fail).
+- **Spatial results** (`muode spatial`): `spatial.npz` (per-species biomass and
+  per-metabolite fields, shape `n_frames × ny × nx`), `spatial_total_biomass.csv`
+  and PNG fields/time-course. The spatial engine reuses the same
+  `OrganismModel`/`Community`/`KineticParameters`, solving FBA per grid cell.
 
 See [EVALUATION.md](EVALUATION.md) for the scientific rationale behind these
 choices.

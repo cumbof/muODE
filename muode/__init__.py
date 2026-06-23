@@ -19,6 +19,7 @@ from muode.kinetics import KineticParameters
 from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
 from muode.predict import HeuristicPredictor, refine_kinetics
+from muode.spatial import SpatialDynamicFBA, SpatialResult
 from muode.validate import BenchmarkExpectation, ValidationReport, validate
 
 __all__ = [
@@ -34,6 +35,8 @@ __all__ = [
     "Perturbation",
     "HeuristicPredictor",
     "refine_kinetics",
+    "SpatialDynamicFBA",
+    "SpatialResult",
     "BenchmarkExpectation",
     "ValidationReport",
     "validate",

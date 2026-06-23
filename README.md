@@ -58,7 +58,10 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
 - **Validation & scale:** a **benchmark framework** (`muode validate`) scoring a
   run against a known community (relative-abundance error, SCFA/metabolite error,
   cross-feeding-edge F1), **abundance-aware subsampling** for huge communities,
-  and **MetaSBT profile ingestion** (`muode.metasbt`).
+  and a quantitative-profile reader (`muode.metasbt`).
+- **Spatial dynamic FBA** (`muode.spatial`, `muode spatial`): a 2D reaction-
+  diffusion colony/biofilm engine — per-cell community FBA with metabolite
+  diffusion — reproducing **spatial cross-feeding gradients**.
 - A **Snakemake workflow** that fans reconstruction/refinement out per MAG (QC
   checkpoint + SLURM profile included), aggregates a per-run
   `reconstruction_summary.tsv`, and **drops non-simulatable models** instead of
@@ -187,6 +190,13 @@ muode simulate --community ./simulation_env/community.json --time 24 --step 0.1 
 muode validate --results ./results/ --expected examples/benchmarks/toy_cross_feeding.yaml
 ```
 
+**6. Spatial (colony / biofilm) Simulation ✅**
+
+```bash
+# 2D reaction-diffusion dynamic FBA; no data needed (built-in cross-feeding demo)
+muode spatial --nx 24 --time 12 --outdir ./results/spatial/
+```
+
 **Or run the whole pipeline with Snakemake (recommended for many MAGs):**
 
 ```bash
@@ -250,7 +260,7 @@ See **[docs/EVALUATION.md](docs/EVALUATION.md)** for the full, justified plan.
 - [~] **M1 — Reconstruction at scale (in progress):** ✅ end-to-end DAG fan-out per MAG with a `stub` engine that runs the *whole* pipeline locally; ✅ `reconstruction_summary.tsv` aggregation; ✅ QC-driven failure isolation (non-simulatable models dropped, not fatal); ✅ optional memote rule + universal-model gap-fill wiring. **Remaining:** validate CarveMe/Prodigal + CheckM2 on real MAG sets on a capable host; multi-threading tuning for large clusters (>500 MAGs).
 - [~] **M2 — Kinetics refinement (in progress):** ✅ kinetic-parameter store with $k_{cat}$ + persistence; ✅ dependency-free heuristic predictor (default); ✅ GECKO-lite enzyme-constraint layer wired through CLI + workflow + dFBA; ✅ opt-in DLKcat/Kroll wrappers + BiGG→(sequence, SMILES) context. **Remaining:** bundle/validate real DLKcat & Kroll checkpoints on a GPU host; full protein-*pool* GECKO budget; ESM-2 embeddings.
 - [~] **M3 — Validation & scale (in progress):** ✅ benchmark/validation framework (`muode validate`: relative-abundance MAE + Spearman, SCFA/metabolite error, cross-feeding edge F1, pass/fail vs. tolerances); ✅ abundance-aware subsampling (`top_n`/`min_abundance`/`coverage`) for huge communities; ✅ MetaSBT profile ingestion contract (`muode.metasbt`). **Remaining:** benchmark against real synthetic/gut datasets on a capable host; COMETS alternative dynamic backend.
-- [ ] **M4 — Reach:** spatiotemporal (PDE) 2D colony/biofilm simulation; GUI dashboard for real-time visualization.
+- [~] **M4 — Reach (in progress):** ✅ spatiotemporal (PDE) 2D reaction-diffusion colony/biofilm engine (`muode.spatial`, `muode spatial`) — per-cell community FBA + metabolite diffusion, reproducing spatial cross-feeding gradients; ✅ spatial figures. **Remaining:** interactive GUI dashboard (deferred — not headless-testable); performance work for large GEMs on large grids; ESM-2 embeddings.
 
 ## 🙏 Acknowledgments
 

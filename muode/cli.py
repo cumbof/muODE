@@ -382,5 +382,58 @@ def validate(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def spatial(
+    community: Optional[Path] = typer.Option(None, help="community.json (real GEMs); default = built-in toy cross-feeding demo."),
+    nx: int = typer.Option(24, help="Grid width (cells)."),
+    ny: int = typer.Option(1, help="Grid height (cells); 1 = a 1D strip."),
+    dx: float = typer.Option(1.0, help="Cell length (mm)."),
+    time: float = typer.Option(12.0, "--time", help="Simulated time (h)."),
+    step: float = typer.Option(0.05, "--step", help="Integration step (h)."),
+    diffusivity: float = typer.Option(2.0, help="Metabolite diffusivity (mm^2/h)."),
+    outdir: Path = typer.Option("results/spatial", help="Output directory."),
+) -> None:
+    """M4 -- spatial (2D reaction-diffusion) dynamic-FBA colony/biofilm simulation."""
+    from muode.spatial import SpatialDynamicFBA, halves_inoculum, uniform_inoculum
+
+    if community:
+        comm, diet_spec = _community_from_manifest(community)
+        diet, kin = _load_diet(diet_spec), _kinetics(10.0, 0.01)
+        inoculum = uniform_inoculum((ny, nx), comm.organism_ids, comm.total_biomass)
+    else:
+        from muode.examples import build_toy_community, toy_diet, toy_kinetics
+
+        comm, diet, kin = build_toy_community(), toy_diet(), toy_kinetics()
+        ids = comm.organism_ids
+        # split the two toy species across the strip so cross-feeding has to diffuse
+        inoculum = halves_inoculum((ny, nx), ids[0], ids[1], amount=0.04, axis=1)
+
+    engine = SpatialDynamicFBA(nx=nx, ny=ny, dx=dx, t_end=time, dt=step,
+                               default_diffusivity=diffusivity)
+    result = engine.run(comm, diet, kin, inoculum=inoculum)
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    result.to_npz(outdir)
+    try:
+        from muode import viz
+
+        viz.save_spatial(result, outdir)
+    except ImportError:
+        console.print("[yellow]matplotlib not installed; skipping spatial figures.[/yellow]")
+
+    tb = result.total_biomass()
+    table = Table(title="Spatial run — total biomass (summed over grid)")
+    table.add_column("species")
+    table.add_column("initial (gDW)", justify="right")
+    table.add_column("final (gDW)", justify="right")
+    table.add_column("fold", justify="right")
+    for sp in tb.columns:
+        i0, i1 = tb[sp].iloc[0], tb[sp].iloc[-1]
+        fold = i1 / i0 if i0 > 0 else float("nan")
+        table.add_row(sp, f"{i0:.4g}", f"{i1:.4g}", f"{fold:.2f}x")
+    console.print(table)
+    console.print(f"[bold]Wrote spatial results to {outdir}[/bold]")
+
+
 if __name__ == "__main__":
     app()
