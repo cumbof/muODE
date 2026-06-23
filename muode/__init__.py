@@ -18,6 +18,7 @@ from muode.diet import Diet
 from muode.kinetics import KineticParameters
 from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
+from muode.predict import HeuristicPredictor, refine_kinetics
 
 __all__ = [
     "__version__",
@@ -30,4 +31,6 @@ __all__ = [
     "OrganismModel",
     "OrganismSolution",
     "Perturbation",
+    "HeuristicPredictor",
+    "refine_kinetics",
 ]

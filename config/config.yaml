@@ -25,8 +25,14 @@ gapfill_media: null           # e.g. "M9" to gap-fill during reconstruction
 
 # --- Phase 2/3: refinement -------------------------------------------------
 universal_model: null         # SBML universal model for LP gap-filling (optional)
-predict_kinetics: false       # opt-in DLKcat/Km refinement (needs the ml extra)
 run_memote: false             # set true for full per-model memote QC reports
+# Kinetics refinement (Phase 3). predict_kinetics writes per-MAG {stem}.kinetics.json
+# (Km for uptake + kcat for enzyme constraints). The 'heuristic' predictor needs no
+# deps; 'dlkcat'/'km-ml' need the 'ml' extra. enzyme_constraints applies GECKO-lite
+# kcat caps to intracellular reactions at simulation time.
+predict_kinetics: false
+predictor: "heuristic"        # heuristic | dlkcat | km-ml
+enzyme_constraints: false
 default_vmax: 10.0
 default_km: 0.01
 

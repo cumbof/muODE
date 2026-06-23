@@ -259,6 +259,22 @@ class CobraOrganism:
                 self._base_bounds[rid] = (lb * factor, ub * factor)
         self.reset_bounds()
 
+    def apply_enzyme_constraints(self, kinetics, organism_id: Optional[str] = None,
+                                 enzyme_concentration: Optional[float] = None) -> dict:
+        """Cap intracellular reaction velocities from kcat (GECKO-lite).
+
+        The caps become part of this organism's *baseline*, so they persist across
+        the per-step ``reset_bounds`` of the dynamic loop.
+        """
+        from muode.enzyme import apply_enzyme_constraints
+
+        report = apply_enzyme_constraints(
+            self.model, kinetics, organism_id or self.id, enzyme_concentration
+        )
+        # fold the new caps into the baseline the dFBA loop resets to each step
+        self._base_bounds = {r.id: (r.lower_bound, r.upper_bound) for r in self.model.reactions}
+        return report
+
     def optimize(self) -> OrganismSolution:
         sol = self.model.optimize()
         if sol.status != "optimal":

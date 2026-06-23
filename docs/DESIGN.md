@@ -57,6 +57,11 @@ species rather than rebuilding one giant LP.
 - **Diet:** preset name or CSV `metabolite, concentration[, influx]`.
 - **Per-MAG QC** (`{mag}.qc.json`): gap-fill + sanity-check report emitted by
   `refine`, one per model.
+- **Per-MAG kinetics** (`{mag}.kinetics.json`): predicted Km (per uptake
+  metabolite) + kcat (per internal reaction), emitted by `refine`; consumed by
+  `simulate --kinetics` for Michaelis–Menten bounds and (with
+  `--enzyme-constraints`) GECKO-lite kcat caps. Serialised via
+  `KineticParameters.to_json`.
 - **Reconstruction summary** (`reconstruction_summary.tsv`): one row per MAG
   (`grows_now`, `n_reactions_added`, `energy_generating_cycle`, `simulatable`, …),
   aggregated by `reconstruct_report`. `assemble` reads its `simulatable` column to

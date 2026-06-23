@@ -51,6 +51,10 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
   and whole-species removal.
 - **Michaelis–Menten kinetics + diets**, cross-feeding inference, time-course CSVs
   and figures.
+- **Kinetics refinement** (`muode.predict`): a dependency-free heuristic predictor
+  for $K_m$/$k_{cat}$ (opt-in DLKcat/Kroll wrappers behind the `ml` extra) and a
+  **GECKO-lite enzyme-constraint layer** (`muode.enzyme`) that caps intracellular
+  reaction velocities from $k_{cat}$.
 - A **Snakemake workflow** that fans reconstruction/refinement out per MAG (QC
   checkpoint + SLURM profile included), aggregates a per-run
   `reconstruction_summary.tsv`, and **drops non-simulatable models** instead of
@@ -82,10 +86,11 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
 - Algorithmic **Linear-Programming gap filling** (cobra) so every draft model can mathematically produce biomass on a defined medium.
 - Optional **MetaPathPredict** to predict probable KEGG modules in incomplete MAGs (an opt-in refinement; requires KEGG↔BiGG namespace mapping).
 
-### Phase 3 — Predicting Kinetic Parameters *(role clarified)*
+### Phase 3 — Predicting Kinetic Parameters *(implemented)*
 - **$K_m$ + $V_{max}$ constrain substrate uptake** via Michaelis–Menten in the dynamic loop (this is the coupling between the intracellular LP and the extracellular ODEs).
-- **$k_{cat}$ constrains intracellular reaction velocities** via enzyme-constrained bounds ($V_{max}=k_{cat}\cdot[E]$, GECKO-style) — a *separate, optional* layer.
-- Deep-learning predictors (DLKcat / RealKcat for $k_{cat}$; Kroll et al. for $K_m$) plug in here. **The pipeline runs end-to-end on sensible defaults without them**; predictions *sharpen* the bounds.
+- **$k_{cat}$ constrains intracellular reaction velocities** via enzyme-constrained (GECKO-lite) bounds, $|v_r| \le k_{cat,r}\cdot[E]$ — a *separate* layer applied once before the run (`muode.enzyme`).
+- A **default `heuristic` predictor** (`muode.predict`) assigns literature $K_m$ for common substrates and a $k_{cat}$ around the genome-wide median (~13.7/s; Bar-Even 2011) — **dependency-free**, so the whole pipeline runs everywhere. Values are *placeholders*, not measurements.
+- **Deep-learning predictors are opt-in** (`ml` extra): DLKcat for $k_{cat}$, Kroll et al. for $K_m$. They need a per-reaction *enzyme/substrate context* (sequence + SMILES), and `build_enzyme_context` provides the BiGG→(sequence, SMILES) mapping. **The pipeline runs end-to-end on the heuristic without them**; predictions *sharpen* the bounds.
 
 ### Phase 4 — Dynamic Community Simulation (dFBA)
 - A **native Static-Optimization-Approach integrator** (Mahadevan et al., 2002) updates extracellular metabolite concentrations and per-species biomass at discrete time steps.
@@ -143,7 +148,17 @@ muode build --mags ./data/raw_mags/ --outdir ./models/draft_gems/ --engine carve
 **2. Gap-Fill & (optionally) Predict Kinetics ⚙️**
 
 ```bash
+# heuristic predictor (no extra deps) writes a {stem}.kinetics.json per model
 muode refine --models ./models/draft_gems/ --outdir ./models/kinetic_gems/ --predict-kinetics
+# (use --predictor dlkcat|km-ml with the `ml` extra for the deep-learning models)
+```
+
+Then feed the predicted kinetics into the simulation, optionally enabling the
+enzyme-constraint ($k_{cat}$) layer:
+
+```bash
+muode simulate --community ./simulation_env/community.json \
+               --kinetics ./models/kinetic_gems/ --enzyme-constraints --outdir ./results/
 ```
 
 **3. Assemble Community & Diet ✅**
@@ -220,7 +235,7 @@ See **[docs/EVALUATION.md](docs/EVALUATION.md)** for the full, justified plan.
 
 - [x] **M0 — Core engine & scaffold:** native dFBA integrator, perturbation engine, kinetics/diet layer, cross-feeding inference, CLI, Snakemake workflow, tests.
 - [~] **M1 — Reconstruction at scale (in progress):** ✅ end-to-end DAG fan-out per MAG with a `stub` engine that runs the *whole* pipeline locally; ✅ `reconstruction_summary.tsv` aggregation; ✅ QC-driven failure isolation (non-simulatable models dropped, not fatal); ✅ optional memote rule + universal-model gap-fill wiring. **Remaining:** validate CarveMe/Prodigal + CheckM2 on real MAG sets on a capable host; multi-threading tuning for large clusters (>500 MAGs).
-- [ ] **M2 — Kinetics refinement (optional):** DLKcat/Km predictor wrappers (`ml` extra) + KEGG↔BiGG mapping; enzyme-constrained (GECKO-style) bounds; ESM-2 integration.
+- [~] **M2 — Kinetics refinement (in progress):** ✅ kinetic-parameter store with $k_{cat}$ + persistence; ✅ dependency-free heuristic predictor (default); ✅ GECKO-lite enzyme-constraint layer wired through CLI + workflow + dFBA; ✅ opt-in DLKcat/Kroll wrappers + BiGG→(sequence, SMILES) context. **Remaining:** bundle/validate real DLKcat & Kroll checkpoints on a GPU host; full protein-*pool* GECKO budget; ESM-2 embeddings.
 - [ ] **M3 — Validation & scale:** benchmark against known synthetic/gut communities (SCFA, growth rates); COMETS backend; abundance-aware subsampling; MetaSBT ingestion contract.
 - [ ] **M4 — Reach:** spatiotemporal (PDE) 2D colony/biofilm simulation; GUI dashboard for real-time visualization.
 

@@ -18,8 +18,14 @@ run_checkm2: false
 # Phase 1 -- dependency-free placeholder reconstruction.
 engine: "stub"
 
-# Phase 2/3 -- no universal model / kinetic prediction for the smoke test.
+# Phase 2/3 -- exercise the kinetics-refinement layer end-to-end: predict Km+kcat
+# (heuristic, no deps) and apply GECKO-lite enzyme caps during simulation. (The
+# stub models have no internal reactions, so the caps are a no-op here -- this
+# just proves the prediction/loading path runs through the whole pipeline.)
 universal_model: null
+predict_kinetics: true
+predictor: "heuristic"
+enzyme_constraints: true
 default_vmax: 10.0
 default_km: 0.01
 

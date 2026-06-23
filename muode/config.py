@@ -36,7 +36,9 @@ class PipelineConfig:
     run_memote: bool = False         # generate full per-model memote reports
 
     # --- kinetics (Phase 3) -----------------------------------------------
-    predict_kinetics: bool = False   # opt-in DLKcat/Km refinement layer
+    predict_kinetics: bool = False   # write per-MAG predicted Km + kcat
+    predictor: str = "heuristic"     # heuristic (no deps) | dlkcat | km-ml (ml extra)
+    enzyme_constraints: bool = False # apply GECKO-lite kcat caps at simulation time
     default_vmax: float = 10.0
     default_km: float = 0.01
 

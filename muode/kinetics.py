@@ -52,8 +52,12 @@ class KineticParameters:
     default_km: float = DEFAULT_KM
     #: per-metabolite defaults, applied to every organism
     metabolite_defaults: Dict[str, Tuple[float, float]] = field(default_factory=dict)
-    #: per-(organism, metabolite) overrides (e.g. from DLKcat/Km predictions)
+    #: per-(organism, metabolite) overrides (e.g. from Km/Vmax predictions)
     overrides: Dict[Tuple[str, str], Tuple[float, float]] = field(default_factory=dict)
+    #: per-(organism, reaction) turnover numbers kcat (1/s), for enzyme constraints
+    kcat: Dict[Tuple[str, str], float] = field(default_factory=dict)
+    #: default enzyme abundance (mmol enzyme / gDW) for the kcat -> Vmax conversion
+    default_enzyme_concentration: float = 1e-2
 
     def get(self, organism_id: str, metabolite_id: str) -> Tuple[float, float]:
         """Return ``(Vmax, Km)`` for an organism/metabolite uptake reaction."""
@@ -80,6 +84,86 @@ class KineticParameters:
             return 0.0
         vmax, km = self.get(organism_id, metabolite_id)
         return vmax * concentration / (km + concentration)
+
+    # -- enzyme turnover (kcat) --------------------------------------------
+    def set_kcat(self, organism_id: str, reaction_id: str, kcat: float) -> None:
+        self.kcat[(organism_id, reaction_id)] = float(kcat)
+
+    def get_kcat(self, organism_id: str, reaction_id: str) -> Optional[float]:
+        return self.kcat.get((organism_id, reaction_id))
+
+    def enzyme_vmax(
+        self,
+        organism_id: str,
+        reaction_id: str,
+        enzyme_concentration: Optional[float] = None,
+    ) -> Optional[float]:
+        """Enzyme-constrained Vmax (mmol/gDW/h) for an intracellular reaction.
+
+        Returns ``None`` when no kcat is known for the reaction, so callers can
+        leave such reactions unconstrained.
+        """
+        kcat = self.get_kcat(organism_id, reaction_id)
+        if kcat is None:
+            return None
+        e = self.default_enzyme_concentration if enzyme_concentration is None else enzyme_concentration
+        return vmax_from_kcat(kcat, e)
+
+    # -- combination & persistence -----------------------------------------
+    def merge(self, other: "KineticParameters") -> "KineticParameters":
+        """Fold another store's per-organism Km/Vmax and kcat into this one."""
+        self.metabolite_defaults.update(other.metabolite_defaults)
+        self.overrides.update(other.overrides)
+        self.kcat.update(other.kcat)
+        return self
+
+    def to_dict(self) -> dict:
+        """JSON-serialisable view (tuple keys are nested by organism)."""
+        overrides: Dict[str, Dict[str, list]] = {}
+        for (org, met), vk in self.overrides.items():
+            overrides.setdefault(org, {})[met] = list(vk)
+        kcat: Dict[str, Dict[str, float]] = {}
+        for (org, rxn), k in self.kcat.items():
+            kcat.setdefault(org, {})[rxn] = k
+        return {
+            "default_vmax": self.default_vmax,
+            "default_km": self.default_km,
+            "default_enzyme_concentration": self.default_enzyme_concentration,
+            "metabolite_defaults": {m: list(vk) for m, vk in self.metabolite_defaults.items()},
+            "overrides": overrides,
+            "kcat": kcat,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "KineticParameters":
+        kp = cls(
+            default_vmax=data.get("default_vmax", DEFAULT_VMAX),
+            default_km=data.get("default_km", DEFAULT_KM),
+            default_enzyme_concentration=data.get("default_enzyme_concentration", 1e-2),
+            metabolite_defaults={
+                m: tuple(vk) for m, vk in data.get("metabolite_defaults", {}).items()
+            },
+        )
+        for org, mets in data.get("overrides", {}).items():
+            for met, vk in mets.items():
+                kp.overrides[(org, met)] = tuple(vk)
+        for org, rxns in data.get("kcat", {}).items():
+            for rxn, k in rxns.items():
+                kp.kcat[(org, rxn)] = float(k)
+        return kp
+
+    def to_json(self, path) -> None:
+        import json
+        from pathlib import Path
+
+        Path(path).write_text(json.dumps(self.to_dict(), indent=2))
+
+    @classmethod
+    def from_json(cls, path) -> "KineticParameters":
+        import json
+        from pathlib import Path
+
+        return cls.from_dict(json.loads(Path(path).read_text()))
 
 
 def vmax_from_kcat(kcat: float, enzyme_concentration: float) -> float:

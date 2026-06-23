@@ -170,9 +170,16 @@ non-negativity clamping.
 - [ ] Validate CarveMe + Prodigal + CheckM2 on a real MAG set on a capable host
 - [ ] Multi-threading / resource tuning for very large clusters (>500 MAGs)
 
-**Milestone 2 — Kinetics refinement (optional layer)**
-- [ ] DLKcat / Km predictor wrappers (`ml` extra) + namespace mapping
-- [ ] Enzyme-constrained (GECKO-style) Vmax bounds
+**Milestone 2 — Kinetics refinement (in progress)**
+- [x] Kinetic-parameter store extended with per-reaction kcat + JSON persistence
+- [x] Dependency-free `heuristic` predictor (default): literature Km for common
+      substrates, kcat around the genome-wide median — runs everywhere
+- [x] GECKO-lite enzyme-constraint layer (`muode.enzyme`) wired through the CLI
+      (`simulate --enzyme-constraints`), the workflow, and the dFBA loop
+- [x] Opt-in DLKcat / Kroll-Km wrappers (`ml` extra) + `build_enzyme_context`
+      BiGG→(sequence, SMILES) namespace mapping
+- [ ] Bundle/validate real DLKcat & Kroll checkpoints on a GPU host
+- [ ] Full protein-*pool* GECKO budget (needs enzyme MW + proteome fraction); ESM-2
 
 **Milestone 3 — Validation & scale**
 - [ ] Benchmark against a known synthetic/gut community (SCFA, growth rates)
@@ -193,6 +200,9 @@ non-negativity clamping.
 - Geller-McGrath et al. (2024) *MetaPathPredict.* Nature Communications.
 - Li et al. (2022) *DLKcat.* Nature Catalysis.
 - Kroll et al. (2021) *Deep learning of Km.* Nature Communications.
+- Bar-Even et al. (2011) *The moderately efficient enzyme.* Biochemistry — source of
+  the genome-wide median kcat used by the heuristic predictor.
+- Sánchez et al. (2017) *GECKO: enzyme-constrained models.* Mol. Syst. Biol.
 - Diener, Gibbons & Resendis-Antonio (2020) *MICOM.* mSystems.
 - Dukovski et al. (2021) *COMETS protocol.* Nature Protocols.
 - Lieven et al. (2020) *memote.* Nature Biotechnology.

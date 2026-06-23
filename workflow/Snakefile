@@ -154,13 +154,17 @@ rule refine:
     output:
         model=f"{OUT}/models/refined/{{mag}}.xml",
         qc=f"{OUT}/models/refined/{{mag}}.qc.json",
+        kinetics=f"{OUT}/models/refined/{{mag}}.kinetics.json",
     params:
         universal=(f"--universal {config['universal_model']}" if config.get("universal_model") else ""),
+        predict=("--predict-kinetics" if config.get("predict_kinetics", False) else ""),
+        predictor=config.get("predictor", "heuristic"),
     log:
         f"{OUT}/logs/refine/{{mag}}.log",
     shell:
         "python {SCRIPTS}/refine_one.py {input.model} {output.model} "
-        "--qc-json {output.qc} {params.universal} > {log} 2>&1"
+        "--qc-json {output.qc} --kinetics-json {output.kinetics} "
+        "--predictor {params.predictor} {params.predict} {params.universal} > {log} 2>&1"
 
 
 # --- Phase 3b: reconstruction QC summary (aggregate over surviving MAGs) ---
@@ -224,6 +228,12 @@ def passing_models(wildcards):
     return expand(f"{OUT}/models/refined/{{mag}}.xml", mag=mags)
 
 
+def passing_kinetics(wildcards):
+    ck = checkpoints.select_mags.get(**wildcards).output.passing
+    mags = [m.strip() for m in open(ck) if m.strip()]
+    return expand(f"{OUT}/models/refined/{{mag}}.kinetics.json", mag=mags)
+
+
 rule assemble:
     input:
         models=passing_models,
@@ -244,6 +254,9 @@ rule assemble:
 rule simulate:
     input:
         community=f"{OUT}/simulation/community.json",
+        # refined kinetics are produced alongside the models; depend on them so
+        # the dynamic run waits for prediction when it is enabled.
+        kinetics=(passing_kinetics if config.get("predict_kinetics", False) else []),
     output:
         biomass=f"{OUT}/simulation/biomass.csv",
     params:
@@ -251,11 +264,14 @@ rule simulate:
         step=config.get("dt", 0.1),
         vmax=config.get("default_vmax", 10.0),
         km=config.get("default_km", 0.01),
+        kinetics_flag=(f"--kinetics {OUT}/models/refined" if config.get("predict_kinetics", False) else ""),
+        enzyme_flag=("--enzyme-constraints" if config.get("enzyme_constraints", False) else ""),
     log:
         f"{OUT}/logs/simulate.log",
     shell:
         "muode simulate --community {input.community} --time {params.time} --step {params.step} "
         "--default-vmax {params.vmax} --default-km {params.km} "
+        "{params.kinetics_flag} {params.enzyme_flag} "
         "--outdir {OUT}/simulation > {log} 2>&1"
 
 

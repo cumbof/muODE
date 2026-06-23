@@ -140,7 +140,8 @@ def refine(
     models: Path = typer.Option(..., help="Directory of draft GEMs."),
     outdir: Path = typer.Option("models/kinetic_gems", help="Output directory."),
     universal: Optional[Path] = typer.Option(None, help="Universal model (SBML) for LP gap-filling."),
-    predict_kinetics: bool = typer.Option(False, help="Run optional DLKcat/Km prediction."),
+    predict_kinetics: bool = typer.Option(False, help="Predict Km + kcat and write {stem}.kinetics.json."),
+    predictor: str = typer.Option("heuristic", help="heuristic (default, no deps) | dlkcat | km-ml (need the 'ml' extra)."),
 ) -> None:
     """Phase 2/3 -- gap-fill models and (optionally) predict kinetic parameters."""
     import cobra
@@ -149,15 +150,29 @@ def refine(
 
     outdir.mkdir(parents=True, exist_ok=True)
     uni = cobra.io.read_sbml_model(str(universal)) if universal else None
+
+    pred = None
     if predict_kinetics:
-        console.print("[yellow]Kinetic prediction (DLKcat/Km) requires the 'ml' extra; "
-                      "models will carry default kinetics until wired in.[/yellow]")
+        from muode.predict import get_predictor
+
+        try:
+            pred = get_predictor(predictor)
+        except Exception as exc:  # missing 'ml' extra, unknown name, ...
+            raise typer.BadParameter(str(exc)) from exc
+
     for path in sorted(Path(models).glob("*.xml")):
         model = cobra.io.read_sbml_model(str(path))
         info = ensure_biomass(model, universal=uni)
         cobra.io.write_sbml_model(model, str(outdir / path.name))
         flag = "ok" if info["grows_now"] else "STILL DEAD"
-        console.print(f"{path.stem}: +{len(info['reactions_added'])} rxns [{flag}]")
+        msg = f"{path.stem}: +{len(info['reactions_added'])} rxns [{flag}]"
+        if pred is not None:
+            from muode.predict import refine_kinetics
+
+            kin = refine_kinetics(model, path.stem, predictor=pred)
+            kin.to_json(outdir / f"{path.stem}.kinetics.json")
+            msg += f"  ·  kinetics[{pred.name}]: {len(kin.kcat)} kcat, {len(kin.overrides)} Km"
+        console.print(msg)
 
 
 @app.command()
@@ -198,6 +213,18 @@ def _community_from_manifest(path: Path):
     return comm, manifest.get("diet", "western_gut")
 
 
+def _load_kinetics(spec: Path):
+    """Load and merge predicted kinetics from a file or a directory of them."""
+    from muode.kinetics import KineticParameters
+
+    spec = Path(spec)
+    files = sorted(spec.glob("*.kinetics.json")) if spec.is_dir() else ([spec] if spec.exists() else [])
+    merged = KineticParameters()
+    for f in files:
+        merged.merge(KineticParameters.from_json(f))
+    return merged, len(files)
+
+
 @app.command()
 def simulate(
     community: Optional[Path] = typer.Option(None, help="community.json manifest from `assemble`."),
@@ -211,6 +238,8 @@ def simulate(
     total_biomass: float = typer.Option(0.01, help="Total community biomass (gDW/L)."),
     default_vmax: float = typer.Option(10.0, help="Default Vmax (mmol/gDW/h)."),
     default_km: float = typer.Option(0.01, help="Default Km (mmol/L)."),
+    kinetics: Optional[Path] = typer.Option(None, help="Predicted kinetics: a *.kinetics.json file or a directory of them (from `refine --predict-kinetics`)."),
+    enzyme_constraints: bool = typer.Option(False, help="Apply GECKO-lite kcat caps to intracellular reactions (needs --kinetics with kcat)."),
     outdir: Path = typer.Option("results", help="Output directory."),
 ) -> None:
     """Phase 4 -- run the dynamic community simulation."""
@@ -227,8 +256,23 @@ def simulate(
     else:
         raise typer.BadParameter("provide either --community or --models")
 
+    kin = _kinetics(default_vmax, default_km)
+    if kinetics:
+        loaded, n = _load_kinetics(kinetics)
+        kin.merge(loaded)
+        console.print(f"[green]Loaded refined kinetics from {n} file(s) "
+                      f"({len(kin.kcat)} kcat, {len(kin.overrides)} Km).[/green]")
+    if enzyme_constraints:
+        if not kin.kcat:
+            console.print("[yellow]--enzyme-constraints set but no kcat available "
+                          "(pass --kinetics); skipping.[/yellow]")
+        for o in comm.organisms:
+            if hasattr(o, "apply_enzyme_constraints"):
+                rep = o.apply_enzyme_constraints(kin, organism_id=o.id)
+                console.print(f"  {o.id}: enzyme-constrained {rep['n_constrained']} reaction(s)")
+
     engine = DynamicFBA(t_end=time, dt=step, death_rate=death_rate, dilution_rate=dilution_rate)
-    result = engine.run(comm, _load_diet(diet), _kinetics(default_vmax, default_km))
+    result = engine.run(comm, _load_diet(diet), kin)
     outdir.mkdir(parents=True, exist_ok=True)
     _save_outputs(result, outdir)
     _summary(result)
