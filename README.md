@@ -139,92 +139,171 @@ by Snakemake from `workflow/envs/` when you run with `--use-conda`.
 
 ## 💻 Quick Start & CLI Usage
 
-µODE exposes an intuitive CLI for each pipeline phase. Commands marked ✅ run
-today; ⚙️ shell out to external reconstruction tools (driven at scale by the
-Snakemake workflow).
+µODE exposes a CLI for each pipeline phase. Commands marked ✅ run today;
+⚙️ call external reconstruction tools (driven at scale by the Snakemake
+workflow). Each step below notes what it **consumes** and what it **produces**
+so the chain is unambiguous.
 
 **0. Try the engine immediately ✅**
+
+No data needed — the built-in two-species cross-feeding demo runs with only
+numpy/scipy:
 
 ```bash
 muode demo --outdir results/demo
 ```
 
-**1. Build Models from MAGs ⚙️**
+---
+
+**1. Build Draft GEMs from MAGs ⚙️**
+
+*Consumes:* MAG FASTA files (`.fna`/`.fasta`) you provide in `data/raw_mags/`.  
+*Produces:* one SBML model per MAG in `models/draft_gems/`.
 
 ```bash
 muode build --mags ./data/raw_mags/ --outdir ./models/draft_gems/ --engine carveme
 ```
 
-**2. Gap-Fill & (optionally) Predict Kinetics ⚙️**
+> For scale (dozens–thousands of MAGs), use the Snakemake workflow: it fans
+> reconstruction out per MAG with optional CheckM2 QC gating.
+
+---
+
+**2. Gap-Fill & Predict Kinetics ⚙️**
+
+*Consumes:* draft GEMs from step 1.  
+*Produces:* gap-filled GEMs + one `{stem}.kinetics.json` per model in `models/kinetic_gems/`.
 
 ```bash
 # heuristic predictor (no extra deps) writes a {stem}.kinetics.json per model
 muode refine --models ./models/draft_gems/ --outdir ./models/kinetic_gems/ --predict-kinetics
-# (use --predictor dlkcat|km-ml with the `ml` extra for the deep-learning models)
+# deep-learning kinetics (needs the `ml` extra):
+# muode refine ... --predictor dlkcat
 ```
 
-Then feed the predicted kinetics into the simulation, optionally enabling the
-enzyme-constraint ($k_{cat}$) layer:
+---
+
+**3. Quantify Relative Abundances ⚙️**
+
+*Consumes:* two files produced by **external tools** (not part of muODE):
+
+- `data/metasbt_profiles/` — MetaSBT `profile` output: one TSV per MAG reporting
+  the closest species cluster at each taxonomic rank (run `MetaSBT profile` against
+  a MetaSBT database you have built or downloaded).
+- `data/sample.bracken.tsv` — Bracken per-taxon abundance report from your
+  sample's sequencing reads. Requires a Kraken2 + Bracken database built from the
+  same MetaSBT database (`MetaSBT kraken` → `bracken-build` → `kraken2` →
+  `bracken`; see `muode.quantify` for command scaffolds for all of these).
+
+*Produces:* `data/abundance.tsv` — a 2-column `(mag_id, rel_abundance)` TSV for `assemble`.
 
 ```bash
+muode quantify \
+  --bracken          ./data/sample.bracken.tsv \
+  --metasbt-profiles ./data/metasbt_profiles/ \
+  --out              ./data/abundance.tsv
+```
+
+> **No MetaSBT/Bracken yet?** Skip this step and supply a hand-crafted 2-column
+> TSV (`mag_id`, `rel_abundance`) directly to `muode assemble --abundance`.
+
+---
+
+**4. Assemble the Community ✅**
+
+*Consumes:* gap-filled GEMs from step 2 + abundance TSV from step 3.  
+*Produces:* `simulation_env/community.json` — consumed by all downstream commands.
+
+```bash
+muode assemble \
+  --models    ./models/kinetic_gems/ \
+  --abundance ./data/abundance.tsv \
+  --diet      western_gut \
+  --outdir    ./simulation_env/
+```
+
+For very large communities, subsample by abundance (pick one):
+
+```bash
+# keep the fewest top MAGs that cover 95 % of total abundance:
+muode assemble ... --coverage 0.95
+
+# or keep at most 100 MAGs:
+muode assemble ... --max-species 100
+
+# or drop anything below 0.1 % relative abundance:
+muode assemble ... --min-abundance 0.001
+```
+
+---
+
+**5. Run the Dynamic Simulation ✅**
+
+*Consumes:* `community.json` from step 4 (+ optionally the kinetics files from step 2).  
+*Produces:* `results/biomass.csv`, `metabolites.csv`, `growth_rates.csv`,
+`cross_feeding.csv` and figures.
+
+```bash
+# basic simulation:
 muode simulate --community ./simulation_env/community.json \
-               --kinetics ./models/kinetic_gems/ --enzyme-constraints --outdir ./results/
+               --time 24 --step 0.1 --outdir ./results/
+
+# with predicted kinetics + GECKO-lite enzyme constraints (from step 2):
+muode simulate --community ./simulation_env/community.json \
+               --kinetics ./models/kinetic_gems/ --enzyme-constraints \
+               --time 24 --step 0.1 --outdir ./results/
 ```
 
-**3. Assemble Community & Diet ✅**
+---
+
+**6. Validate Against a Known Community ✅**
+
+*Consumes:* results directory from step 5 + a benchmark expectation YAML.  
+A ready-made YAML for the built-in toy community is in `examples/benchmarks/`.
+For real communities, provide your own YAML using that file as a template.
 
 ```bash
-# Quantitative abundance: join MetaSBT taxonomy (identity) with Bracken (abundance).
-# Run MetaSBT/Kraken2/Bracken upstream on a capable host (see muode.quantify); then:
-muode quantify --bracken ./data/sample.bracken.tsv \
-               --metasbt-profiles ./data/metasbt_profiles/ --out ./data/abundance.tsv
-
-muode assemble --models ./models/kinetic_gems/ --abundance ./data/abundance.tsv \
-               --diet western_gut --outdir ./simulation_env/
-# huge community? subsample by abundance:
-muode assemble --models ./models/kinetic_gems/ --abundance ./data/abundance.tsv \
-               --coverage 0.95 --outdir ./simulation_env/
+muode validate --results ./results/ \
+               --expected examples/benchmarks/toy_cross_feeding.yaml
 ```
 
-**4. Run the Dynamic Simulation ✅**
+---
+
+**7. Spatial (colony / biofilm) Simulation ✅**
+
+Standalone — no previous steps required. Uses the same built-in cross-feeding
+demo community on a 2D reaction-diffusion grid.
 
 ```bash
-muode simulate --community ./simulation_env/community.json --time 24 --step 0.1 --outdir ./results/
-```
-
-**5. Validate Against a Known Community ✅**
-
-```bash
-muode validate --results ./results/ --expected examples/benchmarks/toy_cross_feeding.yaml
-```
-
-**6. Spatial (colony / biofilm) Simulation ✅**
-
-```bash
-# 2D reaction-diffusion dynamic FBA; no data needed (built-in cross-feeding demo)
 muode spatial --nx 24 --time 12 --outdir ./results/spatial/
 ```
 
-**Or run the whole pipeline with Snakemake (recommended for many MAGs):**
+---
+
+**Run the whole pipeline with Snakemake (recommended for many MAGs):**
 
 ```bash
 conda activate muode
 snakemake --use-conda --cores 8 --configfile config/config.yaml
 ```
 
-**Validate the whole pipeline locally first (no external tools, any architecture):**
+**Validate the full pipeline locally first (no external tools, any architecture):**
 
 ```bash
-# uses the dependency-free `stub` engine on two bundled toy MAGs; no --use-conda
+# dependency-free `stub` engine on two bundled toy MAGs — no --use-conda needed
 snakemake --cores 4 --configfile config/config.demo.yaml
 ```
 
 ## 📊 Inputs and Outputs
 
 **Inputs**
-- **Genomes:** `.fasta`/`.fna` files containing your MAGs/strains.
-- **Abundance Profile:** a 2-column TSV mapping MAG ids to relative abundance (e.g. a MetaSBT profile).
-- **Diet/Media Profile:** a preset name, or a CSV defining nutrient concentrations (mmol/L) and optional influx.
+- **Genomes:** `.fasta`/`.fna` MAG files you provide (one per bin).
+- **Abundance profile:** a 2-column TSV (`mag_id`, `rel_abundance`). Produced by
+  `muode quantify` (joining a MetaSBT taxonomy characterization with a Bracken
+  read-abundance report), or hand-crafted if you have abundances from another
+  source.
+- **Diet / media profile:** a preset name (e.g. `western_gut`) or a CSV of
+  metabolite concentrations (mmol/L) with an optional influx column.
 
 **Outputs**
 - **Metabolic Models:** standard `.xml` (SBML) / `.json` per species.
@@ -267,7 +346,7 @@ See **[docs/EVALUATION.md](docs/EVALUATION.md)** for the full, justified plan.
 - [x] **M0 — Core engine & scaffold:** native dFBA integrator, perturbation engine, kinetics/diet layer, cross-feeding inference, CLI, Snakemake workflow, tests.
 - [~] **M1 — Reconstruction at scale (in progress):** ✅ end-to-end DAG fan-out per MAG with a `stub` engine that runs the *whole* pipeline locally; ✅ `reconstruction_summary.tsv` aggregation; ✅ QC-driven failure isolation (non-simulatable models dropped, not fatal); ✅ optional memote rule + universal-model gap-fill wiring. **Remaining:** validate CarveMe/Prodigal + CheckM2 on real MAG sets on a capable host; multi-threading tuning for large clusters (>500 MAGs).
 - [~] **M2 — Kinetics refinement (in progress):** ✅ kinetic-parameter store with $k_{cat}$ + persistence; ✅ dependency-free heuristic predictor (default); ✅ GECKO-lite enzyme-constraint layer wired through CLI + workflow + dFBA; ✅ opt-in DLKcat/Kroll wrappers + BiGG→(sequence, SMILES) context. **Remaining:** bundle/validate real DLKcat & Kroll checkpoints on a GPU host; full protein-*pool* GECKO budget; ESM-2 embeddings.
-- [~] **M3 — Validation & scale (in progress):** ✅ benchmark/validation framework (`muode validate`: relative-abundance MAE + Spearman, SCFA/metabolite error, cross-feeding edge F1, pass/fail vs. tolerances); ✅ abundance-aware subsampling (`top_n`/`min_abundance`/`coverage`) for huge communities; ✅ MetaSBT profile ingestion contract (`muode.metasbt`). **Remaining:** benchmark against real synthetic/gut datasets on a capable host; COMETS alternative dynamic backend.
+- [~] **M3 — Validation & scale (in progress):** ✅ benchmark/validation framework (`muode validate`: relative-abundance MAE + Spearman, SCFA/metabolite error, cross-feeding edge F1, pass/fail vs. tolerances); ✅ abundance-aware subsampling (`top_n`/`min_abundance`/`coverage`) for huge communities; ✅ upstream abundance contract: MetaSBT taxonomy parser (`muode.metasbt`, reads per-MAG species-cluster identity) + Bracken abundance parser (`muode.bracken`) + join (`muode.quantify`, `muode quantify`), with command scaffolds for the MetaSBT→Kraken2→Bracken toolchain. **Remaining:** benchmark against real synthetic/gut datasets on a capable host; COMETS alternative dynamic backend.
 - [~] **M4 — Reach (in progress):** ✅ spatiotemporal (PDE) 2D reaction-diffusion colony/biofilm engine (`muode.spatial`, `muode spatial`) — per-cell community FBA + metabolite diffusion, reproducing spatial cross-feeding gradients; ✅ spatial figures. **Remaining:** interactive GUI dashboard (deferred — not headless-testable); performance work for large GEMs on large grids; ESM-2 embeddings.
 
 ## 🙏 Acknowledgments
