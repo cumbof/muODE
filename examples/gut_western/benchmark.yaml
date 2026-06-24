@@ -1,0 +1,45 @@
+# Benchmark expectation for the 12-species western gut community example.
+# Produced by:
+#   muode validate --results examples/gut_western/results \
+#                  --expected examples/gut_western/benchmark.yaml
+#
+# Tolerances are intentionally generous:
+#   - GEM quality varies across reconstruction runs and CarveMe versions.
+#   - The built-in western_gut diet preset is a simplified stand-in (glucose +
+#     fructose + lactose) rather than the full ~200-metabolite VMH diet.
+#   - These thresholds check the broad ecological signal (Bacteroides dominance,
+#     SCFA cross-feeding) rather than exact numerical reproducibility.
+name: western_gut_12sp
+
+# --- expected community composition at simulation end ----------------------
+# Bacteroides should remain dominant on the glucose/fructose-rich western diet.
+# Butyrate producers survive by cross-feeding on Bacteroides-derived acetate.
+relative_abundances:
+  B_thetaiotaomicron_VPI5482: 0.25
+  B_fragilis_NCTC9343: 0.14
+  E_rectale_ATCC33656: 0.10
+  B_longum_NCC2705: 0.07
+
+# --- expected metabolite concentrations at simulation end (mmol/L) ----------
+# Glucose should be largely consumed (steady influx = low standing pool).
+# Acetate is the primary fermentation product and cross-feeding shuttle;
+# a nonzero pool is expected because not all of it is consumed downstream.
+# Butyrate is the terminal product of the cross-feeding chain.
+metabolites:
+  glc_e: 2.0        # mostly consumed
+  ac_e: 1.0         # produced then partially cross-fed
+  but_e: 0.5        # terminal butyrate pool (cross-fed from acetate)
+
+# --- expected cross-feeding interactions ------------------------------------
+# The key ecological signal: Bacteroides thetaiotaomicron ferments glucose ->
+# acetate, which Eubacterium rectale uses as a substrate for butyrate synthesis.
+# Bifidobacterium longum also feeds acetate into the pool (oligosaccharide -> acetate).
+cross_feeding:
+  - [B_thetaiotaomicron_VPI5482, ac_e, E_rectale_ATCC33656]
+  - [B_longum_NCC2705, ac_e, E_rectale_ATCC33656]
+
+# --- tolerances -------------------------------------------------------------
+tolerances:
+  abundance_mae: 0.15     # mean absolute error of relative abundance (0-1 scale)
+  metabolite_mae: 5.0     # mmol/L — wide because model quality varies
+  min_f1: 0.25            # at least 1 of the 2 expected cross-feeding edges detected
