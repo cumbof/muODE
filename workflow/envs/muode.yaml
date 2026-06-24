@@ -1,5 +1,8 @@
 # Core muODE engine environment (refine / assemble / simulate / perturb).
-# After creating it, install the package itself:  pip install -e .
+# Run snakemake from the repository root so that `pip install .` below finds
+# the local muode package (the `.` is relative to the snakemake invocation
+# directory).  For a development / editable install run:
+#   conda activate muode && pip install -e .
 name: muode
 channels:
   - conda-forge
@@ -22,3 +25,5 @@ dependencies:
   # Optional gene caller (Phase 1, pure-Python):
   - pyrodigal
   - biopython
+  - pip:
+    - .  # install muode from the repo root (snakemake must be run from there)

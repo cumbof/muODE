@@ -13,23 +13,36 @@
 # * `reconstruct_report` aggregates every per-MAG QC into one
 #   `reconstruction_summary.tsv` -- the table you read after a large run -- and
 #   `assemble` uses it to drop non-simulatable models instead of aborting.
-# * External tools (CarveMe, CheckM2) run in their own conda envs via `--use-conda`.
-#   The muODE engine steps run in the active `muode` env (where you `pip install -e .`).
+# * All shell-based rules carry `conda:` directives so `--use-conda` installs
+#   every dependency automatically.  `envs/muode.yaml` installs muode itself via
+#   `pip install .` (repo root must be the snakemake invocation directory).
+# * `run:` blocks (select_mags, reconstruct_report, validate) execute in the
+#   main Python process and therefore still require muode in the *active* env.
+#   Activate the muode conda env and `pip install -e .` before running.
 #
 # Engines (`engine:` in config)
 # ------------------------------
-# * `carveme` (default) -- real reconstruction; needs the carveme conda env.
+# * `carveme` (default) -- real reconstruction; conda env created automatically.
+# * `gapseq`            -- alternative (ModelSEED namespace, do NOT mix with CarveMe).
 # * `stub`              -- dependency-free placeholder models so the whole DAG can
-#                          be validated locally (e.g. aarch64). Run WITHOUT
-#                          `--use-conda` in your active `muode` env. NOT science.
+#                          be validated locally (e.g. aarch64). NOT science.
+#
+# Domain-aware reconstruction (`traits:` in config, optional)
+# -----------------------------------------------------------
+# Point `traits:` at a two-column TSV (mag_id, domain) to let the pipeline route
+# each MAG to the correct tool: bacteria/archaea->ENGINE, eukaryote->gapseq,
+# virus->skipped (no GEM; use PhageInfection ecology layers instead).
 #
 # Run (from the repo root):
-#   conda activate muode
+#   conda activate muode && pip install -e .
 #   # full pipeline on a capable machine:
-#   snakemake --use-conda --cores 8 --configfile config/config.yaml
+#   snakemake --snakefile workflow/Snakefile \
+#             --use-conda --cores 8 --configfile config/config.yaml
 #   # local end-to-end DAG smoke-test on the bundled stub MAGs:
-#   snakemake --cores 4 --configfile config/config.demo.yaml
+#   snakemake --snakefile workflow/Snakefile \
+#             --cores 4 --configfile config/config.demo.yaml
 
+import csv
 import glob
 import os
 from pathlib import Path
@@ -45,28 +58,81 @@ ENGINE = config.get("engine", "carveme")
 UNIVERSE = config.get("universe", "bacteria")
 SCRIPTS = os.path.join(workflow.basedir, "scripts")
 
-MAGS = sorted(Path(p).stem for p in glob.glob(os.path.join(MAGS_DIR, f"*.{EXT}")))
+# --- domain-aware routing (optional traits.tsv side file) ------------------
+# If `traits:` is set in config, read per-MAG domains so the pipeline can
+# route each genome to the correct reconstruction tool and skip virus MAGs
+# (which have no GEM — their dynamics come from PhageInfection ecology layers).
+MAG_DOMAINS: dict = {}
+_traits_file = config.get("traits", "")
+if _traits_file and os.path.isfile(_traits_file):
+    with open(_traits_file) as _tf:
+        for _row in csv.DictReader(_tf, delimiter="\t"):
+            if not _row.get("mag_id", "").startswith("#"):
+                MAG_DOMAINS[_row["mag_id"]] = _row.get("domain", "bacteria").lower()
 
-# --- reconstruction engine dispatch (chosen once, at parse time) -----------
-# CarveMe runs in its own conda env from the rule shell; the dependency-free
-# `stub` engine is driven from Python in the active muode env.
-if ENGINE == "carveme":
-    RECON_CONDA = "envs/carveme.yaml"
-    RECON_SHELL = (
-        "prodigal -i {input.genome} -a {params.proteins} -p meta -q > {log} 2>&1 && "
-        "carve {params.proteins} -o {output.model} -u %s {params.media_flag} >> {log} 2>&1"
-        % UNIVERSE
+
+def _mag_domain(mag: str) -> str:
+    return MAG_DOMAINS.get(mag, "bacteria")
+
+
+# Build MAG list; exclude virus MAGs — they have no GEM to reconstruct.
+_all_mags = sorted(Path(p).stem for p in glob.glob(os.path.join(MAGS_DIR, f"*.{EXT}")))
+_virus_mags = [m for m in _all_mags if _mag_domain(m) == "virus"]
+MAGS = [m for m in _all_mags if _mag_domain(m) != "virus"]
+if _virus_mags:
+    print(
+        f"[muODE] skipping {len(_virus_mags)} virus MAG(s) — no GEM reconstruction: "
+        f"{_virus_mags}\n"
+        "        Add PhageInfection ecology layers for these in your simulate script."
     )
-elif ENGINE == "stub":
-    RECON_CONDA = "envs/muode.yaml"
-    RECON_SHELL = (
-        "python {SCRIPTS}/reconstruct_one.py {input.genome} {output.model} "
-        "--engine stub > {log} 2>&1"
-    )
-else:
+
+
+# --- reconstruction engine dispatch ----------------------------------------
+# Default engine validation (gapseq / stub / carveme).  Per-MAG domain
+# overrides happen inside _recon_conda and _recon_cmd below.
+if ENGINE not in ("carveme", "stub", "gapseq"):
     raise WorkflowError(
-        f"engine '{ENGINE}' is not wired into the workflow; use 'carveme' (default) "
-        "or 'stub' (local DAG test). gapseq is available via `muode build --engine gapseq`."
+        f"engine '{ENGINE}' is not wired into the workflow; "
+        "use 'carveme' (default), 'stub' (local DAG test), or 'gapseq'."
+    )
+
+
+def _recon_conda(wildcards):
+    """Return the conda env for this MAG's reconstruction, by domain."""
+    domain = _mag_domain(wildcards.mag)
+    if domain == "eukaryote":
+        return "envs/gapseq.yaml"   # gapseq has the broadest eukaryote coverage
+    # bacteria / archaea: honour the configured ENGINE
+    if ENGINE == "carveme":
+        return "envs/carveme.yaml"
+    return "envs/muode.yaml"        # stub or gapseq in the muode env
+
+
+def _recon_cmd(wildcards, input, output):
+    """Return the shell command for this MAG's reconstruction, by domain."""
+    domain = _mag_domain(wildcards.mag)
+    genome = str(input.genome)
+    model  = str(output.model)
+    media_flag = f"-g {config['gapfill_media']}" if config.get("gapfill_media") else ""
+
+    if domain == "eukaryote":
+        # gapseq doall: find pathways + fill + combine in one go.
+        # Requires gapseq conda env (envs/gapseq.yaml).
+        return (
+            f"python {SCRIPTS}/reconstruct_one.py {genome} {model} "
+            f"--engine gapseq {media_flag}"
+        )
+    # bacteria / archaea
+    if ENGINE == "carveme":
+        proteins = model.replace(".xml", ".faa")
+        return (
+            f"prodigal -i {genome} -a {proteins} -p meta -q && "
+            f"carve {proteins} -o {model} -u {UNIVERSE} {media_flag}"
+        )
+    # stub / gapseq global engine
+    return (
+        f"python {SCRIPTS}/reconstruct_one.py {genome} {model} "
+        f"--engine {ENGINE} --universe {UNIVERSE} {media_flag}"
     )
 
 
@@ -132,21 +198,22 @@ checkpoint select_mags:
 
 
 # --- Phase 1: reconstruction (per MAG) ------------------------------------
+# conda env and shell command are determined per-wildcard by domain (from traits.tsv
+# if provided) so bacteria→carveme, eukaryote→gapseq, and viruses are skipped above.
 rule reconstruct:
     input:
         genome=f"{MAGS_DIR}/{{mag}}.{EXT}",
     output:
         model=f"{OUT}/models/draft/{{mag}}.xml",
     params:
-        proteins=f"{OUT}/models/draft/{{mag}}.faa",
-        media_flag=(f"-g {config['gapfill_media']}" if config.get("gapfill_media") else ""),
+        cmd=_recon_cmd,
     threads: config.get("threads", 4)
     log:
         f"{OUT}/logs/reconstruct/{{mag}}.log",
     conda:
-        RECON_CONDA
+        _recon_conda
     shell:
-        RECON_SHELL
+        "( {params.cmd} ) > {log} 2>&1"
 
 
 # --- Phase 2/3: gap-filling + kinetics QC (per MAG) -----------------------
@@ -163,6 +230,8 @@ rule refine:
         predictor=config.get("predictor", "heuristic"),
     log:
         f"{OUT}/logs/refine/{{mag}}.log",
+    conda:
+        "envs/muode.yaml"
     shell:
         "python {SCRIPTS}/refine_one.py {input.model} {output.model} "
         "--qc-json {output.qc} --kinetics-json {output.kinetics} "
@@ -265,6 +334,8 @@ rule assemble:
         subsample=_subsample_flags(),
         diet=config.get("diet", "western_gut"),
         total_biomass=config.get("total_biomass", 0.01),
+    conda:
+        "envs/muode.yaml"
     shell:
         "python {SCRIPTS}/assemble.py --models {input.models} --diet {params.diet} "
         "--total-biomass {params.total_biomass} --summary {input.summary} "
@@ -290,6 +361,8 @@ rule simulate:
         enzyme_flag=("--enzyme-constraints" if config.get("enzyme_constraints", False) else ""),
     log:
         f"{OUT}/logs/simulate.log",
+    conda:
+        "envs/muode.yaml"
     shell:
         "muode simulate --community {input.community} --time {params.time} --step {params.step} "
         "--default-vmax {params.vmax} --default-km {params.km} "
@@ -340,6 +413,8 @@ rule perturb:
         step=config.get("dt", 0.1),
     log:
         f"{OUT}/logs/perturb.log",
+    conda:
+        "envs/muode.yaml"
     shell:
         "muode perturb --community {input.community} {params.flags} "
         "--time {params.time} --step {params.step} "

@@ -1,18 +1,27 @@
-# muODE pipeline config — multi-kingdom gut example (bacteria + fungus + phage).
-# Run from the repository root:
-#   snakemake --use-conda --cores 8 --configfile examples/multikingdom/config.yaml
+# muODE pipeline config -- multi-kingdom gut example (bacteria + fungus + phage).
+# Run from the REPOSITORY ROOT so that `pip install .` in the conda envs finds
+# the local muode package:
 #
-# NB: the bacterial members reconstruct with CarveMe, but the FUNGUS does not —
-# CarveMe is prokaryote-only. Reconstruct C_albicans via a fungal route (Yeast8
-# template / CarveFungi / gapseq) and drop the SBML into the models dir, then run
-# the simulation phase. The PHAGE is not reconstructed at all; it is added as a
-# PhageInfection ecology layer in code (see mechanistic_demo.py). The Snakemake
-# reconstruction phase here covers the bacteria only.
+#   conda activate muode            # for run: blocks (select_mags, validate, ...)
+#   pip install -e .                # editable install so imports resolve
+#   snakemake --snakefile workflow/Snakefile \
+#             --use-conda --cores 8 \
+#             --configfile examples/multikingdom/config.yaml
+#
+# Domain-aware reconstruction (driven by `traits:` below):
+#   bacteria / archaea  --> CarveMe  (workflow/envs/carveme.yaml)
+#   eukaryote (fungus)  --> gapseq   (workflow/envs/gapseq.yaml)
+#                          gapseq has limited fungi pathway coverage; for best
+#                          results use Yeast8/CarveFungi and place the SBML
+#                          manually in results/models/draft/ before running.
+#   virus (phage)       --> skipped  (no GEM -- add PhageInfection ecology
+#                          layers in mechanistic_demo.py instead)
 
 # --- inputs / outputs -------------------------------------------------------
 mags_dir: "examples/multikingdom/data/mags"
 mag_extension: "fna"
 abundance: "examples/multikingdom/abundance.tsv"
+traits: "examples/multikingdom/traits.tsv"   # per-MAG domain/oxygen side file
 outdir: "examples/multikingdom/results"
 
 # --- Phase 0: MAG quality gate ----------------------------------------------
@@ -21,8 +30,8 @@ min_completeness: 50.0
 max_contamination: 10.0
 
 # --- Phase 1: reconstruction ------------------------------------------------
-# gramneg covers the two bacteria; the fungus must be reconstructed separately
-# (see header) and its SBML placed alongside the CarveMe output.
+# gramneg covers the two bacteria; the fungus routes to gapseq automatically
+# via the traits file; the phage is skipped (no GEM reconstruction).
 engine: "carveme"
 universe: "gramneg"
 gapfill_media: null
