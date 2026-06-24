@@ -15,6 +15,7 @@ __version__ = "0.1.0"
 from muode.community import Community
 from muode.dfba import DynamicFBA, SimulationResult
 from muode.diet import Diet
+from muode.inject import Injection, merge_for_injection
 from muode.kinetics import KineticParameters
 from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
@@ -28,6 +29,8 @@ __all__ = [
     "DynamicFBA",
     "SimulationResult",
     "Diet",
+    "Injection",
+    "merge_for_injection",
     "KineticParameters",
     "LinprogOrganism",
     "OrganismModel",

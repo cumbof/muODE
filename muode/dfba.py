@@ -36,13 +36,14 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 
 from muode.community import Community
 from muode.diet import Diet
+from muode.inject import Injection
 from muode.kinetics import KineticParameters
 from muode.perturb import Perturbation
 
@@ -156,6 +157,7 @@ class DynamicFBA:
         diet: Diet,
         kinetics: Optional[KineticParameters] = None,
         perturbation: Optional[Perturbation] = None,
+        injections: Optional[Sequence[Injection]] = None,
     ) -> SimulationResult:
         kinetics = kinetics or KineticParameters()
 
@@ -163,6 +165,12 @@ class DynamicFBA:
         # persists across every step (an antibiotic does not wear off mid-run).
         if perturbation is not None:
             perturbation.apply(community)
+
+        # Timed biomass injections (transplants / probiotic doses).  They are
+        # state events, not bound changes: each fires at the first step reaching
+        # its time, adding biomass to community members (see muode.inject).
+        injections = list(injections or [])
+        injected = [False] * len(injections)
 
         organisms = community.organisms
         env_mets = sorted(set(community.environment_metabolites()) | set(diet.metabolites()))
@@ -187,6 +195,18 @@ class DynamicFBA:
         depletion_warned = False
 
         for step in range(n_steps + 1):
+            t_now = times[step]
+
+            # --- fire any pending injections (bolus appears at this time) ----
+            # Done before recording/solving so the introduced biomass shows in
+            # the time course and is metabolically active from this step on.
+            for k, inj in enumerate(injections):
+                if not injected[k] and t_now + 1e-9 >= inj.time:
+                    for oid, amount in inj.biomass.items():
+                        if oid in X:
+                            X[oid] = X[oid] + float(amount)
+                    injected[k] = True
+
             # record current state
             for o in organisms:
                 bio_hist[o.id][step] = X[o.id]
@@ -272,5 +292,6 @@ class DynamicFBA:
                 "diet": diet.name,
                 "n_species": len(organisms),
                 "perturbation": None if perturbation is None else perturbation.describe(),
+                "injections": [inj.describe() for inj in injections] or None,
             },
         )

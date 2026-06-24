@@ -224,6 +224,25 @@ def assemble(
     console.print(f"[bold]Wrote community manifest with {len(files)} model(s) to {out}[/bold]")
 
 
+def _injections_from_manifest(manifest: dict):
+    """Parse an optional ``injections`` block from a community manifest.
+
+    Each entry is either ``{time, name?, biomass: {id: gDW/L}}`` or
+    ``{time, name?, total_biomass, abundances: {id: rel}}``.
+    """
+    from muode.inject import Injection
+
+    out = []
+    for spec in manifest.get("injections", []) or []:
+        name = spec.get("name", "injection")
+        if "biomass" in spec:
+            out.append(Injection(time=float(spec["time"]), biomass=dict(spec["biomass"]), name=name))
+        else:
+            out.append(Injection.from_abundances(
+                spec["time"], spec["abundances"], spec["total_biomass"], name=name))
+    return out
+
+
 def _community_from_manifest(path: Path):
     from muode.community import Community
     from muode.organism import CobraOrganism
@@ -232,7 +251,34 @@ def _community_from_manifest(path: Path):
     organisms = [CobraOrganism.from_file(p, id=Path(p).stem) for p in manifest["models"]]
     comm = Community(organisms, manifest.get("abundances", {}),
                      total_biomass=manifest.get("total_biomass", 0.01))
-    return comm, manifest.get("diet", "western_gut")
+    return comm, manifest.get("diet", "western_gut"), _injections_from_manifest(manifest)
+
+
+def _resolve_injections(comm, base_injections, inject, inject_time):
+    """Merge any ``--inject`` donor manifests into ``comm`` as timed events.
+
+    Returns ``(comm, injections)`` where ``comm`` has gained the donor organisms
+    (dormant at zero biomass) and ``injections`` carries the manifest-level
+    events plus one per ``--inject`` donor.
+    """
+    from muode.inject import merge_for_injection
+
+    injections = list(base_injections)
+    if not inject:
+        return comm, injections
+
+    times = list(inject_time or [])
+    if not times:
+        raise typer.BadParameter("--inject requires --inject-time")
+    if len(times) not in (1, len(inject)):
+        raise typer.BadParameter("--inject-time must be given once or once per --inject")
+
+    for k, donor_path in enumerate(inject):
+        t = times[0] if len(times) == 1 else times[k]
+        donor_comm, _, _ = _community_from_manifest(donor_path)
+        comm, event = merge_for_injection(comm, donor_comm, time=t, name=Path(donor_path).stem)
+        injections.append(event)
+    return comm, injections
 
 
 def _load_kinetics(spec: Path):
@@ -252,6 +298,8 @@ def simulate(
     community: Optional[Path] = typer.Option(None, help="community.json manifest from `assemble`."),
     models: Optional[Path] = typer.Option(None, help="Alternatively, a directory of GEMs."),
     abundance: Optional[Path] = typer.Option(None, help="Abundance TSV (with --models)."),
+    inject: Optional[List[Path]] = typer.Option(None, "--inject", help="Donor community.json to transplant in at --inject-time (repeatable; e.g. an FMT)."),
+    inject_time: Optional[List[float]] = typer.Option(None, "--inject-time", help="Injection time(s) in h, paired with --inject (one value applies to all)."),
     diet: str = typer.Option("western_gut", help="Diet preset name or CSV path."),
     time: float = typer.Option(24.0, "--time", help="Simulated time (h)."),
     step: float = typer.Option(0.1, "--step", help="Integration step (h)."),
@@ -269,14 +317,20 @@ def simulate(
     from muode.dfba import DynamicFBA
     from muode.io_utils import read_abundance
 
+    base_injections: list = []
     if community:
-        comm, diet_spec = _community_from_manifest(community)
+        comm, diet_spec, base_injections = _community_from_manifest(community)
         diet = diet_spec
     elif models:
         abund = read_abundance(abundance) if abundance else None
         comm = Community.from_models(models, abundance=abund, total_biomass=total_biomass)
     else:
         raise typer.BadParameter("provide either --community or --models")
+
+    comm, injections = _resolve_injections(comm, base_injections, inject, inject_time)
+    if injections:
+        for ev in injections:
+            console.print(f"[cyan]Injection scheduled:[/cyan] {ev.describe()}")
 
     kin = _kinetics(default_vmax, default_km)
     if kinetics:
@@ -294,7 +348,7 @@ def simulate(
                 console.print(f"  {o.id}: enzyme-constrained {rep['n_constrained']} reaction(s)")
 
     engine = DynamicFBA(t_end=time, dt=step, death_rate=death_rate, dilution_rate=dilution_rate)
-    result = engine.run(comm, _load_diet(diet), kin)
+    result = engine.run(comm, _load_diet(diet), kin, injections=injections or None)
     outdir.mkdir(parents=True, exist_ok=True)
     _save_outputs(result, outdir)
     _summary(result)
@@ -319,7 +373,7 @@ def perturb(
     from muode.dfba import DynamicFBA
     from muode.perturb import Perturbation, PerturbationTarget
 
-    comm, diet_spec = _community_from_manifest(community)
+    comm, diet_spec, injections = _community_from_manifest(community)
     diet = diet or diet_spec
 
     targets: List[PerturbationTarget] = []
@@ -334,7 +388,8 @@ def perturb(
     pert = Perturbation(name="cli_perturbation", targets=targets)
 
     engine = DynamicFBA(t_end=time, dt=step)
-    result = engine.run(comm, _load_diet(diet), _kinetics(default_vmax, default_km), pert)
+    result = engine.run(comm, _load_diet(diet), _kinetics(default_vmax, default_km), pert,
+                        injections=injections or None)
     outdir.mkdir(parents=True, exist_ok=True)
     _save_outputs(result, outdir)
     console.print(f"[bold]Perturbation:[/bold] {pert.describe()}")
@@ -392,7 +447,7 @@ def spatial(
     from muode.spatial import SpatialDynamicFBA, halves_inoculum, uniform_inoculum
 
     if community:
-        comm, diet_spec = _community_from_manifest(community)
+        comm, diet_spec, _ = _community_from_manifest(community)
         diet, kin = _load_diet(diet_spec), _kinetics(10.0, 0.01)
         inoculum = uniform_inoculum((ny, nx), comm.organism_ids, comm.total_biomass)
     else:
