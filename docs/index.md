@@ -13,6 +13,7 @@ Detailed documentation for each muODE feature. Start with the
 | [assembly.md](assembly.md) | Community manifest, abundance TSV, diet, subsampling |
 | [perturbation.md](perturbation.md) | Antibiotic/knockout/species-removal perturbation engine |
 | [injection.md](injection.md) | Timed biomass injection: transplants (FMT), probiotic doses, inoculation |
+| [ecology.md](ecology.md) | Ecology layer: pH/SCFA, bile acids, sporulation, antibiotic PK, bacteriocins |
 | [validation.md](validation.md) | Benchmark framework, metrics (MAE, Spearman, F1), pass/fail report |
 | [spatial.md](spatial.md) | 2D reaction-diffusion colony/biofilm engine |
 | [workflow.md](workflow.md) | Snakemake pipeline, all rules, config reference, SLURM |
@@ -22,4 +23,5 @@ Detailed documentation for each muODE feature. Start with the
 
 | Document | What it covers |
 |----------|---------------|
+| [LIMITATIONS.md](LIMITATIONS.md) | Complete, honest inventory of what muODE can and cannot model |
 | [EVALUATION.md](EVALUATION.md) | Scientific assessment, design rationale, references |

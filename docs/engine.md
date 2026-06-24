@@ -161,14 +161,21 @@ appear because the shared metabolite pool creates a genuine dependency.
 
 ## Limitations and planned extensions
 
+For the **complete, honest inventory** of what muODE can and cannot model — and
+what is fundamentally out of scope for a metabolism-ODE paradigm — see
+[LIMITATIONS.md](LIMITATIONS.md). Several processes once listed here (pH/SCFA
+inhibition, bile-acid metabolism, sporulation, antibiotic PK, bacteriocins) are
+now implemented as the [ecology layer](ecology.md). The core caveats that remain:
+
 - **Euler integration** — accurate for small `dt`; use `dt ≤ 0.1 h` for typical
   gut communities. A higher-order integrator (e.g. RK4) is a planned improvement.
-- **No inter-species signalling** — only metabolic cross-feeding is modelled;
-  quorum sensing or contact-dependent inhibition would require explicit modelling.
 - **Steady-state FBA per step** — the SOA assumes pseudo-steady-state
   intracellular fluxes at every step. This is the standard assumption in
   community dFBA and is appropriate when the intracellular timescale is much
   faster than the extracellular one.
+- **No gene-regulatory / signalling logic** — a signalling *metabolite's*
+  concentration can be modelled, but not the regulatory program it triggers
+  (needs regulatory-FBA or gene-network models). See LIMITATIONS.md §4.
 - **COMETS backend** — a COMETS alternative dynamic backend is planned; the
   `OrganismModel` protocol is the integration point.
 

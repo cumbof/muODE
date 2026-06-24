@@ -37,23 +37,28 @@ competition, not something the simulation hard-codes.
 
 ## What muODE captures (and what it does not)
 
-Colonization resistance against *C. difficile* has two principal mechanisms.
-muODE models the first directly:
+Colonization resistance against *C. difficile* has several mechanisms. The
+nutrient-competition arm is in the dynamic-FBA core; the others are now
+implemented as the [ecology layer](../../docs/ecology.md) and can be switched on
+(the `mechanistic_demo.py` below uses all of them):
 
-| Mechanism | In muODE? | Notes |
-|-----------|-----------|-------|
-| **Nutrient-niche competition** — commensals consume the monosaccharides, sugar alcohols, sialic acid and succinate that *C. difficile* needs, starving it out | **Yes** | This is exactly what the shared-pool dynamic-FBA engine computes. The dominant lever in this example. |
-| **SCFA production** — a dense fermenting community drives up acetate/butyrate | **Partially** | muODE accumulates SCFAs; the *pH-dependent* inhibition of *C. diff* growth is not modelled. |
-| **Secondary bile acids** — donor *bile-salt hydrolase* / `baiCD` activity converts primary bile acids (germinants) into secondary bile acids that inhibit *C. diff* | **No** | Not represented in the diet/exchange layer. A known limitation. |
-| **Direct antagonism** — bacteriocins, contact-dependent inhibition | **No** | Out of scope. |
-| **Sporulation / germination** life cycle | **No** | Only vegetative growth is modelled. |
+| Mechanism | In muODE? | How |
+|-----------|-----------|-----|
+| **Nutrient-niche competition** — commensals consume the sugars, sugar alcohols, sialic acid and succinate *C. difficile* needs | **Yes (core)** | shared-pool dynamic FBA |
+| **SCFA production → pH inhibition** — a dense fermenting community acidifies the lumen; undissociated SCFA inhibits the pathogen | **Yes** | `WeakAcidInhibition` |
+| **Secondary bile acids** — donor BSH + *bai* (7α-dehydroxylation) turn primary bile acids into deoxycholate, which inhibits *C. diff* and blocks spore germination | **Yes** | `BileAcidTransform` + `BileAcidInhibition` |
+| **Sporulation / germination** — a spore reservoir survives antibiotics and germinates only when bile permits | **Yes** | `SporeForming` |
+| **Antibiotic PK/PD** — a dosing course that kills vegetative cells but not spores | **Yes** | `Antibiotic` |
+| **Direct antagonism** — bacteriocins / antimicrobial peptides | **Yes** | `Bacteriocin` |
+| **Gene-regulatory logic, evolution, demographic stochasticity, immune dynamics** | **No** | out of paradigm — see [LIMITATIONS.md](../../docs/LIMITATIONS.md) §4 |
 
-So this example is a **mechanistic model of the nutrient-competition arm** of FMT
-efficacy. It reproduces the qualitative clinical result — donor engraftment and
-*C. difficile* collapse — through carbon competition alone, which the literature
-supports as a primary driver (Britton & Young; Sonnenburg; Theriot et al.). It is
-not a quantitative clinical predictor, and the bile-acid gap is the most
-important caveat to state when interpreting it.
+The genome-scale walkthrough below (Steps 1–6) demonstrates the
+**nutrient-competition arm** with real GEMs. The
+**[mechanistic demo](#mechanistic-demo-the-full-stack)** at the end turns on the
+whole ecology stack (bile acids, spores, antibiotic PK, pH) to reproduce the
+recurrence-vs-cure contrast — see [LIMITATIONS.md](../../docs/LIMITATIONS.md) for
+exactly what is and isn't modelled, and treat all outputs as mechanistic
+hypotheses, not patient-level predictions.
 
 ---
 
@@ -250,6 +255,41 @@ print(f"C. difficile final fraction — FMT:     {cdiff_fraction(fmt):.3f}")
 The contrast between the two arms is the result: the *only* difference is the
 timed donor injection, and it is enough to flip the community from
 *C. difficile*-dominated to commensal-dominated.
+
+---
+
+## Mechanistic demo — the full stack
+
+Steps 1–6 demonstrate the **nutrient-competition arm** with real GEMs (CarveMe
+required). To see the *other* mechanisms of FMT — secondary bile acids, spore
+survival, antibiotic pharmacokinetics and pH — there is a self-contained demo
+that runs **anywhere** (dependency-light toy models, no GEMs, aarch64-friendly):
+
+```bash
+python examples/fmt_cdiff/mechanistic_demo.py --outdir results/fmt_mechanistic
+```
+
+It runs two arms that differ only by the transplant, driving the whole
+[ecology layer](../../docs/ecology.md):
+
+- **Recurrence (antibiotic only).** A vancomycin-like course clears vegetative
+  *C. difficile*, but the **spore reservoir survives** (spores aren't killed).
+  With the protective guild gone, the bile pool stays germinant-rich and
+  secondary-bile-acid-poor, so the spores **germinate and the infection recurs**.
+- **FMT (antibiotic + transplant).** The donor competes for carbon, **acidifies**
+  via SCFA (pH ≈ 4.3), and restores **7α-dehydroxylation** (cholate →
+  deoxycholate). Deoxycholate both **blocks germination** and **inhibits**
+  vegetative *C. difficile*, so the spores stay dormant and the pathogen is
+  cleared.
+
+Typical output: *C. difficile* final burden ≈ **6.3 gDW/L (recurrence)** vs
+**≈ 0 (FMT)** — purely emergent from the layered mechanisms. The genome-scale
+parameters live in `muode/scenarios.py`; the run writes `biomass.csv`,
+`metabolites.csv`, `spores.csv`, `environment.csv` (pH, germination signal, drug
+concentration) and figures for each arm.
+
+This is a *mechanistic illustration with literature-default parameters*, not a
+calibrated clinical model — see [LIMITATIONS.md](../../docs/LIMITATIONS.md).
 
 ---
 
