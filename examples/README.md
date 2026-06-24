@@ -131,3 +131,30 @@ result. The example is honest about what is and isn't modelled (the secondary
 bile-acid mechanism is **not**). See **[fmt_cdiff/README.md](fmt_cdiff/README.md)**
 for the full walkthrough, the control-vs-treatment comparison, and variations
 (transplant timing, dose, donor quality).
+
+## Multi-kingdom community (bacteria + fungus + phage)
+
+`multikingdom/` shows muODE handling the **non-bacterial** members of a gut
+sample. A real metagenome is not only bacteria, and muODE's core is
+*paradigm-defined, not taxon-defined*: a fungal GEM simulates with the same
+engine as a bacterial one. The example demonstrates the two things that
+genuinely differ between kingdoms:
+
+| Member | Kingdom | Mechanism it adds |
+|--------|---------|-------------------|
+| *Bacteroides thetaiotaomicron* | bacteria (obligate anaerobe) | keystone fermenter |
+| *Candida albicans* | **eukaryote** (fungus, facultative) | scavenges O₂ → keeps the niche anaerobic |
+| *Klebsiella pneumoniae* | bacteria (facultative) | pathobiont; the phage host |
+| *vB_Kpn* | **virus** (phage) | lytic predator (coupled infection ODE) |
+
+```bash
+# any machine — toy-model mechanistic demo (no GEMs, no CarveMe)
+PYTHONPATH=$(git rev-parse --show-toplevel) python examples/multikingdom/mechanistic_demo.py
+```
+
+It runs the community and two ablations: drop the **fungus** and the O₂ it
+scavenged poisons the obligate-anaerobe keystone; drop the **phage** and the
+*Klebsiella* pathobiont blooms unchecked. Both are emergent. The example is
+explicit about reconstruction routing (CarveMe cannot build the fungus; the phage
+has no GEM at all) and about what stays out of scope (phage/host *evolution*).
+See **[multikingdom/README.md](multikingdom/README.md)**.

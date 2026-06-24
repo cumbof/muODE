@@ -1,0 +1,55 @@
+# muODE pipeline config — multi-kingdom gut example (bacteria + fungus + phage).
+# Run from the repository root:
+#   snakemake --use-conda --cores 8 --configfile examples/multikingdom/config.yaml
+#
+# NB: the bacterial members reconstruct with CarveMe, but the FUNGUS does not —
+# CarveMe is prokaryote-only. Reconstruct C_albicans via a fungal route (Yeast8
+# template / CarveFungi / gapseq) and drop the SBML into the models dir, then run
+# the simulation phase. The PHAGE is not reconstructed at all; it is added as a
+# PhageInfection ecology layer in code (see mechanistic_demo.py). The Snakemake
+# reconstruction phase here covers the bacteria only.
+
+# --- inputs / outputs -------------------------------------------------------
+mags_dir: "examples/multikingdom/data/mags"
+mag_extension: "fna"
+abundance: "examples/multikingdom/abundance.tsv"
+outdir: "examples/multikingdom/results"
+
+# --- Phase 0: MAG quality gate ----------------------------------------------
+run_checkm2: false
+min_completeness: 50.0
+max_contamination: 10.0
+
+# --- Phase 1: reconstruction ------------------------------------------------
+# gramneg covers the two bacteria; the fungus must be reconstructed separately
+# (see header) and its SBML placed alongside the CarveMe output.
+engine: "carveme"
+universe: "gramneg"
+gapfill_media: null
+
+# --- Phase 2/3: refinement --------------------------------------------------
+universal_model: null
+run_memote: false
+predict_kinetics: false
+predictor: "heuristic"
+enzyme_constraints: false
+default_vmax: 10.0
+default_km: 0.01
+
+# --- Phase 4: simulation ----------------------------------------------------
+# Carbon plus a steady oxygen trickle from the mucosa; the OxygenSensitivity and
+# PhageInfection layers are configured in code (mechanistic_demo.py) since they
+# need per-organism traits / a phage host.
+diet: "western_gut"
+total_biomass: 0.03
+t_end: 36.0
+dt: 0.05
+
+# --- abundance-aware subsampling --------------------------------------------
+max_species: null
+min_abundance: null
+abundance_coverage: null
+
+# --- compute ----------------------------------------------------------------
+threads: 8
+perturbation: null
