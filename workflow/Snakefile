@@ -81,6 +81,13 @@ def _mag_domain(mag: str) -> str:
 
 # Build MAG list; exclude virus MAGs — they have no GEM to reconstruct.
 _all_mags = sorted(Path(p).stem for p in glob.glob(os.path.join(MAGS_DIR, f"*.{EXT}")))
+if not _all_mags:
+    raise WorkflowError(
+        f"No *.{EXT} files found in mags_dir='{MAGS_DIR}'.\n"
+        "  For the multi-kingdom example, first download the reference genomes:\n"
+        "    bash examples/multikingdom/download_genomes.sh\n"
+        "  Then re-run snakemake."
+    )
 _virus_mags = [m for m in _all_mags if _mag_domain(m) == "virus"]
 MAGS = [m for m in _all_mags if _mag_domain(m) != "virus"]
 if _virus_mags:
