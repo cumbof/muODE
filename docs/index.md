@@ -12,6 +12,7 @@ Detailed documentation for each muODE feature. Start with the
 | [kinetics.md](kinetics.md) | Km/Vmax uptake bounds, kcat enzyme constraints, heuristic/DLKcat/Kroll predictors |
 | [assembly.md](assembly.md) | Community manifest, abundance TSV, diet, subsampling |
 | [perturbation.md](perturbation.md) | Antibiotic/knockout/species-removal perturbation engine |
+| [injection.md](injection.md) | Timed biomass injection: transplants (FMT), probiotic doses, inoculation |
 | [validation.md](validation.md) | Benchmark framework, metrics (MAE, Spearman, F1), pass/fail report |
 | [spatial.md](spatial.md) | 2D reaction-diffusion colony/biofilm engine |
 | [workflow.md](workflow.md) | Snakemake pipeline, all rules, config reference, SLURM |

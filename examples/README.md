@@ -101,3 +101,33 @@ For step-by-step CLI instructions, the species selection rationale,
 cross-feeding network diagram, perturbation experiments (keystone species
 removal), and guidance on interpreting the output figures, see
 **[gut_western/README.md](gut_western/README.md)**.
+
+## Fecal microbiota transplant (FMT) for recurrent *C. difficile*
+
+`fmt_cdiff/` simulates an **FMT** as treatment for **recurrent *Clostridioides
+difficile* infection**, showcasing muODE's timed **biomass injection**. Two
+communities are assembled independently — a dysbiotic recipient (*C. difficile*
+plus a post-antibiotic pathobiont bloom) and a healthy donor (9 commensals) —
+and the donor is *transplanted* into the recipient mid-simulation:
+
+```bash
+bash examples/fmt_cdiff/download_genomes.sh   # 4 recipient + 9 donor genomes
+
+# CONTROL — recipient alone: C. difficile persists (recurrence)
+muode simulate --community examples/fmt_cdiff/recipient_env/community.json \
+               --time 96 --outdir examples/fmt_cdiff/results_control
+
+# TREATMENT — transplant the donor at t=24 h: C. difficile is outcompeted
+muode simulate --community examples/fmt_cdiff/recipient_env/community.json \
+               --inject examples/fmt_cdiff/donor_env/community.json \
+               --inject-time 24 --time 96 \
+               --outdir examples/fmt_cdiff/results_fmt
+```
+
+Whether the transplant clears *C. difficile* is an **emergent** outcome of
+nutrient competition in the shared metabolite pool — donor commensals consume
+the carbon sources the pathogen needs (colonization resistance), not a scripted
+result. The example is honest about what is and isn't modelled (the secondary
+bile-acid mechanism is **not**). See **[fmt_cdiff/README.md](fmt_cdiff/README.md)**
+for the full walkthrough, the control-vs-treatment comparison, and variations
+(transplant timing, dose, donor quality).

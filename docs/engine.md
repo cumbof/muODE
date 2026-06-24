@@ -120,8 +120,14 @@ engine = DynamicFBA(
     death_rate=0.0,   # first-order death (1/h)
     dilution_rate=0.0 # chemostat D (1/h)
 )
-result: SimulationResult = engine.run(community, diet, kinetics, perturbation=None)
+result: SimulationResult = engine.run(community, diet, kinetics,
+                                      perturbation=None,  # bound changes (see perturbation.md)
+                                      injections=None)    # timed biomass events (see injection.md)
 ```
+
+`perturbation=` applies bound changes once up front; `injections=` is a list of
+timed [`Injection`](injection.md) state events (transplants, probiotic doses)
+that introduce biomass mid-run.
 
 ### `SimulationResult`
 

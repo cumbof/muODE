@@ -1,0 +1,41 @@
+# Expected outcome of a *successful* FMT in the C. difficile example, evaluated
+# at the end of the simulation (t = 96 h, ~72 h after the transplant).
+#
+#   muode validate --results examples/fmt_cdiff/results_fmt \
+#                  --expected examples/fmt_cdiff/benchmark.yaml
+#
+# The clinical endpoint of FMT for recurrent CDI is engraftment of donor
+# commensals and collapse of C. difficile. muODE captures the *nutrient
+# competition* arm of colonization resistance: donor Bacteroides and butyrate
+# producers consume the simple sugars / succinate that C. difficile depends on,
+# starving it out. (Secondary bile-acid inhibition of C. diff germination -- the
+# other major mechanism -- is NOT modelled; see README.)
+#
+# Tolerances are deliberately generous: exact numbers depend on GEM quality, the
+# CarveMe version, and the simplified built-in diet.
+name: fmt_cdiff_success
+
+# --- community composition at simulation end -------------------------------
+# C. difficile should be displaced; donor commensals should dominate.
+relative_abundances:
+  C_difficile_630: 0.03            # crashed from ~0.5 pre-FMT
+  B_thetaiotaomicron_VPI5482: 0.22 # donor Bacteroides engrafts and dominates
+  E_rectale_ATCC33656: 0.10        # butyrate producer establishes via cross-feeding
+  F_prausnitzii_A2165: 0.09        # anti-inflammatory butyrate producer engrafts
+
+# --- metabolite concentrations at simulation end (mmol/L) ------------------
+metabolites:
+  glc_e: 2.0     # simple sugars drawn down by the dense donor community
+  ac_e: 1.0      # acetate cross-feeding shuttle
+  but_e: 0.6     # butyrate restored by engrafted producers (a health marker)
+
+# --- expected cross-feeding (donor-driven colonization resistance) ---------
+cross_feeding:
+  - [B_thetaiotaomicron_VPI5482, ac_e, E_rectale_ATCC33656]
+  - [B_thetaiotaomicron_VPI5482, ac_e, F_prausnitzii_A2165]
+
+# --- tolerances ------------------------------------------------------------
+tolerances:
+  abundance_mae: 0.15
+  metabolite_mae: 5.0
+  min_f1: 0.25     # at least one expected donor cross-feeding edge detected

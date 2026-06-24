@@ -5,6 +5,10 @@ observe how the community responds. Common use cases include simulating
 antibiotic treatment, gene knockouts, probiotic interventions, and species
 removals.
 
+> A perturbation changes reaction **bounds** at the start of the run. To
+> introduce **biomass** at a chosen time instead (a transplant or probiotic
+> dose), see [injection.md](injection.md) — the two can be combined in one run.
+
 ---
 
 ## How perturbations work
