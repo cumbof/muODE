@@ -23,6 +23,7 @@ from muode.inject import Injection, merge_for_injection
 from muode.kinetics import KineticParameters
 from muode.lifecycle import SporeForming
 from muode.ph import WeakAcidInhibition
+from muode.scenarios import cdi_scenario
 from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
 from muode.predict import HeuristicPredictor, refine_kinetics
@@ -46,6 +47,7 @@ __all__ = [
     "SporeForming",
     "Antibiotic",
     "Bacteriocin",
+    "cdi_scenario",
     "LinprogOrganism",
     "OrganismModel",
     "OrganismSolution",
