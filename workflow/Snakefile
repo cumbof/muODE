@@ -66,9 +66,13 @@ MAG_DOMAINS: dict = {}
 _traits_file = config.get("traits", "")
 if _traits_file and os.path.isfile(_traits_file):
     with open(_traits_file) as _tf:
-        for _row in csv.DictReader(_tf, delimiter="\t"):
-            if not _row.get("mag_id", "").startswith("#"):
-                MAG_DOMAINS[_row["mag_id"]] = _row.get("domain", "bacteria").lower()
+        # strip comment lines so DictReader sees the real header first
+        _reader = csv.DictReader(
+            (line for line in _tf if not line.strip().startswith("#")),
+            delimiter="\t",
+        )
+        for _row in _reader:
+            MAG_DOMAINS[_row["mag_id"]] = _row.get("domain", "bacteria").lower()
 
 
 def _mag_domain(mag: str) -> str:
