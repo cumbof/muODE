@@ -109,6 +109,45 @@ A diffusible toxin produced first-order in `producers` biomass, decaying
 first-order, suppressing `targets` growth by `1/(1 + C/ki)`. Models bacteriocin /
 antimicrobial-peptide antagonism that is not mediated by shared nutrients.
 
+### `OxygenSensitivity` — oxygen tolerance & scavenging (`muode.oxygen`)
+
+The cross-kingdom layer (see [kingdoms.md](kingdoms.md)). It tracks an O₂ pool and
+(1) **gates growth** by oxygen relationship — an obligate aerobe needs O₂
+(`o2/(km+o2)`), an obligate anaerobe is poisoned by it (`1/(1+o2/ki)`), a
+facultative/aerotolerant species is indifferent — and (2) lets aerobes and
+facultatives **scavenge** O₂ (Monod, first-order in their biomass), drawing the
+pool down. That scavenging is the mechanism by which a facultative fungus or
+Enterobacteriaceae keep the niche anaerobic for the obligate-anaerobe majority.
+
+```python
+OxygenSensitivity.from_traits(community.traits, o2_initial=0.3, o2_influx=0.15)
+```
+
+For real GEMs that already exchange `o2_e` through FBA, pass `consume=False` so
+uptake is not double-counted (the layer then contributes only the tolerance
+gating). Records `oxygen`.
+
+### `PhageInfection` — bacteriophage predation (`muode.phage`)
+
+A phage is **not** an FBA organism (no metabolism); it is a coupled Levin–Stewart
+infection ODE that touches the metabolic world only through host biomass, via the
+same `integrate` hook `SporeForming` uses. Internal state is free phage titer `P`
+and infected biomass `I`; per step, adsorption (`k_ads·P·X_host`, CFL-capped)
+moves susceptible host into the infected pool, which lyses at `1/latent_period`
+into a burst of new virions. Strictly lytic by default; `lysogeny_fraction > 0`
+diverts that fraction of adsorptions into surviving carriers (a coarse temperate
+model). One host per layer — use several layers for a cocktail. Records
+`phage[name]` and `infected[host]`.
+
+```python
+PhageInfection(host="K_pneumoniae", name="vB_Kpn", adsorption_rate=11.0,
+               burst_size=60.0, latent_period=0.4, decay_rate=0.1, initial_titer=0.5)
+```
+
+Phage/host *evolution* (host-range, resistance) is deliberately out of scope —
+see [LIMITATIONS.md](LIMITATIONS.md) §4. The full multi-kingdom rationale is in
+[kingdoms.md](kingdoms.md).
+
 ---
 
 ## Outputs

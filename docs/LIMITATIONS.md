@@ -42,9 +42,14 @@ The right way to read the categories below:
 | **Sporulation / germination life cycle** | `SporeForming` | [ecology.md](ecology.md) |
 | **Antibiotic pharmacokinetics/dynamics (time-varying)** | `Antibiotic` | [ecology.md](ecology.md) |
 | **Direct antagonism (bacteriocins)** | `Bacteriocin` | [ecology.md](ecology.md) |
+| **Multi-kingdom metabolism (fungi / protists)** | any GEM via the same `OrganismModel` core | [kingdoms.md](kingdoms.md) |
+| **Oxygen tolerance gating + scavenging** | `OxygenSensitivity` | [kingdoms.md](kingdoms.md) |
+| **Bacteriophage predation (lytic / temperate)** | `PhageInfection` (coupled infection ODE) | [kingdoms.md](kingdoms.md) |
 
-The **bold** rows were previously listed as limitations and are now implemented
-as ecology layers (the FMT/CDI example exercises all of them).
+The **bold** rows were previously listed as limitations and are now implemented.
+Eukaryote *metabolism* needs no engine change (the core is paradigm-defined, not
+taxon-defined); the only kingdom-specific gap is reconstruction tooling (§2/§3).
+Phage *population* dynamics are now modelled; phage/host *evolution* is not (§4).
 
 ---
 
@@ -78,6 +83,20 @@ calibrate.
 - **Thermodynamic directionality.** Reaction reversibility is taken from the GEM;
   there is no ΔG/concentration-dependent feasibility check, so a secretion the
   LP finds optimal may be thermodynamically marginal. (See §3.)
+- **Phage infection model.** `PhageInfection` uses an exponential latent period
+  (first-order lysis at `1/latent_period`), not a fixed delay, and a single host
+  per layer with a **fixed host range**. Burst size is an effective virion yield
+  per gDW lysed. Captures the predation/amplification dynamics; calibrate per
+  phage–host pair for quantitative titers. Temperate behaviour is a coarse
+  lysogeny fraction, not an explicit prophage/induction state.
+- **Oxygen layer.** `OxygenSensitivity` gates growth by tolerance class and lets
+  facultatives scavenge O₂ (Monod), capturing the anaerobiosis-maintenance
+  mechanism; it is not a full redox/electron-acceptor balance (see §3) and, for
+  real GEMs that already exchange O₂, should run with `consume=False`.
+- **Eukaryote cell-scale parameters.** Fungal/protist cells are ~10–100× the dry
+  mass of bacteria; muODE works in gDW/L so this is consistent, but per-cell
+  counts and growth-rate priors must be set for the organism, not inherited from
+  bacterial defaults.
 
 ---
 
@@ -90,10 +109,18 @@ the roadmap is explicit.
   (eQuilibrator/component-contribution) to forbid thermodynamically infeasible
   flux directions and make reversibility concentration-dependent. Hooks: the
   `OrganismModel` bound-setting and the metabolite pool.
-- **Gas / redox coupling.** Explicit O₂, H₂, CO₂, CH₄ balances with an oxygen
-  gradient and redox-dependent uptake gating (`uptake_factor` already exists for
-  this) — important for facultative/strict-anaerobe transitions and
-  hydrogenotrophy.
+- **Gas / redox coupling.** O₂ tolerance + scavenging is now modelled
+  (`OxygenSensitivity`, §1). The remaining extension is the full gas/redox set —
+  explicit H₂, CO₂, CH₄ balances, an electron-acceptor hierarchy and a spatial
+  oxygen gradient (`uptake_factor` + the spatial engine are the hooks) — important
+  for hydrogenotrophy and methanogenesis.
+- **Eukaryote / virus reconstruction tooling.** *Simulating* fungi/protists needs
+  no engine change, but *building* their GEMs is an external-tool gap: CarveMe is
+  prokaryote-only, so a fungal route (Yeast8 template, CarveFungi, gapseq fungal
+  mode) must be wired into the reconstruction phase. `reconstruction_route()`
+  already flags the correct path per `Domain`; the automated workflow rule is not
+  yet built. (Phages have no GEM by definition — they are `PhageInfection` layers,
+  not reconstructions.)
 - **Higher-order / adaptive integration** (see §2).
 - **Diauxie / catabolite repression.** A substrate-preference layer to capture
   sequential substrate use; SOA-dFBA otherwise consumes substrates concurrently.
@@ -117,14 +144,17 @@ We do not fake them. Where relevant, couple muODE to the appropriate framework.
   not the regulatory program it triggers.
 - **Evolution / strain dynamics.** Mutation, selection, horizontal gene transfer,
   pangenome flux over time. Needs population-genetic / eco-evolutionary models.
-  muODE assumes fixed genomes for the run.
+  muODE assumes fixed genomes for the run. **This explicitly includes phage
+  host-range evolution and host phage-resistance evolution**: `PhageInfection`
+  models the *ecological* predator–prey dynamics with a fixed host range, so a
+  toy phage clears its host rather than co-evolving toward the coexistence /
+  arms-race oscillation seen in vivo. It also does not model phage auxiliary
+  metabolic genes reprogramming host flux.
 - **Demographic stochasticity & extinction at small N.** The ODEs are
   deterministic and continuous; they cannot capture noise-driven extinction or
   founder effects at low cell numbers. Needs stochastic/agent-based simulation
   (e.g. BacArena, individual-based models). The spatial engine is structured but
   still deterministic.
-- **Phage / predation dynamics.** Not metabolic exchange. Needs explicit
-  predator–prey (phage–host) modelling coupled in.
 - **Full 3-D biofilm mechanics.** EPS matrix, mechanical stress, detachment,
   channel formation. The 2-D reaction–diffusion engine captures gradients, not
   mechanics.
