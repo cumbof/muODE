@@ -43,6 +43,7 @@ import pandas as pd
 
 from muode.community import Community
 from muode.diet import Diet
+from muode.ecology import EcologyModel
 from muode.inject import Injection
 from muode.kinetics import KineticParameters
 from muode.perturb import Perturbation
@@ -57,6 +58,10 @@ class SimulationResult:
     metabolites: pd.DataFrame      # index=time, columns=metabolite ids (mmol/L)
     growth_rates: pd.DataFrame     # index=time, columns=organism ids (1/h)
     exchange_fluxes: Dict[str, pd.DataFrame] = field(default_factory=dict)
+    #: environmental observables from the ecology layer (e.g. pH); may be empty
+    environment: Optional[pd.DataFrame] = None
+    #: dormant (spore) biomass per species from a life-cycle layer; may be empty
+    spores: Optional[pd.DataFrame] = None
     meta: dict = field(default_factory=dict)
 
     # -- summaries ----------------------------------------------------------
@@ -119,6 +124,10 @@ class SimulationResult:
         cf = self.cross_feeding()
         if not cf.empty:
             cf.to_csv(outdir / "cross_feeding.csv", index=False)
+        if self.environment is not None and not self.environment.empty:
+            self.environment.to_csv(outdir / "environment.csv", index_label="time_h")
+        if self.spores is not None and not self.spores.empty:
+            self.spores.to_csv(outdir / "spores.csv", index_label="time_h")
 
 
 @dataclass
@@ -158,6 +167,7 @@ class DynamicFBA:
         kinetics: Optional[KineticParameters] = None,
         perturbation: Optional[Perturbation] = None,
         injections: Optional[Sequence[Injection]] = None,
+        ecology: Optional[EcologyModel] = None,
     ) -> SimulationResult:
         kinetics = kinetics or KineticParameters()
 
@@ -172,12 +182,29 @@ class DynamicFBA:
         injections = list(injections or [])
         injected = [False] * len(injections)
 
+        # Optional environmental / life-history layer (pH, bile acids, spores,
+        # antibiotic PK, bacteriocins).  An empty model is a no-op, leaving the
+        # run numerically identical to the bare engine (see muode.ecology).
+        ecology = ecology or EcologyModel()
+        ecology.reset(community)
+        record_eco = not ecology.is_empty()
+
         organisms = community.organisms
-        env_mets = sorted(set(community.environment_metabolites()) | set(diet.metabolites()))
+        env_mets = sorted(
+            set(community.environment_metabolites())
+            | set(diet.metabolites())
+            | set(ecology.extra_metabolites())
+        )
 
         # state vectors
         X = dict(community.initial_biomass())
-        M = {m: diet.initial_concentration(m) for m in env_mets}
+        eco_init = ecology.initial_concentrations()
+        M = {}
+        for m in env_mets:
+            c = diet.initial_concentration(m)
+            if c == 0.0 and m in eco_init:
+                c = float(eco_init[m])
+            M[m] = c
 
         n_steps = int(round(self.t_end / self.dt))
         times = np.linspace(0.0, n_steps * self.dt, n_steps + 1)
@@ -191,6 +218,8 @@ class DynamicFBA:
             if self.record_fluxes
             else {}
         )
+        obs_hist: List[dict] = []      # ecology observables per step (e.g. pH)
+        spore_hist: List[dict] = []    # dormant biomass per species per step
 
         depletion_warned = False
 
@@ -212,6 +241,9 @@ class DynamicFBA:
                 bio_hist[o.id][step] = X[o.id]
             for m in env_mets:
                 met_hist[m][step] = M[m]
+            if record_eco:
+                obs_hist.append(ecology.observables(t_now, M, X))
+                spore_hist.append(dict(ecology.spores()))
 
             # --- solve each species' FBA under current medium ---------------
             step_growth: Dict[str, float] = {}
@@ -227,14 +259,18 @@ class DynamicFBA:
                 for m in env_mets:
                     conc = M[m]
                     mm = kinetics.michaelis_menten(o.id, m, conc)
+                    mm *= ecology.uptake_factor(o.id, m, t_now, M, X)
                     # CFL-style cap: do not let one species take more than exists.
                     cap = conc / (X[o.id] * self.dt) if self.dt > 0 else np.inf
                     o.set_uptake_bound(m, min(mm, cap))
 
                 sol = o.optimize()
-                step_growth[o.id] = sol.growth_rate if sol.feasible else 0.0
+                raw = sol.growth_rate if sol.feasible else 0.0
+                # environmental growth modifiers (pH, bile, bacteriocins, ...)
+                mu_eff = raw * ecology.growth_factor(o.id, t_now, M, X)
+                step_growth[o.id] = mu_eff
                 step_flux[o.id] = {m: sol.exchange_fluxes.get(m, 0.0) for m in env_mets}
-                mu_hist[o.id][step] = step_growth[o.id]
+                mu_hist[o.id][step] = mu_eff
 
             if self.record_fluxes:
                 for o in organisms:
@@ -247,13 +283,19 @@ class DynamicFBA:
             # --- integrate one Euler step -----------------------------------
             for o in organisms:
                 mu = step_growth[o.id]
+                death = self.death_rate + self.dilution_rate + ecology.extra_death(o.id, t_now, M, X)
                 X[o.id] = max(
                     0.0,
-                    X[o.id] + (mu - self.death_rate - self.dilution_rate) * X[o.id] * self.dt,
+                    X[o.id] + (mu - death) * X[o.id] * self.dt,
                 )
 
+            # life-history transitions (e.g. vegetative <-> spore) may move
+            # biomass between the live pool X and an internal dormant pool.
+            ecology.integrate(t_now, self.dt, X, M, step_growth)
+
+            eco_rates = ecology.metabolite_rates(t_now, M, X)
             for m in env_mets:
-                dM = diet.influx_rate(m) - self.dilution_rate * M[m]
+                dM = diet.influx_rate(m) - self.dilution_rate * M[m] + eco_rates.get(m, 0.0)
                 for o in organisms:
                     dM += step_flux[o.id][m] * X[o.id]
                 new = M[m] + dM * self.dt
@@ -278,12 +320,20 @@ class DynamicFBA:
             if self.record_fluxes
             else {}
         )
+        env_df = (
+            pd.DataFrame(obs_hist, index=times) if record_eco and obs_hist and obs_hist[0] else None
+        )
+        spore_df = (
+            pd.DataFrame(spore_hist, index=times) if record_eco and spore_hist and spore_hist[0] else None
+        )
         return SimulationResult(
             times=times,
             biomass=biomass_df,
             metabolites=met_df,
             growth_rates=mu_df,
             exchange_fluxes=exch,
+            environment=env_df,
+            spores=spore_df,
             meta={
                 "t_end": self.t_end,
                 "dt": self.dt,
@@ -293,5 +343,6 @@ class DynamicFBA:
                 "n_species": len(organisms),
                 "perturbation": None if perturbation is None else perturbation.describe(),
                 "injections": [inj.describe() for inj in injections] or None,
+                "ecology": ecology.describe() or None,
             },
         )

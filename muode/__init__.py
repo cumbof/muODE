@@ -12,11 +12,17 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
+from muode.antagonism import Bacteriocin
+from muode.antibiotic import Antibiotic
+from muode.bile import BileAcidInhibition, BileAcidTransform
 from muode.community import Community
 from muode.dfba import DynamicFBA, SimulationResult
 from muode.diet import Diet
+from muode.ecology import EcologyLayer, EcologyModel
 from muode.inject import Injection, merge_for_injection
 from muode.kinetics import KineticParameters
+from muode.lifecycle import SporeForming
+from muode.ph import WeakAcidInhibition
 from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
 from muode.predict import HeuristicPredictor, refine_kinetics
@@ -32,6 +38,14 @@ __all__ = [
     "Injection",
     "merge_for_injection",
     "KineticParameters",
+    "EcologyLayer",
+    "EcologyModel",
+    "WeakAcidInhibition",
+    "BileAcidTransform",
+    "BileAcidInhibition",
+    "SporeForming",
+    "Antibiotic",
+    "Bacteriocin",
     "LinprogOrganism",
     "OrganismModel",
     "OrganismSolution",
