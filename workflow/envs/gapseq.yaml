@@ -4,7 +4,9 @@
 # limited fungi/protist pathway coverage; better than nothing pending dedicated
 # fungal tools such as CarveFungi or the Yeast8 template).
 # Python + muode are included so that workflow/scripts/reconstruct_one.py runs
-# inside this env without needing the base muode env to be active.
+# inside this env without needing the base muode env to be active.  muode is
+# installed by the companion post-deploy script (gapseq.post-deploy.sh) after
+# env creation; run snakemake from the repo root so it finds pyproject.toml.
 name: muode-gapseq
 channels:
   - conda-forge
@@ -13,5 +15,3 @@ dependencies:
   - python=3.11
   - gapseq>=1.3
   - pip
-  - pip:
-    - .  # install muode from the repo root (snakemake must be run from there)
