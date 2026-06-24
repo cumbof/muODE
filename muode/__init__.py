@@ -22,10 +22,13 @@ from muode.ecology import EcologyLayer, EcologyModel
 from muode.inject import Injection, merge_for_injection
 from muode.kinetics import KineticParameters
 from muode.lifecycle import SporeForming
+from muode.oxygen import OxygenSensitivity
 from muode.ph import WeakAcidInhibition
-from muode.scenarios import cdi_scenario
+from muode.phage import PhageInfection
+from muode.scenarios import cdi_scenario, phage_predation_scenario
 from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
+from muode.traits import Domain, MicrobeTraits, OxygenTolerance, reconstruction_route
 from muode.predict import HeuristicPredictor, refine_kinetics
 from muode.spatial import SpatialDynamicFBA, SpatialResult
 from muode.validate import BenchmarkExpectation, ValidationReport, validate
@@ -47,7 +50,14 @@ __all__ = [
     "SporeForming",
     "Antibiotic",
     "Bacteriocin",
+    "OxygenSensitivity",
+    "PhageInfection",
+    "Domain",
+    "MicrobeTraits",
+    "OxygenTolerance",
+    "reconstruction_route",
     "cdi_scenario",
+    "phage_predation_scenario",
     "LinprogOrganism",
     "OrganismModel",
     "OrganismSolution",

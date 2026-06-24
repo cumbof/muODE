@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional
 
 from muode.organism import OrganismModel
+from muode.traits import Domain, MicrobeTraits
 
 
 @dataclass
@@ -35,6 +36,10 @@ class Community:
     abundances: Dict[str, float] = field(default_factory=dict)
     #: total community biomass at t=0 (gDW/L)
     total_biomass: float = 0.01
+    #: optional per-organism traits (domain/kingdom, oxygen relationship).  The
+    #: simulation core ignores these; reconstruction routing and the oxygen layer
+    #: consume them.  Members without an entry default to an anaerobic bacterium.
+    traits: Dict[str, MicrobeTraits] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         ids = [o.id for o in self.organisms]
@@ -60,6 +65,13 @@ class Community:
             if o.id == organism_id:
                 return o
         raise KeyError(organism_id)
+
+    def traits_of(self, organism_id: str) -> MicrobeTraits:
+        """Traits for one member, defaulting to an anaerobic bacterium."""
+        return self.traits.get(organism_id, MicrobeTraits())
+
+    def domain_of(self, organism_id: str) -> Domain:
+        return self.traits_of(organism_id).domain
 
     def initial_biomass(self) -> Dict[str, float]:
         """Initial biomass per species = total biomass * relative abundance."""
@@ -117,4 +129,6 @@ class Community:
         if not organisms:
             raise ValueError("subsampling removed every organism; loosen the thresholds")
         kept_ab = {i: a for i, a in self.abundances.items() if i in keep}
-        return Community(organisms, kept_ab, total_biomass=self.total_biomass)
+        kept_traits = {i: tr for i, tr in self.traits.items() if i in keep}
+        return Community(organisms, kept_ab, total_biomass=self.total_biomass,
+                         traits=kept_traits)

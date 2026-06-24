@@ -36,6 +36,7 @@ from muode.kinetics import KineticParameters
 from muode.lifecycle import SporeForming
 from muode.organism import LinprogOrganism
 from muode.ph import WeakAcidInhibition
+from muode.phage import PhageInfection
 
 CDIFF = "C_difficile"
 COMPETITOR = "donor_competitor"   # SCFA-producing carbon competitor
@@ -115,3 +116,38 @@ def cdi_scenario(fmt: bool, t_end: float = 96.0, dt: float = 0.05,
     engine = DynamicFBA(t_end=t_end, dt=dt)
     return engine.run(community, cdi_diet(), cdi_kinetics(),
                       injections=injections, ecology=ecology)
+
+
+# ---------------------------------------------------------------------------
+# phage therapy / predation
+# ---------------------------------------------------------------------------
+
+PATHOGEN = "pathogen_bloom"       # a fast carbon grower that would otherwise dominate
+COMMENSAL = "commensal"           # a slower grower it out-competes for the same carbon
+
+
+def phage_predation_scenario(therapy: bool, t_end: float = 48.0, dt: float = 0.02,
+                             dose_titer: float = 0.5) -> SimulationResult:
+    """A fast pathogen out-blooms a commensal; a phage reins it back in.
+
+    Two species compete for the same carbon: ``PATHOGEN`` grows faster and, left
+    alone, takes over while ``COMMENSAL`` is suppressed.  With ``therapy=True`` a
+    phage specific to the pathogen is present; its lytic cycle crashes the bloom
+    and *releases* the commensal -- the predation, the amplification of the phage
+    and the competitive rebound are all emergent, not scripted.
+
+    The only difference between the two arms is the phage titer; inspect
+    ``result.biomass`` and ``result.environment['phage[T4-like]']``.
+    """
+    organisms = [_grower(PATHOGEN, yld=0.30), _grower(COMMENSAL, yld=0.18)]
+    community = Community(organisms, {PATHOGEN: 0.5, COMMENSAL: 0.5}, total_biomass=0.02)
+    diet = Diet(concentrations={"glc_e": 8.0}, influx={"glc_e": 1.0}, name="carbon_chemostat")
+    kinetics = KineticParameters(metabolite_defaults={"glc_e": (10.0, 0.5)})
+
+    layers = []
+    if therapy:
+        layers.append(PhageInfection(
+            host=PATHOGEN, name="T4-like", adsorption_rate=12.0, burst_size=60.0,
+            latent_period=0.4, decay_rate=0.1, initial_titer=dose_titer))
+    ecology = EcologyModel(layers)
+    return DynamicFBA(t_end=t_end, dt=dt).run(community, diet, kinetics, ecology=ecology)
