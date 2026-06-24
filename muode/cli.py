@@ -46,9 +46,19 @@ def _kinetics(default_vmax: float, default_km: float):
     return KineticParameters(default_vmax=default_vmax, default_km=default_km)
 
 
-def _save_outputs(result, outdir: Path, make_figures: bool = True) -> None:
-    result.to_csv(outdir)
+def _save_outputs(
+    result,
+    outdir: Path,
+    make_figures: bool = True,
+    snapshot_interval: Optional[float] = None,
+    snapshot_times: Optional[List[float]] = None,
+) -> None:
+    result.to_csv(outdir, snapshot_interval=snapshot_interval, snapshot_times=snapshot_times)
     Path(outdir, "meta.json").write_text(json.dumps(result.meta, indent=2, default=str))
+    if snapshot_interval is not None or snapshot_times is not None:
+        n = len(result.abundance_profile(times=snapshot_times, interval=snapshot_interval))
+        console.print(f"[green]Abundance snapshots:[/green] {n} time point(s) → "
+                      f"{outdir}/abundance_snapshots.tsv")
     if make_figures:
         try:
             from muode import viz
@@ -310,6 +320,8 @@ def simulate(
     default_km: float = typer.Option(0.01, help="Default Km (mmol/L)."),
     kinetics: Optional[Path] = typer.Option(None, help="Predicted kinetics: a *.kinetics.json file or a directory of them (from `refine --predict-kinetics`)."),
     enzyme_constraints: bool = typer.Option(False, help="Apply GECKO-lite kcat caps to intracellular reactions (needs --kinetics with kcat)."),
+    snapshot_interval: Optional[float] = typer.Option(None, "--snapshot-interval", help="Write abundance_snapshots.tsv with one row every N simulated hours."),
+    snapshot_times: Optional[str] = typer.Option(None, "--snapshot-times", help="Comma-separated time points (h) for abundance snapshots, e.g. '0,6,12,24,36'."),
     outdir: Path = typer.Option("results", help="Output directory."),
 ) -> None:
     """Phase 4 -- run the dynamic community simulation."""
@@ -350,7 +362,8 @@ def simulate(
     engine = DynamicFBA(t_end=time, dt=step, death_rate=death_rate, dilution_rate=dilution_rate)
     result = engine.run(comm, _load_diet(diet), kin, injections=injections or None)
     outdir.mkdir(parents=True, exist_ok=True)
-    _save_outputs(result, outdir)
+    snap_times = [float(t) for t in snapshot_times.split(",")] if snapshot_times else None
+    _save_outputs(result, outdir, snapshot_interval=snapshot_interval, snapshot_times=snap_times)
     _summary(result)
     console.print(f"[bold]Wrote results to {outdir}[/bold]")
 
@@ -367,6 +380,8 @@ def perturb(
     step: float = typer.Option(0.1, "--step"),
     default_vmax: float = typer.Option(10.0),
     default_km: float = typer.Option(0.01),
+    snapshot_interval: Optional[float] = typer.Option(None, "--snapshot-interval", help="Write abundance_snapshots.tsv with one row every N simulated hours."),
+    snapshot_times: Optional[str] = typer.Option(None, "--snapshot-times", help="Comma-separated time points (h) for abundance snapshots, e.g. '0,6,12,24,36'."),
     outdir: Path = typer.Option("results_perturbation", help="Output directory."),
 ) -> None:
     """Phase 5 -- run a simulation under a perturbation (antibiotic / knockout)."""
@@ -391,7 +406,8 @@ def perturb(
     result = engine.run(comm, _load_diet(diet), _kinetics(default_vmax, default_km), pert,
                         injections=injections or None)
     outdir.mkdir(parents=True, exist_ok=True)
-    _save_outputs(result, outdir)
+    snap_times = [float(t) for t in snapshot_times.split(",")] if snapshot_times else None
+    _save_outputs(result, outdir, snapshot_interval=snapshot_interval, snapshot_times=snap_times)
     console.print(f"[bold]Perturbation:[/bold] {pert.describe()}")
     _summary(result)
     console.print(f"[bold]Wrote results to {outdir}[/bold]")

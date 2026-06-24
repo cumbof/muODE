@@ -114,8 +114,49 @@ class SimulationResult:
                         )
         return pd.DataFrame(rows, columns=["producer", "metabolite", "consumer", "strength"])
 
+    # -- abundance snapshots ------------------------------------------------
+    def abundance_profile(
+        self,
+        times: Optional[List[float]] = None,
+        interval: Optional[float] = None,
+    ) -> pd.DataFrame:
+        """Relative abundance (sum-to-1) sampled at chosen time points.
+
+        Parameters
+        ----------
+        times:
+            Explicit time points in hours.  Each is matched to the nearest
+            recorded simulation step.  Takes precedence over ``interval``.
+        interval:
+            Sample every ``interval`` hours from 0 to t_end.  Ignored when
+            ``times`` is provided.  If neither is given, every recorded step
+            is returned.
+
+        Returns
+        -------
+        DataFrame with time index (h), one column per species, values are
+        relative abundances in [0, 1] that sum to 1 at each row (or 0 if
+        total biomass is zero at that time point).
+        """
+        bm = self.biomass
+        if times is not None:
+            idx = [int(bm.index.get_indexer([t], method="nearest")[0]) for t in times]
+            bm = bm.iloc[idx]
+        elif interval is not None:
+            t_max = float(bm.index[-1])
+            sample_times = np.arange(0.0, t_max + interval * 1e-6, interval)
+            idx = [int(bm.index.get_indexer([t], method="nearest")[0]) for t in sample_times]
+            bm = bm.iloc[idx]
+        total = bm.sum(axis=1).replace(0.0, np.nan)
+        return bm.div(total, axis=0).fillna(0.0)
+
     # -- IO -----------------------------------------------------------------
-    def to_csv(self, outdir: str | Path) -> None:
+    def to_csv(
+        self,
+        outdir: str | Path,
+        snapshot_interval: Optional[float] = None,
+        snapshot_times: Optional[List[float]] = None,
+    ) -> None:
         outdir = Path(outdir)
         outdir.mkdir(parents=True, exist_ok=True)
         self.biomass.to_csv(outdir / "biomass.csv", index_label="time_h")
@@ -128,6 +169,9 @@ class SimulationResult:
             self.environment.to_csv(outdir / "environment.csv", index_label="time_h")
         if self.spores is not None and not self.spores.empty:
             self.spores.to_csv(outdir / "spores.csv", index_label="time_h")
+        if snapshot_interval is not None or snapshot_times is not None:
+            snap = self.abundance_profile(times=snapshot_times, interval=snapshot_interval)
+            snap.to_csv(outdir / "abundance_snapshots.tsv", sep="\t", index_label="time_h")
 
 
 @dataclass
