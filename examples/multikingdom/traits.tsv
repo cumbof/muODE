@@ -1,8 +1,8 @@
 # Per-organism kingdom / oxygen traits (a side file; the abundance.tsv stays a
-# plain 2-column mag_id<TAB>rel_abundance contract). Columns:
-#   mag_id   domain      oxygen
+# plain 2-column mag_id<TAB>rel_abundance contract).
 # domain : bacteria | archaea | eukaryote | virus
 # oxygen : obligate_anaerobe | aerotolerant | facultative | obligate_aerobe
+mag_id	domain	oxygen
 B_thetaiotaomicron	bacteria	obligate_anaerobe
 C_albicans	eukaryote	facultative
 K_pneumoniae	bacteria	facultative
