@@ -30,8 +30,12 @@
 # Domain-aware reconstruction (`traits:` in config, optional)
 # -----------------------------------------------------------
 # Point `traits:` at a two-column TSV (mag_id, domain) to let the pipeline route
-# each MAG to the correct tool: bacteria/archaea->ENGINE, eukaryote->gapseq,
-# virus->skipped (no GEM; use PhageInfection ecology layers instead).
+# each MAG by domain:
+#   * bacteria / archaea -> ENGINE (CarveMe by default).
+#   * eukaryote          -> copy a curated model supplied via `eukaryote_models`
+#                           (CarveMe/gapseq are prokaryote tools and cannot build
+#                           eukaryotic GEMs); skipped if none is supplied.
+#   * virus              -> skipped (no GEM; use PhageInfection ecology layers).
 #
 # Run (from the repo root):
 #   conda activate muode && pip install -e .
@@ -79,7 +83,16 @@ def _mag_domain(mag: str) -> str:
     return MAG_DOMAINS.get(mag, "bacteria")
 
 
-# Build MAG list; exclude virus MAGs — they have no GEM to reconstruct.
+# Curated eukaryote models, supplied per MAG (mag_id -> SBML path).  CarveMe and
+# gapseq are prokaryote reconstruction tools and cannot build a eukaryotic GEM
+# (gapseq aborts on contigs >100 kb inside HMMER's hmmsearch).  A eukaryote MAG
+# is reconstructed only if a curated model — e.g. Yeast8 / CarveFungi-derived —
+# is provided here; otherwise it is skipped (like a virus) with a warning.
+EUK_MODELS: dict = config.get("eukaryote_models") or {}
+
+# Build MAG list, deciding which MAGs are reconstructable.  Two kinds are skipped:
+#   * virus      — no genome-scale model at all (use PhageInfection layers).
+#   * eukaryote  — only if no curated model was supplied (see EUK_MODELS).
 _all_mags = sorted(Path(p).stem for p in glob.glob(os.path.join(MAGS_DIR, f"*.{EXT}")))
 if not _all_mags:
     raise WorkflowError(
@@ -88,14 +101,25 @@ if not _all_mags:
         "    bash examples/multikingdom/download_genomes.sh\n"
         "  Then re-run snakemake."
     )
-_virus_mags = [m for m in _all_mags if _mag_domain(m) == "virus"]
-MAGS = [m for m in _all_mags if _mag_domain(m) != "virus"]
-if _virus_mags:
-    print(
-        f"[muODE] skipping {len(_virus_mags)} virus MAG(s) — no GEM reconstruction: "
-        f"{_virus_mags}\n"
-        "        Add PhageInfection ecology layers for these in your simulate script."
-    )
+MAGS = []
+_skipped = []
+for _m in _all_mags:
+    _d = _mag_domain(_m)
+    if _d == "virus":
+        _skipped.append(
+            (_m, "virus — no GEM; add a PhageInfection ecology layer in your simulate script")
+        )
+    elif _d == "eukaryote" and _m not in EUK_MODELS:
+        _skipped.append(
+            (_m, "eukaryote — CarveMe/gapseq cannot build a eukaryotic GEM; supply a curated "
+                 "model under `eukaryote_models` (e.g. Yeast8 / CarveFungi-derived)")
+        )
+    else:
+        MAGS.append(_m)
+if _skipped:
+    print("[muODE] skipping %d MAG(s) with no reconstruction route:" % len(_skipped))
+    for _m, _why in _skipped:
+        print(f"          - {_m}: {_why}")
 
 
 # --- reconstruction engine dispatch ----------------------------------------
@@ -112,7 +136,8 @@ def _recon_conda(wildcards):
     """Return the conda env for this MAG's reconstruction, by domain."""
     domain = _mag_domain(wildcards.mag)
     if domain == "eukaryote":
-        return "envs/gapseq.yaml"   # gapseq has the broadest eukaryote coverage
+        # We only copy a curated model in (see _recon_cmd); the base env suffices.
+        return "envs/muode.yaml"
     # bacteria / archaea: honour the configured ENGINE
     if ENGINE == "carveme":
         return "envs/carveme.yaml"
@@ -127,12 +152,17 @@ def _recon_cmd(wildcards, input, output):
     media_flag = f"-g {config['gapfill_media']}" if config.get("gapfill_media") else ""
 
     if domain == "eukaryote":
-        # gapseq doall: find pathways + fill + combine in one go.
-        # Requires gapseq conda env (envs/gapseq.yaml).
-        return (
-            f"python {SCRIPTS}/reconstruct_one.py {genome} {model} "
-            f"--engine gapseq {media_flag}"
-        )
+        # Eukaryotes are not reconstructed de novo (CarveMe/gapseq are prokaryote
+        # tools; gapseq crashes on eukaryotic contigs).  A curated SBML must be
+        # supplied via `eukaryote_models`; MAGs without one are filtered out
+        # above, so an entry is guaranteed to exist here.
+        src = EUK_MODELS[wildcards.mag]
+        if not os.path.isfile(src):
+            raise WorkflowError(
+                f"eukaryote_models['{wildcards.mag}'] = '{src}' does not exist.\n"
+                "Provide a curated eukaryotic GEM (e.g. Yeast8 / CarveFungi-derived) there."
+            )
+        return f"cp {src} {model}"
     # bacteria / archaea
     if ENGINE == "carveme":
         proteins = model.replace(".xml", ".faa")

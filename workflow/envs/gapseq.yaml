@@ -1,8 +1,8 @@
 # Alternative reconstruction engine (Phase 1, optional). ModelSEED namespace --
 # do NOT mix gapseq and CarveMe models in one community.
-# Also used for eukaryote MAGs when domain-aware routing is active (gapseq has
-# limited fungi/protist pathway coverage; better than nothing pending dedicated
-# fungal tools such as CarveFungi or the Yeast8 template).
+# gapseq is a PROKARYOTE tool: it is NOT used for eukaryote MAGs (it aborts on
+# eukaryotic contigs — HMMER's hmmsearch has a 100 kb sequence-length limit).
+# Eukaryotes are supplied as curated models via the `eukaryote_models` config key.
 # Python + muode are included so that workflow/scripts/reconstruct_one.py runs
 # inside this env without needing the base muode env to be active.  muode is
 # installed by the companion post-deploy script (gapseq.post-deploy.sh) after

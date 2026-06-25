@@ -10,10 +10,12 @@
 #
 # Domain-aware reconstruction (driven by `traits:` below):
 #   bacteria / archaea  --> CarveMe  (workflow/envs/carveme.yaml)
-#   eukaryote (fungus)  --> gapseq   (workflow/envs/gapseq.yaml)
-#                          gapseq has limited fungi pathway coverage; for best
-#                          results use Yeast8/CarveFungi and place the SBML
-#                          manually in results/models/draft/ before running.
+#   eukaryote (fungus)  --> a curated model supplied via `eukaryote_models`.
+#                          CarveMe and gapseq are PROKARYOTE tools: gapseq aborts
+#                          on eukaryotic contigs (HMMER's hmmsearch has a 100 kb
+#                          limit), so the fungus must come from a eukaryote-aware
+#                          reconstructor (Yeast8 / CarveFungi). Without one it is
+#                          skipped (a warning is printed).
 #   virus (phage)       --> skipped  (no GEM -- add PhageInfection ecology
 #                          layers in mechanistic_demo.py instead)
 
@@ -30,11 +32,18 @@ min_completeness: 50.0
 max_contamination: 10.0
 
 # --- Phase 1: reconstruction ------------------------------------------------
-# gramneg covers the two bacteria; the fungus routes to gapseq automatically
-# via the traits file; the phage is skipped (no GEM reconstruction).
+# gramneg covers the two bacteria. The fungus (C_albicans) and the phage are
+# skipped unless you supply a curated eukaryote model below.
 engine: "carveme"
 universe: "gramneg"
 gapfill_media: null
+
+# Curated eukaryote GEMs (mag_id -> SBML path). Leave empty to skip eukaryotes.
+# To include C. albicans, build a model with a eukaryote-aware reconstructor
+# (Yeast8-derived template, CarveFungi, ...) and point to it here, e.g.:
+#   eukaryote_models:
+#     C_albicans: "examples/multikingdom/data/eukaryote_models/C_albicans.xml"
+eukaryote_models: {}
 
 # --- Phase 2/3: refinement --------------------------------------------------
 universal_model: null
