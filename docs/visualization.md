@@ -110,17 +110,36 @@ skipped (with a warning message in the CLI).
 
 ---
 
+## Self-contained HTML report
+
+`muode report` bundles a results directory into a single, portable
+`report.html` — summary tables (final composition, fold-changes, extinctions,
+the cross-feeding edge list, the most dynamic metabolites and the run
+parameters) with the PNG figures embedded as base64. One file, no server, no
+extra dependencies (pure stdlib), so a whole run can be shared or archived as a
+single artefact.
+
+```bash
+muode simulate --community simulation_env/community.json --outdir results/
+muode report --results results/                 # writes results/report.html
+muode report --results results/ --out run42.html
+```
+
+Programmatically:
+
+```python
+from muode.report import build_report
+build_report("results/", "results/report.html")
+```
+
 ## Interactive / GUI dashboard
 
-**No interactive GUI is currently implemented.** The `muode spatial` command
-produces static PNG heatmaps; there is no live dashboard, no Jupyter widget, and
-no web app. An interactive GUI was discussed as a Milestone 4 reach goal
-(see `docs/EVALUATION.md`) but was deferred because it is not testable in a
-headless environment.
-
-The saved PNG files and the `spatial.npz` / `biomass.csv` files contain all the
-data a dashboard would render. If you want to explore the results interactively,
-load them in a Jupyter notebook:
+A **live, server-backed interactive dashboard** (zoomable time sliders, on-the-fly
+re-thresholding of cross-feeding edges) is **not** implemented — it is a separate
+web application that is not headless-testable, so it remains future work. The
+static `muode report` above and the saved CSV / `spatial.npz` files contain all
+the data such a dashboard would render. To explore the results interactively
+today, load them in a Jupyter notebook:
 
 ```python
 import numpy as np

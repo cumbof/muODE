@@ -506,6 +506,18 @@ def spatial(
 
 
 @app.command()
+def report(
+    results: Path = typer.Option(..., help="Results directory written by `simulate`/`demo`/`perturb`."),
+    out: Optional[Path] = typer.Option(None, help="Output HTML file (default: <results>/report.html)."),
+) -> None:
+    """Bundle a results directory into one self-contained HTML report."""
+    from muode.report import build_report
+
+    path = build_report(results, out)
+    console.print(f"[bold]Wrote report to {path}[/bold]")
+
+
+@app.command()
 def export_comets(
     community: Path = typer.Option(..., help="community.json manifest from `assemble`."),
     outdir: Path = typer.Option("comets_run", help="Output directory for the COMETS run."),
