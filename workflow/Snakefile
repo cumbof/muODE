@@ -32,10 +32,12 @@
 # Point `traits:` at a two-column TSV (mag_id, domain) to let the pipeline route
 # each MAG by domain:
 #   * bacteria / archaea -> ENGINE (CarveMe by default).
-#   * eukaryote          -> copy a curated model supplied via `eukaryote_models`
-#                           (CarveMe/gapseq are prokaryote tools and cannot build
-#                           eukaryotic GEMs); skipped if none is supplied.
+#   * fungus             -> MetaEuk genes + CarveFungi (needs `euk_ref_db`).
+#   * eukaryote          -> MetaEuk genes + eggNOG/ModelSEEDpy, experimental
+#                           (needs `euk_ref_db`).
 #   * virus              -> skipped (no GEM; use PhageInfection ecology layers).
+# A curated model supplied per MAG in `eukaryote_models` overrides the fungus /
+# eukaryote routes; eukaryotes with neither a model nor `euk_ref_db` are skipped.
 #
 # Run (from the repo root):
 #   conda activate muode && pip install -e .
@@ -83,16 +85,30 @@ def _mag_domain(mag: str) -> str:
     return MAG_DOMAINS.get(mag, "bacteria")
 
 
-# Curated eukaryote models, supplied per MAG (mag_id -> SBML path).  CarveMe and
-# gapseq are prokaryote reconstruction tools and cannot build a eukaryotic GEM
-# (gapseq aborts on contigs >100 kb inside HMMER's hmmsearch).  A eukaryote MAG
-# is reconstructed only if a curated model — e.g. Yeast8 / CarveFungi-derived —
-# is provided here; otherwise it is skipped (like a virus) with a warning.
+# Eukaryote reconstruction routing.  CarveMe (prokaryote) and gapseq (aborts on
+# contigs >100 kb inside HMMER's hmmsearch) cannot build eukaryotic GEMs, so
+# eukaryotes use a separate genome->proteins->GEM path:
+#   * domain 'fungus'    -> MetaEuk genes + CarveFungi.
+#   * domain 'eukaryote' -> MetaEuk genes + eggNOG/ModelSEEDpy (experimental).
+# Both need a MetaEuk protein reference DB (`euk_ref_db`).  A curated model
+# supplied per MAG in `eukaryote_models` overrides automated reconstruction.
 EUK_MODELS: dict = config.get("eukaryote_models") or {}
+EUK_REF_DB = config.get("euk_ref_db")         # MetaEuk/MMseqs2 protein reference DB
+EUK_DOMAINS = ("fungus", "eukaryote")
 
-# Build MAG list, deciding which MAGs are reconstructable.  Two kinds are skipped:
-#   * virus      — no genome-scale model at all (use PhageInfection layers).
-#   * eukaryote  — only if no curated model was supplied (see EUK_MODELS).
+
+def _euk_engine(mag, domain):
+    """Reconstruction route for a eukaryote/fungus MAG, or None if it must skip."""
+    if mag in EUK_MODELS:
+        return "curated"                      # bring-your-own model wins
+    if EUK_REF_DB:
+        return "carvefungi" if domain == "fungus" else "eukaryote_generic"
+    return None
+
+
+# Build MAG list, deciding which MAGs are reconstructable.  Skipped:
+#   * virus              — no genome-scale model (use PhageInfection layers).
+#   * fungus / eukaryote — only if neither a curated model nor euk_ref_db exists.
 _all_mags = sorted(Path(p).stem for p in glob.glob(os.path.join(MAGS_DIR, f"*.{EXT}")))
 if not _all_mags:
     raise WorkflowError(
@@ -109,10 +125,10 @@ for _m in _all_mags:
         _skipped.append(
             (_m, "virus — no GEM; add a PhageInfection ecology layer in your simulate script")
         )
-    elif _d == "eukaryote" and _m not in EUK_MODELS:
+    elif _d in EUK_DOMAINS and _euk_engine(_m, _d) is None:
         _skipped.append(
-            (_m, "eukaryote — CarveMe/gapseq cannot build a eukaryotic GEM; supply a curated "
-                 "model under `eukaryote_models` (e.g. Yeast8 / CarveFungi-derived)")
+            (_m, "eukaryote — set `euk_ref_db` (MetaEuk reference DB) to reconstruct "
+                 "automatically, or supply a curated model under `eukaryote_models`")
         )
     else:
         MAGS.append(_m)
@@ -135,9 +151,13 @@ if ENGINE not in ("carveme", "stub", "gapseq"):
 def _recon_conda(wildcards):
     """Return the conda env for this MAG's reconstruction, by domain."""
     domain = _mag_domain(wildcards.mag)
-    if domain == "eukaryote":
-        # We only copy a curated model in (see _recon_cmd); the base env suffices.
-        return "envs/muode.yaml"
+    if domain in EUK_DOMAINS:
+        route = _euk_engine(wildcards.mag, domain)
+        if route == "curated":
+            return "envs/muode.yaml"            # just copies a supplied model
+        if route == "carvefungi":
+            return "envs/carvefungi.yaml"       # MetaEuk + CarveFungi
+        return "envs/eukaryote.yaml"            # MetaEuk + eggNOG + ModelSEEDpy
     # bacteria / archaea: honour the configured ENGINE
     if ENGINE == "carveme":
         return "envs/carveme.yaml"
@@ -151,18 +171,28 @@ def _recon_cmd(wildcards, input, output):
     model  = str(output.model)
     media_flag = f"-g {config['gapfill_media']}" if config.get("gapfill_media") else ""
 
-    if domain == "eukaryote":
-        # Eukaryotes are not reconstructed de novo (CarveMe/gapseq are prokaryote
-        # tools; gapseq crashes on eukaryotic contigs).  A curated SBML must be
-        # supplied via `eukaryote_models`; MAGs without one are filtered out
-        # above, so an entry is guaranteed to exist here.
-        src = EUK_MODELS[wildcards.mag]
-        if not os.path.isfile(src):
-            raise WorkflowError(
-                f"eukaryote_models['{wildcards.mag}'] = '{src}' does not exist.\n"
-                "Provide a curated eukaryotic GEM (e.g. Yeast8 / CarveFungi-derived) there."
-            )
-        return f"cp {src} {model}"
+    if domain in EUK_DOMAINS:
+        route = _euk_engine(wildcards.mag, domain)
+        if route == "curated":
+            # bring-your-own model: copy the supplied SBML in.
+            src = EUK_MODELS[wildcards.mag]
+            if not os.path.isfile(src):
+                raise WorkflowError(
+                    f"eukaryote_models['{wildcards.mag}'] = '{src}' does not exist.\n"
+                    "Provide a curated eukaryotic GEM (e.g. Yeast8 / CarveFungi-derived)."
+                )
+            return f"cp {src} {model}"
+        # automated euk reconstruction: MetaEuk genes + (CarveFungi | generic).
+        threads = config.get("threads", 4)
+        extra = ""
+        if route == "carvefungi" and config.get("carvefungi_cmd"):
+            extra = "--carvefungi-cmd '%s'" % config["carvefungi_cmd"]
+        elif route == "eukaryote_generic" and config.get("eggnog_data_dir"):
+            extra = "--eggnog-data-dir %s" % config["eggnog_data_dir"]
+        return (
+            f"python {SCRIPTS}/reconstruct_one.py {genome} {model} "
+            f"--engine {route} --ref-db {EUK_REF_DB} --threads {threads} {extra}"
+        )
     # bacteria / archaea
     if ENGINE == "carveme":
         proteins = model.replace(".xml", ".faa")

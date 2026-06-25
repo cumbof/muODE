@@ -1,0 +1,22 @@
+# Fungal reconstruction environment (Phase 1, eukaryote/fungus MAGs).
+# Pipeline: MetaEuk eukaryotic gene calling -> CarveFungi GEM reconstruction.
+# CarveFungi is the deep-learning fungal analog of CarveMe; CarveMe (prokaryote)
+# and gapseq (crashes on eukaryotic contigs) cannot be used here.
+#
+# NOTE: CarveFungi is not on bioconda. Install it from its repository
+# (https://github.com/SandraCastilloPriego/CarveFungi) into this env, or point
+# the `carvefungi_cmd` config key at your invocation. muode itself is installed
+# by the companion post-deploy script (carvefungi.post-deploy.sh).
+name: muode-carvefungi
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - metaeuk>=6
+  - pip
+  # CarveFungi's deep-learning stack (adjust versions to your CarveFungi release):
+  - tensorflow
+  - numpy
+  - pandas
+  - cobra>=0.29

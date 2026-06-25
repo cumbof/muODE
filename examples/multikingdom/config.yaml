@@ -32,15 +32,27 @@ min_completeness: 50.0
 max_contamination: 10.0
 
 # --- Phase 1: reconstruction ------------------------------------------------
-# gramneg covers the two bacteria. The fungus (C_albicans) and the phage are
-# skipped unless you supply a curated eukaryote model below.
+# gramneg covers the two bacteria. C_albicans (domain 'fungus' in traits.tsv)
+# reconstructs automatically via MetaEuk + CarveFungi once `euk_ref_db` is set
+# below; until then it is skipped. The phage has no GEM and is always skipped.
 engine: "carveme"
 universe: "gramneg"
 gapfill_media: null
 
-# Curated eukaryote GEMs (mag_id -> SBML path). Leave empty to skip eukaryotes.
-# To include C. albicans, build a model with a eukaryote-aware reconstructor
-# (Yeast8-derived template, CarveFungi, ...) and point to it here, e.g.:
+# Automated eukaryote reconstruction (fungus -> CarveFungi, eukaryote -> generic).
+# MetaEuk gene calling needs a protein reference database (MMseqs2/MetaEuk format,
+# e.g. a UniRef90 or curated-eukaryote DB). Set this to enable the fungus route:
+#   euk_ref_db: "/path/to/metaeuk/refdb"
+euk_ref_db: null
+# Optional: override the CarveFungi invocation ({proteins}/{output}/{threads}).
+#   carvefungi_cmd: "python /opt/CarveFungi/carvefungi.py {proteins} -o {output}"
+carvefungi_cmd: null
+# Optional: eggNOG-mapper data directory for the generic (non-fungal) euk route.
+eggnog_data_dir: null
+
+# Curated eukaryote GEMs (mag_id -> SBML path) override automated reconstruction.
+# Point here at a model from any eukaryote-aware reconstructor (Yeast8 template,
+# CarveFungi run by hand, ...), e.g.:
 #   eukaryote_models:
 #     C_albicans: "examples/multikingdom/data/eukaryote_models/C_albicans.xml"
 eukaryote_models: {}

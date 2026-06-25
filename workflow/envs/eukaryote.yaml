@@ -1,0 +1,18 @@
+# Generic (non-fungal) eukaryote reconstruction environment (Phase 1).
+# Pipeline: MetaEuk eukaryotic gene calling -> eggNOG-mapper orthology ->
+# ModelSEEDpy draft. This is the experimental, lower-quality fallback for
+# eukaryotes that CarveFungi does not cover; prefer a curated model when one is
+# available. muode is installed by the companion post-deploy script
+# (eukaryote.post-deploy.sh).
+name: muode-eukaryote
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - metaeuk>=6
+  - eggnog-mapper>=2.1
+  - cobra>=0.29
+  - pip
+  - pip:
+    - modelseedpy
