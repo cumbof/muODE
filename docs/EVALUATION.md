@@ -130,7 +130,10 @@ non-negativity clamping.
 
 - gapseq as default → optional alternative engine.
 - AI kinetic prediction → optional refinement, not a prerequisite.
-- ESM-2 kinetics, spatiotemporal PDE biofilms, GUI → genuinely future (unchanged).
+- ESM-2 kinetics, a live interactive GUI dashboard, real GPU DLKcat/Kroll
+  checkpoints, and an in-process COMETS backend → genuinely future / external.
+  (Spatiotemporal PDE biofilms, the protein-pool budget, the COMETS *export*
+  bridge and a static HTML report are now implemented.)
 
 ---
 
@@ -178,8 +181,12 @@ non-negativity clamping.
       (`simulate --enzyme-constraints`), the workflow, and the dFBA loop
 - [x] Opt-in DLKcat / Kroll-Km wrappers (`ml` extra) + `build_enzyme_context`
       BiGG→(sequence, SMILES) namespace mapping
-- [ ] Bundle/validate real DLKcat & Kroll checkpoints on a GPU host
-- [ ] Full protein-*pool* GECKO budget (needs enzyme MW + proteome fraction); ESM-2
+- [x] Shared protein-*pool* GECKO/sMOMENT budget (`apply_protein_pool_constraint`,
+      `simulate --protein-pool`): one finite enzyme mass allocated across all
+      kcat-constrained reactions
+- [ ] Bundle/validate real DLKcat & Kroll checkpoints on a GPU host *(external)*
+- [ ] Measured per-enzyme proteome allocation (per-enzyme MW + abundances); ESM-2
+      embeddings *(needs proteomics / a GPU host)*
 
 **Milestone 3 — Validation & scale (in progress)**
 - [x] Benchmark/validation framework (`muode.validate`, `muode validate`):
@@ -192,17 +199,23 @@ non-negativity clamping.
       (`mag_id, rel_abundance`) produced by whatever upstream profiler the user
       ran (MetaSBT, Bracken, Kraken2, custom scripts, manual). muODE is agnostic
       to the profiling method — the TSV is the interface.
-- [ ] Benchmark against real synthetic/gut datasets on a capable host
-- [ ] COMETS alternative dynamic backend (the engine's solver abstraction is the
-      integration point; deferred — heavy external dependency)
+- [x] COMETS **export bridge** (`muode export-comets`, `muode.comets`): writes a
+      COMETS layout + params + `cometspy` driver so the same community can be run
+      in the independent COMETS engine for cross-validation
+- [ ] Benchmark against real synthetic/gut datasets on a capable host *(external)*
+- [ ] COMETS as an *in-process* per-step backend (the solver abstraction is the
+      integration point; deferred — heavy external Java/solver dependency)
 
 **Milestone 4 — Reach (in progress)**
 - [x] Spatiotemporal (PDE) 2D reaction-diffusion dynamic-FBA engine
       (`muode.spatial`): per-cell community FBA + metabolite diffusion under
       no-flux boundaries, with spatial-cross-feeding tests and figures
-- [ ] Interactive GUI dashboard (deferred — not headless-testable; the saved
-      spatial fields are the data a dashboard would render)
-- [ ] Performance for large GEMs on large grids; ESM-2 kinetics
+- [x] Self-contained static HTML report (`muode report`, `muode.report`): one
+      portable `report.html` per run (composition, cross-feeding, metabolites,
+      run metadata, embedded figures)
+- [ ] Live, server-backed interactive dashboard (deferred — a separate web app,
+      not headless-testable; the static report + CSV/`.npz` are its data)
+- [ ] Performance for large GEMs on large grids; ESM-2 kinetics *(GPU host)*
 
 ---
 
