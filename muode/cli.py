@@ -320,6 +320,7 @@ def simulate(
     default_km: float = typer.Option(0.01, help="Default Km (mmol/L)."),
     kinetics: Optional[Path] = typer.Option(None, help="Predicted kinetics: a *.kinetics.json file or a directory of them (from `refine --predict-kinetics`)."),
     enzyme_constraints: bool = typer.Option(False, help="Apply GECKO-lite kcat caps to intracellular reactions (needs --kinetics with kcat)."),
+    protein_pool: Optional[float] = typer.Option(None, "--protein-pool", help="Shared enzyme-mass budget (g enzyme/gDW, e.g. 0.2) for a GECKO/sMOMENT proteome-pool constraint (implies --enzyme-constraints)."),
     snapshot_interval: Optional[float] = typer.Option(None, "--snapshot-interval", help="Write abundance_snapshots.tsv with one row every N simulated hours."),
     snapshot_times: Optional[str] = typer.Option(None, "--snapshot-times", help="Comma-separated time points (h) for abundance snapshots, e.g. '0,6,12,24,36'."),
     outdir: Path = typer.Option("results", help="Output directory."),
@@ -350,14 +351,17 @@ def simulate(
         kin.merge(loaded)
         console.print(f"[green]Loaded refined kinetics from {n} file(s) "
                       f"({len(kin.kcat)} kcat, {len(kin.overrides)} Km).[/green]")
-    if enzyme_constraints:
+    if enzyme_constraints or protein_pool is not None:
         if not kin.kcat:
-            console.print("[yellow]--enzyme-constraints set but no kcat available "
-                          "(pass --kinetics); skipping.[/yellow]")
+            console.print("[yellow]--enzyme-constraints/--protein-pool set but no kcat "
+                          "available (pass --kinetics); skipping.[/yellow]")
         for o in comm.organisms:
             if hasattr(o, "apply_enzyme_constraints"):
-                rep = o.apply_enzyme_constraints(kin, organism_id=o.id)
-                console.print(f"  {o.id}: enzyme-constrained {rep['n_constrained']} reaction(s)")
+                rep = o.apply_enzyme_constraints(kin, organism_id=o.id, pool_budget=protein_pool)
+                msg = f"  {o.id}: enzyme-constrained {rep['n_constrained']} reaction(s)"
+                if rep.get("n_pooled"):
+                    msg += f"; protein pool over {rep['n_pooled']} reaction(s) ≤ {rep['pool_budget']:g} g/gDW"
+                console.print(msg)
 
     engine = DynamicFBA(t_end=time, dt=step, death_rate=death_rate, dilution_rate=dilution_rate)
     result = engine.run(comm, _load_diet(diet), kin, injections=injections or None)

@@ -132,8 +132,39 @@ muode simulate --community simulation_env/community.json \
 
 The `apply_enzyme_constraints` method of `CobraOrganism` accepts a
 `KineticParameters` object and a per-organism scaling factor. It returns a
-report dict with `n_constrained` (number of reactions bounded) and
-`n_skipped` (reactions with missing kcat).
+report dict with `n_constrained` (number of reactions bounded).
+
+### Protein-pool budget (GECKO/sMOMENT, optional)
+
+Per-reaction caps bound each reaction independently. The **shared protein-pool
+budget** instead forces all enzyme-constrained reactions to draw on *one* finite
+enzyme-mass budget, so the cell must *allocate* limited protein between competing
+pathways:
+
+$$\sum_r \frac{MW_r}{k_{cat,r}\cdot 3600}\,\lvert v_r\rvert \;\le\; P
+\qquad (\text{g enzyme / gDW})$$
+
+$MW_r$ is the enzyme molecular weight (kDa = g/mmol; a typical default unless
+overridden) and $P$ is the proteome fraction available to these reactions
+(e.g. 0.2–0.5 g/gDW). This single budget is what makes **overflow metabolism**
+(acetate/ethanol secretion at high growth) and substrate hierarchies emerge from
+enzyme economics rather than being hard-coded. muODE implements it exactly,
+without reaction splitting, via an auxiliary usage variable $a_r\ge\lvert v_r\rvert$
+per reaction and one pool constraint added to the solver (so it survives every
+per-step bound reset).
+
+```bash
+muode simulate --community simulation_env/community.json \
+               --kinetics models/refined_gems/ \
+               --protein-pool 0.2
+```
+
+`apply_protein_pool_constraint(model, kinetics, organism_id, pool_budget)`
+(in `muode.enzyme`) adds the constraint and returns `n_pooled` (reactions drawing
+on the pool) and the `pool_budget`. It is still GECKO-*lite* — a single global
+budget with default masses, not a measured per-enzyme proteome allocation —
+so calibrate $P$, $MW_r$ and $k_{cat,r}$ against data before any quantitative
+claim.
 
 ---
 

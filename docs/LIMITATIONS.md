@@ -29,7 +29,7 @@ The right way to read the categories below:
 | Nutrient competition for shared substrates | shared extracellular pool, per-step uptake bounds | [engine.md](engine.md) |
 | Cross-feeding / syntrophy | emergent from the shared pool | [engine.md](engine.md) |
 | Michaelis–Menten / Monod uptake | per-step bound from concentration | [kinetics.md](kinetics.md) |
-| Enzyme-capacity limits (proteome) | GECKO-lite kcat caps | [kinetics.md](kinetics.md) |
+| Enzyme-capacity limits (proteome) | GECKO-lite kcat caps + shared protein-pool budget | [kinetics.md](kinetics.md) |
 | Diet / medium, open-system influx | `Diet` concentrations + influx | [assembly.md](assembly.md) |
 | Chemostat washout / dilution | `dilution_rate` | [engine.md](engine.md) |
 | First-order cell death | `death_rate` | [engine.md](engine.md) |
@@ -76,8 +76,10 @@ calibrate.
   real sporulation integrates quorum, Spo0A phosphorelay and other signals.
 - **Antibiotic PK.** One-compartment, first-order elimination; no absorption
   phase, tissue compartments, protein binding or gut-lumen specifics.
-- **Enzyme constraints.** GECKO-*lite*: a single global enzyme budget, not a
-  measured proteome allocation with per-enzyme masses.
+- **Enzyme constraints.** GECKO-*lite*: per-reaction kcat caps plus one shared
+  protein-pool budget (`apply_protein_pool_constraint`), but with a single global
+  budget and default enzyme masses — not a measured per-enzyme proteome
+  allocation. Calibrate the budget, MWs and kcat before quantitative use.
 - **Stoichiometric maintenance.** Uses each GEM's ATP-maintenance reactions as
   reconstructed; non-growth maintenance is not separately calibrated.
 - **Thermodynamic directionality.** Reaction reversibility is taken from the GEM;

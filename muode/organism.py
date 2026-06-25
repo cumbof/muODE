@@ -260,19 +260,27 @@ class CobraOrganism:
         self.reset_bounds()
 
     def apply_enzyme_constraints(self, kinetics, organism_id: Optional[str] = None,
-                                 enzyme_concentration: Optional[float] = None) -> dict:
+                                 enzyme_concentration: Optional[float] = None,
+                                 pool_budget: Optional[float] = None) -> dict:
         """Cap intracellular reaction velocities from kcat (GECKO-lite).
 
-        The caps become part of this organism's *baseline*, so they persist across
-        the per-step ``reset_bounds`` of the dynamic loop.
+        The per-reaction caps become part of this organism's *baseline*, so they
+        persist across the per-step ``reset_bounds`` of the dynamic loop.  When
+        ``pool_budget`` (g enzyme / gDW) is given, a single shared protein-pool
+        constraint is added on top via :func:`muode.enzyme.apply_protein_pool_constraint`;
+        it lives on the solver, so it likewise survives every per-step reset.
         """
-        from muode.enzyme import apply_enzyme_constraints
+        from muode.enzyme import apply_enzyme_constraints, apply_protein_pool_constraint
 
         report = apply_enzyme_constraints(
             self.model, kinetics, organism_id or self.id, enzyme_concentration
         )
         # fold the new caps into the baseline the dFBA loop resets to each step
         self._base_bounds = {r.id: (r.lower_bound, r.upper_bound) for r in self.model.reactions}
+        if pool_budget is not None:
+            report.update(apply_protein_pool_constraint(
+                self.model, kinetics, organism_id or self.id, pool_budget
+            ))
         return report
 
     def optimize(self) -> OrganismSolution:
