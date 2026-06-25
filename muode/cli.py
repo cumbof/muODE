@@ -505,5 +505,30 @@ def spatial(
     console.print(f"[bold]Wrote spatial results to {outdir}[/bold]")
 
 
+@app.command()
+def export_comets(
+    community: Path = typer.Option(..., help="community.json manifest from `assemble`."),
+    outdir: Path = typer.Option("comets_run", help="Output directory for the COMETS run."),
+    diet: Optional[str] = typer.Option(None, help="Override the diet preset/CSV (else the manifest's)."),
+    time: float = typer.Option(24.0, "--time", help="Simulated time (h)."),
+    step: float = typer.Option(0.1, "--step", help="Integration step (h)."),
+) -> None:
+    """Export the community to a COMETS run (layout + params + cometspy driver).
+
+    A hand-off to COMETS, the independent dynamic community-FBA engine, for
+    cross-validating the native muODE integrator. Does not run COMETS itself.
+    """
+    from muode.comets import export_comets as _export
+
+    manifest = json.loads(Path(community).read_text())
+    diet_obj = _load_diet(diet) if diet else None
+    paths = _export(manifest, outdir, diet=diet_obj, t_end=time, dt=step)
+    console.print(f"[bold]Wrote COMETS run to {outdir}[/bold]")
+    for name, p in paths.items():
+        console.print(f"  {name}: {p}")
+    console.print("[cyan]Run it with:[/cyan] pip install cometspy && "
+                  f"python {paths['driver']}")
+
+
 if __name__ == "__main__":
     app()

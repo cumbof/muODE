@@ -176,8 +176,11 @@ now implemented as the [ecology layer](ecology.md). The core caveats that remain
 - **No gene-regulatory / signalling logic** — a signalling *metabolite's*
   concentration can be modelled, but not the regulatory program it triggers
   (needs regulatory-FBA or gene-network models). See LIMITATIONS.md §4.
-- **COMETS backend** — a COMETS alternative dynamic backend is planned; the
-  `OrganismModel` protocol is the integration point.
+- **COMETS interoperability** — muODE can export a community to COMETS (the
+  independent dynamic community-FBA engine) for cross-validation via
+  `muode export-comets` / `muode.comets.export_comets` (layout + params +
+  `cometspy` driver). Running COMETS *as the per-step solver in-process* remains
+  future work; the `OrganismModel` protocol is the integration point.
 
 ---
 
