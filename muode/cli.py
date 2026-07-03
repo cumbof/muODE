@@ -315,6 +315,7 @@ def simulate(
     step: float = typer.Option(0.1, "--step", help="Integration step (h)."),
     death_rate: float = typer.Option(0.0, help="First-order biomass death (1/h)."),
     dilution_rate: float = typer.Option(0.0, help="Chemostat dilution D (1/h)."),
+    jobs: int = typer.Option(1, "--jobs", "-j", help="Worker threads for the per-step FBA solves (1=sequential, -1=all cores). Identical results; speeds up genome-scale runs."),
     total_biomass: float = typer.Option(0.01, help="Total community biomass (gDW/L)."),
     default_vmax: float = typer.Option(10.0, help="Default Vmax (mmol/gDW/h)."),
     default_km: float = typer.Option(0.01, help="Default Km (mmol/L)."),
@@ -363,7 +364,8 @@ def simulate(
                     msg += f"; protein pool over {rep['n_pooled']} reaction(s) ≤ {rep['pool_budget']:g} g/gDW"
                 console.print(msg)
 
-    engine = DynamicFBA(t_end=time, dt=step, death_rate=death_rate, dilution_rate=dilution_rate)
+    engine = DynamicFBA(t_end=time, dt=step, death_rate=death_rate,
+                        dilution_rate=dilution_rate, n_jobs=jobs)
     result = engine.run(comm, _load_diet(diet), kin, injections=injections or None)
     outdir.mkdir(parents=True, exist_ok=True)
     snap_times = [float(t) for t in snapshot_times.split(",")] if snapshot_times else None

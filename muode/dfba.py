@@ -33,7 +33,9 @@ model can be plugged in as the per-step solver.
 
 from __future__ import annotations
 
+import os
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -195,6 +197,12 @@ class DynamicFBA:
     record_fluxes:
         Keep per-species exchange-flux trajectories (needed for cross-feeding
         inference).  Disable for very large communities to save memory.
+    n_jobs:
+        Number of worker threads for the per-step FBA solves.  ``1`` (default)
+        runs sequentially; ``-1`` uses all available cores.  The species' solves
+        are independent within a step, so any value yields identical results --
+        the speed-up is realised on genome-scale models, whose solver calls
+        dominate each step and release the GIL.
     """
 
     t_end: float = 24.0
@@ -203,6 +211,7 @@ class DynamicFBA:
     dilution_rate: float = 0.0
     min_biomass: float = 1e-9
     record_fluxes: bool = True
+    n_jobs: int = 1
 
     def run(
         self,
@@ -267,6 +276,19 @@ class DynamicFBA:
 
         depletion_warned = False
 
+        # Per-step LP solves are independent across species -- within a step they
+        # share only the read-only medium M and biomasses X -- so they can run on
+        # a thread pool.  Results are keyed by species and order-independent, so a
+        # parallel run is numerically identical to a sequential one; the speed-up
+        # is realised on genome-scale models, whose solver calls dominate the step
+        # and release the GIL.  n_jobs=1 (default) keeps the sequential path.
+        if self.n_jobs < 0:
+            n_workers = os.cpu_count() or 1
+        else:
+            n_workers = self.n_jobs
+        n_workers = max(1, min(n_workers, len(organisms)))
+        pool = ThreadPoolExecutor(max_workers=n_workers) if n_workers > 1 else None
+
         for step in range(n_steps + 1):
             t_now = times[step]
 
@@ -290,15 +312,10 @@ class DynamicFBA:
                 spore_hist.append(dict(ecology.spores()))
 
             # --- solve each species' FBA under current medium ---------------
-            step_growth: Dict[str, float] = {}
-            step_flux: Dict[str, Dict[str, float]] = {}
-            for o in organisms:
-                if X[o.id] <= self.min_biomass:
-                    step_growth[o.id] = 0.0
-                    step_flux[o.id] = {m: 0.0 for m in env_mets}
-                    mu_hist[o.id][step] = 0.0
-                    continue
-
+            # Set one species' uptake bounds from the current medium and solve
+            # its LP.  Reads only the read-only snapshots M and X and mutates only
+            # this organism's own bounds, so distinct species solve concurrently.
+            def _solve(o):
                 o.reset_bounds()
                 for m in env_mets:
                     conc = M[m]
@@ -307,13 +324,32 @@ class DynamicFBA:
                     # CFL-style cap: do not let one species take more than exists.
                     cap = conc / (X[o.id] * self.dt) if self.dt > 0 else np.inf
                     o.set_uptake_bound(m, min(mm, cap))
-
                 sol = o.optimize()
                 raw = sol.growth_rate if sol.feasible else 0.0
                 # environmental growth modifiers (pH, bile, bacteriocins, ...)
                 mu_eff = raw * ecology.growth_factor(o.id, t_now, M, X)
+                flux = {m: sol.exchange_fluxes.get(m, 0.0) for m in env_mets}
+                return mu_eff, flux
+
+            step_growth: Dict[str, float] = {}
+            step_flux: Dict[str, Dict[str, float]] = {}
+
+            # Species below the biomass floor are dormant: no flux, no solve.
+            active = [o for o in organisms if X[o.id] > self.min_biomass]
+            for o in organisms:
+                if X[o.id] <= self.min_biomass:
+                    step_growth[o.id] = 0.0
+                    step_flux[o.id] = {m: 0.0 for m in env_mets}
+                    mu_hist[o.id][step] = 0.0
+
+            if pool is None or len(active) <= 1:
+                solved = [(o, _solve(o)) for o in active]
+            else:
+                solved = list(zip(active, pool.map(_solve, active)))
+
+            for o, (mu_eff, flux) in solved:
                 step_growth[o.id] = mu_eff
-                step_flux[o.id] = {m: sol.exchange_fluxes.get(m, 0.0) for m in env_mets}
+                step_flux[o.id] = flux
                 mu_hist[o.id][step] = mu_eff
 
             if self.record_fluxes:
@@ -354,6 +390,9 @@ class DynamicFBA:
                         )
                         depletion_warned = True
                 M[m] = new
+
+        if pool is not None:
+            pool.shutdown()
 
         # --- assemble result -------------------------------------------------
         biomass_df = pd.DataFrame(bio_hist, index=times)
