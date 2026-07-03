@@ -67,6 +67,7 @@ engine = SpatialDynamicFBA(
     t_end=12.0,               # simulated time (h)
     dt=0.05,                  # Euler step (h)
     default_diffusivity=2.0,  # mm²/h for all metabolites
+    n_jobs=1,                 # per-cell solver threads (-1 = all cores)
 )
 result = engine.run(community, diet, kinetics, inoculum=inoculum)
 ```
@@ -152,5 +153,8 @@ efficiency.
 A `30 × 30` grid with 3 species and 20 metabolites over 24 h at `dt=0.05`
 requires ~480 time steps × 900 cells × 3 FBA solves = ~1.3 million LP solves.
 With HiGHS on a modern workstation each small LP takes ~0.1 ms, so this run
-would take ~2 minutes. For larger GEMs or grids, parallelising cell FBAs is the
-main lever for speedup (planned but not yet implemented).
+would take ~2 minutes. For larger GEMs or grids, the per-cell FBAs are the main
+lever for speedup: set `n_jobs` (or `muode spatial -j -1`) to solve the populated
+cells of each step across worker threads. The cells are independent, so the
+fields are identical for any `n_jobs`; each worker holds private model copies, so
+the gain scales with the grid and model size where the solver call dominates.

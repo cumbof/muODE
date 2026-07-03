@@ -463,6 +463,7 @@ def spatial(
     time: float = typer.Option(12.0, "--time", help="Simulated time (h)."),
     step: float = typer.Option(0.05, "--step", help="Integration step (h)."),
     diffusivity: float = typer.Option(2.0, help="Metabolite diffusivity (mm^2/h)."),
+    jobs: int = typer.Option(1, "--jobs", "-j", help="Worker threads for the per-cell FBA solves (1=sequential, -1=all cores). Identical fields; speeds up large grids."),
     outdir: Path = typer.Option("results/spatial", help="Output directory."),
 ) -> None:
     """M4 -- spatial (2D reaction-diffusion) dynamic-FBA colony/biofilm simulation."""
@@ -481,7 +482,7 @@ def spatial(
         inoculum = halves_inoculum((ny, nx), ids[0], ids[1], amount=0.04, axis=1)
 
     engine = SpatialDynamicFBA(nx=nx, ny=ny, dx=dx, t_end=time, dt=step,
-                               default_diffusivity=diffusivity)
+                               default_diffusivity=diffusivity, n_jobs=jobs)
     result = engine.run(comm, diet, kin, inoculum=inoculum)
 
     outdir.mkdir(parents=True, exist_ok=True)

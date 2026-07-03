@@ -165,6 +165,12 @@ class LinprogOrganism:
                 self._base_ub[j] *= factor
         self.reset_bounds()
 
+    def copy(self) -> "LinprogOrganism":
+        """Return an independent deep copy (for per-thread parallel solves)."""
+        import copy as _copy
+
+        return _copy.deepcopy(self)
+
     # -- solve --------------------------------------------------------------
     def optimize(self) -> OrganismSolution:
         from scipy.optimize import linprog
@@ -258,6 +264,21 @@ class CobraOrganism:
                 lb, ub = self._base_bounds[rid]
                 self._base_bounds[rid] = (lb * factor, ub * factor)
         self.reset_bounds()
+
+    def copy(self) -> "CobraOrganism":
+        """Return an independent copy with its own cobra model.
+
+        Gives each worker thread private models for parallel per-cell solves.
+        ``cobra.Model.copy`` duplicates the solver (so an enzyme-pool constraint
+        carries over); the exchange map and baseline bounds are copied verbatim
+        so the copy resets to the same state as the original.
+        """
+        new = CobraOrganism.__new__(CobraOrganism)
+        new.model = self.model.copy()
+        new.id = self.id
+        new._exchanges = dict(self._exchanges)
+        new._base_bounds = dict(self._base_bounds)
+        return new
 
     def apply_enzyme_constraints(self, kinetics, organism_id: Optional[str] = None,
                                  enzyme_concentration: Optional[float] = None,

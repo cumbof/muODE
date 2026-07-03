@@ -23,7 +23,11 @@ GEMs on large grids is an optimisation problem in its own right.
 
 from __future__ import annotations
 
+import os
+import threading
 import warnings
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy as _deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Tuple
@@ -135,7 +139,13 @@ class SpatialResult:
 
 @dataclass
 class SpatialDynamicFBA:
-    """2D reaction-diffusion dynamic-FBA integrator."""
+    """2D reaction-diffusion dynamic-FBA integrator.
+
+    ``n_jobs`` sets the number of worker threads for the per-cell FBA solves
+    (``1`` = sequential, the default; ``-1`` = all cores).  Populated cells solve
+    independently, so any value yields identical fields; the speed-up grows with
+    the grid size and the model size.
+    """
 
     nx: int = 20
     ny: int = 1
@@ -148,6 +158,7 @@ class SpatialDynamicFBA:
     death_rate: float = 0.0
     min_biomass: float = 1e-12
     record_every: int = 1
+    n_jobs: int = 1
 
     def _D(self, metabolite: str) -> float:
         return float(self.diffusivity.get(metabolite, self.default_diffusivity))
@@ -183,6 +194,31 @@ class SpatialDynamicFBA:
         met_frames: Dict[str, list] = {m: [] for m in env_mets}
         rec_times: list = []
 
+        org_ids = [o.id for o in organisms]
+        shared_orgs = {o.id: o for o in organisms}
+
+        # Populated cells solve independently -- each reads only its own cell's
+        # concentrations and biomass -- so they can run on a thread pool.  Unlike
+        # the well-mixed engine, the *same* organism object is shared across cells,
+        # so each worker thread is given private copies of the models (thread-local)
+        # to avoid races; results are applied on the main thread, making a parallel
+        # run identical to a sequential one.  n_jobs=1 keeps the in-place path.
+        if self.n_jobs < 0:
+            n_workers = os.cpu_count() or 1
+        else:
+            n_workers = self.n_jobs
+        n_workers = max(1, n_workers)
+        pool = ThreadPoolExecutor(max_workers=n_workers) if n_workers > 1 else None
+        _tls = threading.local()
+
+        def _worker_orgs():
+            local = getattr(_tls, "orgs", None)
+            if local is None:
+                local = {o.id: (o.copy() if hasattr(o, "copy") else _deepcopy(o))
+                         for o in organisms}
+                _tls.orgs = local
+            return local
+
         for step in range(n_steps + 1):
             if step % self.record_every == 0 or step == n_steps:
                 rec_times.append(step * self.dt)
@@ -198,22 +234,45 @@ class SpatialDynamicFBA:
                 total += X[o.id]
             dM = {m: np.zeros(shape) for m in env_mets}
 
-            for (i, j) in np.argwhere(total > self.min_biomass):
-                for o in organisms:
-                    xij = X[o.id][i, j]
+            # Solve one populated cell: every resident species under the cell's
+            # local uptake bounds.  Reads only this cell's slice of the read-only
+            # X and M snapshots and its worker's private models, so distinct cells
+            # solve concurrently; the caller applies the returned updates, so all
+            # writes are deferred to after the join (no cell reads another's cell).
+            def _solve_cell(cell):
+                i, j = cell
+                orgs = _worker_orgs() if pool is not None else shared_orgs
+                new_x: Dict[str, float] = {}
+                dm_cell = {m: 0.0 for m in env_mets}
+                for oid in org_ids:
+                    xij = X[oid][i, j]
                     if xij <= self.min_biomass:
                         continue
+                    o = orgs[oid]
                     o.reset_bounds()
                     for m in env_mets:
                         conc = M[m][i, j]
-                        mm = kinetics.michaelis_menten(o.id, m, conc)
+                        mm = kinetics.michaelis_menten(oid, m, conc)
                         cap = conc / (xij * self.dt) if self.dt > 0 else np.inf
                         o.set_uptake_bound(m, min(mm, cap))
                     sol = o.optimize()
                     mu = sol.growth_rate if sol.feasible else 0.0
-                    X[o.id][i, j] = max(0.0, xij + (mu - self.death_rate) * xij * self.dt)
+                    new_x[oid] = max(0.0, xij + (mu - self.death_rate) * xij * self.dt)
                     for m in env_mets:
-                        dM[m][i, j] += sol.exchange_fluxes.get(m, 0.0) * xij
+                        dm_cell[m] += sol.exchange_fluxes.get(m, 0.0) * xij
+                return i, j, new_x, dm_cell
+
+            cells = [tuple(c) for c in np.argwhere(total > self.min_biomass)]
+            if pool is None or len(cells) <= 1:
+                results = [_solve_cell(c) for c in cells]
+            else:
+                results = list(pool.map(_solve_cell, cells))
+
+            for i, j, new_x, dm_cell in results:
+                for oid, xv in new_x.items():
+                    X[oid][i, j] = xv
+                for m in env_mets:
+                    dM[m][i, j] += dm_cell[m]
 
             # reaction + influx, then diffusion (Neumann BC) for each metabolite
             for m in env_mets:
@@ -227,6 +286,9 @@ class SpatialDynamicFBA:
                 for o in organisms:
                     X[o.id] += self.biomass_diffusivity * laplacian(X[o.id], self.dx) * self.dt
                     np.clip(X[o.id], 0.0, None, out=X[o.id])
+
+        if pool is not None:
+            pool.shutdown()
 
         return SpatialResult(
             times=np.array(rec_times),
