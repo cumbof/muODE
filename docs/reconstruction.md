@@ -88,6 +88,24 @@ snakemake --cores 4 --configfile config/config.demo.yaml
 
 Config key: `engine: "stub"`
 
+### Eukaryote routes (fungi & protists)
+
+CarveMe and gapseq are prokaryote-only, so muODE reconstructs eukaryotes through a
+separate genome→proteins→GEM path, selected per-MAG by domain (see
+[kingdoms.md](kingdoms.md)):
+
+- **fungi** (`engine: "carvefungi"`) — MetaEuk gene calling, then CarveFungi (a
+  fungal-specific reconstructor).
+- **other eukaryotes** (`engine: "eukaryote_generic"`) — MetaEuk gene calling, then
+  eggNOG-mapper orthology + a ModelSEEDpy draft. This route is **experimental**;
+  prefer a curated template (e.g. Yeast8) when one is available.
+
+Both need a MetaEuk protein reference database (`euk_ref_db`). The Snakemake
+workflow routes fungus/eukaryote MAGs to these engines automatically when
+`euk_ref_db` is set; a curated model supplied per-MAG in `eukaryote_models`
+overrides automated reconstruction. Viruses (phages) have no GEM and are skipped —
+model them as `PhageInfection` ecology layers instead.
+
 ---
 
 ## Namespace constraint — why you cannot mix engines

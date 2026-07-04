@@ -89,10 +89,11 @@ _RECONSTRUCTION = {
     Domain.ARCHAEA: ("carveme", "CarveMe with `universe=archaea`."),
     Domain.EUKARYOTE: (
         None,
-        "CarveMe does NOT support eukaryotes. Use a fungal/protist reconstruction "
-        "route instead: a curated template model (e.g. Yeast8 for ascomycetes) or "
-        "a eukaryote-aware reconstructor (CarveFungi, AuReMe, gapseq fungal mode), "
-        "then drop the resulting SBML into the community as a CobraOrganism.",
+        "CarveMe does NOT support eukaryotes. muODE routes them separately: "
+        "reconstruct_mag(engine='carvefungi') for fungi, or engine='eukaryote_generic' "
+        "for other eukaryotes (MetaEuk gene calling + CarveFungi / eggNOG-mapper+"
+        "ModelSEEDpy, gated by euk_ref_db). Or supply a curated template (e.g. Yeast8 "
+        "for ascomycetes) and load the SBML into the community as a CobraOrganism.",
     ),
     Domain.VIRUS: (
         None,

@@ -12,7 +12,7 @@ trivially across species, and maps one-to-one onto the README's community ODEs
 A :class:`Community` therefore holds:
 
 * the per-species :class:`~muode.organism.OrganismModel` objects,
-* their relative abundances (e.g. from a MetaSBT profile), and
+* their relative abundances (from any taxonomic profiler, as a 2-column TSV), and
 * the initial biomass per species (total biomass split by abundance).
 
 It is solver-agnostic: organisms may be ``CobraOrganism`` (real GEMs) or

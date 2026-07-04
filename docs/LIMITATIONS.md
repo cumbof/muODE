@@ -48,8 +48,11 @@ The right way to read the categories below:
 
 The **bold** rows were previously listed as limitations and are now implemented.
 Eukaryote *metabolism* needs no engine change (the core is paradigm-defined, not
-taxon-defined); the only kingdom-specific gap is reconstruction tooling (§2/§3).
-Phage *population* dynamics are now modelled; phage/host *evolution* is not (§4).
+taxon-defined), and kingdom-specific reconstruction is now automated (MetaEuk gene
+calling + CarveFungi for fungi, or eggNOG-mapper + ModelSEEDpy for other
+eukaryotes, gated by `euk_ref_db`), with the non-fungal route still experimental
+(§2). Phage *population* dynamics are now modelled; phage/host *evolution* is not
+(§4).
 
 ---
 
@@ -99,6 +102,13 @@ calibrate.
   mass of bacteria; muODE works in gDW/L so this is consistent, but per-cell
   counts and growth-rate priors must be set for the organism, not inherited from
   bacterial defaults.
+- **Eukaryote reconstruction quality.** Eukaryote reconstruction is automated
+  (`reconstruct_mag(engine="carvefungi" | "eukaryote_generic")` and the workflow's
+  domain routing). Fungi go through CarveFungi (a fungal-specific reconstructor);
+  *other* eukaryotes go through the **experimental** eggNOG-mapper + ModelSEEDpy
+  draft route, which needs substantially more gap-filling/curation than a
+  CarveMe/CarveFungi model — prefer a curated template (e.g. Yeast8) via
+  `eukaryote_models` when one exists.
 
 ---
 
@@ -116,13 +126,13 @@ the roadmap is explicit.
   explicit H₂, CO₂, CH₄ balances, an electron-acceptor hierarchy and a spatial
   oxygen gradient (`uptake_factor` + the spatial engine are the hooks) — important
   for hydrogenotrophy and methanogenesis.
-- **Eukaryote / virus reconstruction tooling.** *Simulating* fungi/protists needs
-  no engine change, but *building* their GEMs is an external-tool gap: CarveMe is
-  prokaryote-only, so a fungal route (Yeast8 template, CarveFungi, gapseq fungal
-  mode) must be wired into the reconstruction phase. `reconstruction_route()`
-  already flags the correct path per `Domain`; the automated workflow rule is not
-  yet built. (Phages have no GEM by definition — they are `PhageInfection` layers,
-  not reconstructions.)
+- **Higher-quality eukaryote reconstruction.** Automated eukaryote reconstruction
+  *is* built (§1/§2): MetaEuk gene calling then CarveFungi (fungi) or eggNOG-mapper
+  + ModelSEEDpy (other eukaryotes), wired into both `reconstruct_mag` and the
+  Snakemake workflow (routed per `Domain`, gated by `euk_ref_db`). What remains an
+  extension is bringing the non-fungal *generic* route up to CarveFungi/curated-
+  template quality and widening protist coverage. (Phages have no GEM by
+  definition — they are `PhageInfection` layers, not reconstructions.)
 - **Higher-order / adaptive integration** (see §2).
 - **Diauxie / catabolite repression.** A substrate-preference layer to capture
   sequential substrate use; SOA-dFBA otherwise consumes substrates concurrently.

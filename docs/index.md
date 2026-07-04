@@ -8,7 +8,7 @@ Detailed documentation for each muODE feature. Start with the
 | Document | What it covers |
 |----------|---------------|
 | [engine.md](engine.md) | Dynamic FBA engine: the SOA integrator, solver abstraction, cross-feeding |
-| [reconstruction.md](reconstruction.md) | CarveMe / gapseq / stub engines, gene calling, namespace, LP gap-filling, CheckM2 |
+| [reconstruction.md](reconstruction.md) | CarveMe / gapseq / stub / eukaryote (CarveFungi, ModelSEEDpy) engines, gene calling, namespace, LP gap-filling, CheckM2 |
 | [kinetics.md](kinetics.md) | Km/Vmax uptake bounds, kcat enzyme constraints, heuristic/DLKcat/Kroll predictors |
 | [assembly.md](assembly.md) | Community manifest, abundance TSV, diet, subsampling |
 | [perturbation.md](perturbation.md) | Antibiotic/knockout/species-removal perturbation engine |

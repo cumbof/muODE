@@ -38,6 +38,13 @@ The recommended eukaryote route is a curated template (e.g. **Yeast8** for
 ascomycetes) or a eukaryote-aware reconstructor (**CarveFungi**, **AuReMe**,
 **gapseq** fungal mode). The resulting SBML loads as an ordinary `CobraOrganism`.
 
+muODE can also build these automatically: `reconstruct_mag(engine="carvefungi")`
+(fungi) or `engine="eukaryote_generic"` (other eukaryotes) run MetaEuk gene calling
+followed by CarveFungi or eggNOG-mapper + ModelSEEDpy, and the Snakemake workflow
+routes eukaryote MAGs to them when `euk_ref_db` is set (see
+[reconstruction.md](reconstruction.md)). A curated model supplied per-MAG in
+`eukaryote_models` overrides automated reconstruction.
+
 ### b. The oxygen relationship (a real dynamical difference)
 The reason a mycobiome member changes community behaviour is mostly **oxygen**.
 The gut lumen is anaerobic, but it is kept that way *biologically*: facultative

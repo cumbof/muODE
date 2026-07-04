@@ -15,7 +15,7 @@ import pandas as pd
 
 
 def read_abundance(path: str | Path) -> Dict[str, float]:
-    """Read a MAG abundance profile (e.g. from a MetaSBT profile).
+    """Read a MAG abundance profile (produced by any taxonomic profiler).
 
     Accepts a 2-column TSV/CSV of ``mag_id`` and ``abundance``.  A header is
     optional; if the second column of the first row is non-numeric it is treated
