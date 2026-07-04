@@ -31,3 +31,7 @@ simulation_env/
 .DS_Store
 .idea/
 .vscode/
+
+# Claude Code local settings (machine-specific; never version these)
+.claude/settings.local.json
+.claude/*.tmp*
