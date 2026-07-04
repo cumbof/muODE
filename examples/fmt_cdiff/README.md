@@ -291,6 +291,20 @@ concentration) and figures for each arm.
 This is a *mechanistic illustration with literature-default parameters*, not a
 calibrated clinical model — see [LIMITATIONS.md](../../docs/LIMITATIONS.md).
 
+### Going further: the full ecological-dynamics analysis
+
+The [`dynamics/`](dynamics/README.md) subfolder extends this two-arm demo into a
+richer four-scenario study on a defined 12-guild community: antibiotic collapse +
+spore relapse, FMT rescue, rational design of a 12-member therapeutic consortium
+(naive core that fails vs. full consortium that cures, with the inferred
+cross-feeding network), and an in-silico autopsy of two failed-FMT bottlenecks
+(donor metabolic insufficiency; bacteriophage predation). Its README also
+describes how to swap the guild stand-ins for real reconstructed MAGs.
+
+```bash
+python examples/fmt_cdiff/dynamics/run_all.py
+```
+
 ---
 
 ## Variations to try
