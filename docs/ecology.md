@@ -174,4 +174,9 @@ anywhere). The only difference between the two arms is a timed donor
 python examples/fmt_cdiff/mechanistic_demo.py
 ```
 
+For a richer, guild-structured version of the same story — a defined 12-member
+community driving antibiotic relapse, FMT rescue, designed-consortium and
+failed-transplant scenarios — see `muode.scenarios.rcdi` and the worked analysis
+in `examples/fmt_cdiff/dynamics/`.
+
 The genome-scale version is the rest of `examples/fmt_cdiff/`.

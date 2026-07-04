@@ -6,7 +6,7 @@ Scenario 3 -- in-silico rational design and dynamic evaluation of a defined
 synthetic therapeutic consortium.
 
 Reproduces the design logic for a defined 12-member Live Biotherapeutic Product
-(the guild registry in common.py), evaluated against the same Day-12
+(the guild registry in muode.scenarios.rcdi), evaluated against the same Day-12
 post-antibiotic C. difficile environment used for the FMT.
 
 Three panels:

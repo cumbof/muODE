@@ -9,8 +9,9 @@ Runs, in order:
   * failed_fmt_autopsy.py    (failed-FMT bottleneck autopsy)
 
 Every panel is produced by executing the real muODE dynamic-FBA engine and its
-ecology layer -- see common.py for the model, medium and ecology definitions and
-for the honest-scope note. All outputs land in ./results/.
+ecology layer. The model (guilds, medium, ecology, scenario runner) lives in
+muode.scenarios.rcdi and is re-exported through common.py, which also holds the
+plotting style and the honest-scope note. All outputs land in ./results/.
 
 This is deterministic: the muODE engine contains no stochasticity, so a rerun
 reproduces byte-identical figures and CSVs.

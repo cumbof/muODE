@@ -27,7 +27,7 @@ is visible (and runnable) on any machine, with no GEMs or solver licence needed.
 | `fmt_resolution.py` | Same course **+ a Day-12 FMT** | Donor engraftment, bile ratio reverts, *C. difficile* driven to **extinction** |
 | `designed_consortium.py` | Naive bai-only core **vs.** a full 12-member consortium (into a depauperate lumen); plus the inferred cross-feeding network | Minimal core **fails**; rationally designed consortium **cures** |
 | `failed_fmt_autopsy.py` | A successful FMT vs. two failure modes | Donor **metabolic insufficiency** and **bacteriophage predation** each abort engraftment |
-| `common.py` | The model: guild registry, gut medium, ecology stack, timeline, scenario runner | *(imported by all of the above — start here)* |
+| `common.py` | Thin adapter: re-exports the model from `muode.scenarios.rcdi` and adds the plotting style | *(imported by all scripts as `C`)* |
 | `run_all.py` | Regenerate every figure + CSV in one command | — |
 
 Each script writes a multi-panel PNG and the underlying CSV trajectories to
@@ -56,7 +56,9 @@ The engine is deterministic, so reruns reproduce identical figures and CSVs.
 
 ## The model in brief
 
-Everything below is defined and commented in `common.py`.
+The model lives in the muODE package itself, at `muode/scenarios/rcdi.py`
+(re-exported here through `common.py`); everything below is defined and
+commented there.
 
 **Members.** Each organism is a `LinprogOrganism` — a small linear program with
 exchange reactions and one or more objective-weighted growth modes — grouped into
@@ -106,7 +108,7 @@ replace only the community and wire up the ecology roles:
    these.
 
 3. **Map genomes → ecology roles.** This is the real work and is **not**
-   automatic. The ecology layers in `common.py` are keyed to functional roles —
+   automatic. The ecology layers in `muode/scenarios/rcdi.py` are keyed to functional roles —
    which MAG is the pathogen, which carry the `bai`/`bsh` bile operons, which are
    spore-formers, which are antibiotic-susceptible, and (for the phage layer)
    which host each phage infects. For real MAGs these must be derived from
@@ -119,7 +121,7 @@ In short: steps 1–2 are automated by the workflow; step 3 — the genome-to-ro
 mapping — is the piece you provide from annotations. The dynamics, once wired, are
 produced by the very same engine you see running here.
 
-> Note on antibiotic breadth: `common.py` models the vancomycin course as broadly
+> Note on antibiotic breadth: `muode/scenarios/rcdi.py` models the vancomycin course as broadly
 > suppressive of the resident bacterial community (consistent with the profound,
 > broad microbiome collapse reported clinically during vancomycin treatment of
 > CDI), which is what leaves the depauperate post-antibiotic lumen the pathogen
