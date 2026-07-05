@@ -95,7 +95,11 @@ consortium each differ by ~10⁴–10⁵× in residual pathogen burden at Day 42
 This example is deliberately synthetic so the mechanism is legible. To run the
 **same ecological analysis on real assembled genomes** — say MAGs from an FMT
 metagenomic study — the muODE engine and ecology stack stay *identical*; you
-replace only the community and wire up the ecology roles:
+replace only the community and wire up the ecology roles. **A ready-to-edit
+adapter, [`real_data_adapter.py`](real_data_adapter.py), does exactly this** —
+it takes a directory of GEMs, an abundance TSV, and a role table, and builds the
+very same ecology stack the toy scenarios use. The three steps below are what it
+expects:
 
 1. **Reconstruct GEMs.** Assemble + bin your metagenomes, then run the MAGs
    through the muODE reconstruction workflow (see the parent `fmt_cdiff/README.md`
@@ -108,18 +112,40 @@ replace only the community and wire up the ecology roles:
    these.
 
 3. **Map genomes → ecology roles.** This is the real work and is **not**
-   automatic. The ecology layers in `muode/scenarios/rcdi.py` are keyed to functional roles —
-   which MAG is the pathogen, which carry the `bai`/`bsh` bile operons, which are
-   spore-formers, which are antibiotic-susceptible, and (for the phage layer)
-   which host each phage infects. For real MAGs these must be derived from
-   genome annotation and taxonomy (e.g. operon presence for `bai`/`bsh`,
-   sporulation genes, and CRISPR-spacer / prophage matching for host–phage
-   linkages). Once each real `mag_id` is assigned its role, drop them into the
-   same `build_ecology()` configuration.
+   automatic. The ecology layers are keyed to functional roles — which MAG is the
+   pathogen, which carry the `bai`/`bsh` bile operons, which are spore-formers,
+   which are antibiotic-susceptible, and (for the phage layer) which host each
+   phage infects. You record these in a small **role table**,
+   [`roles.tsv`](roles.tsv) — one row per `mag_id` with 0/1 flags — derived from
+   genome annotation and taxonomy (operon presence for `bai`/`bsh`, sporulation
+   genes, resistance profile, and CRISPR-spacer / prophage matching for
+   host–phage linkages). The adapter reads it and populates the layer id-sets.
+
+Then run the whole thing on your data:
+
+```bash
+conda run -n muode python real_data_adapter.py \
+    --models ./gems \                 # <mag_id>.xml GEMs from muode build/refine
+    --abundance ../recipient_abundance.tsv \
+    --roles roles.tsv \
+    --donor-abundance ../donor_abundance.tsv \
+    --arm fmt                         # relapse | fmt | phage
+```
+
+The **same string id** must appear in all three inputs for a member (GEM filename
+stem = abundance id = role id); the adapter fails loudly on any mismatch. One id
+space you *must* reconcile by hand: the carbon/amino-acid/SCFA metabolite ids in
+the adapter's `CONFIG` block have to match your GEMs' exchange namespace (BiGG for
+CarveMe, `cpd*****` for gapseq/ModelSEED) — otherwise members share no pool and no
+cross-feeding (hence no colonisation resistance) can emerge.
 
 In short: steps 1–2 are automated by the workflow; step 3 — the genome-to-role
-mapping — is the piece you provide from annotations. The dynamics, once wired, are
-produced by the very same engine you see running here.
+mapping in `roles.tsv` — is the piece you provide from annotations. The dynamics,
+once wired, are produced by the very same engine you see running here. Note that
+the outcome is then a genuine *prediction*: the relapse-vs-cure separation appears
+only if your assembled community actually carries the requisite functional
+structure (e.g. a `bai`+ effector fed by primary degraders) — the shipped
+`roles.tsv` deliberately lacks one, to show that you annotate by evidence.
 
 > Note on antibiotic breadth: `muode/scenarios/rcdi.py` models the vancomycin course as broadly
 > suppressive of the resident bacterial community (consistent with the profound,
