@@ -68,10 +68,13 @@ rule map_reads:
     shell:
         r"""
         set -euo pipefail
+        # Clear any scratch BAMs left by a previously killed sort of this sample;
+        # samtools sort refuses to overwrite its own .tmp.*.bam ("File exists").
+        rm -f {output.bam}.tmp.*.bam {output.bam}.sorttmp.*.bam
         bowtie2-build --threads {threads} {input.contigs} {params.idx} > /dev/null 2>&1
         bowtie2 -p {threads} -x {params.idx} -1 {input.r1} -2 {input.r2} \
           | samtools view -@ {threads} -bS - \
-          | samtools sort -@ {threads} -o {output.bam} -
+          | samtools sort -@ {threads} -T {output.bam}.sorttmp -o {output.bam} -
         samtools index {output.bam}
         rm -f {params.idx}*.bt2 {params.idx}*.bt2l
         """
