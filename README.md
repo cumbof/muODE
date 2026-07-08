@@ -322,6 +322,7 @@ and (where relevant) a dependency-light `mechanistic_demo.py` that runs **anywhe
 | [`examples/gut_western/`](examples/gut_western/) | A dense Western-diet gut community: carbon competition + SCFA cross-feeding. |
 | [`examples/fmt_cdiff/`](examples/fmt_cdiff/) | **Fecal microbiota transplant** for recurrent *C. difficile*: control (recurrence) vs treatment (engraftment) differ only by a timed donor injection; the full ecology stack (bile acids, spores, antibiotic PK, pH) reproduces the recurrence-vs-cure contrast. |
 | [`examples/multikingdom/`](examples/multikingdom/) | **Bacteria + fungus + phage:** dropping the fungus collapses the obligate anaerobe (oxygen), dropping the phage unleashes the pathobiont (predation) — both emergent. |
+| [`examples/strain_competition/`](examples/strain_competition/) | **One species, three strains:** on glucose the best grower excludes the rest; a colicin producer overturns it (interference); a private-niche strain coexists — the winner depends on which competition dominates. |
 | [`examples/benchmarks/`](examples/benchmarks/) | Benchmark-expectation YAMLs for `muode validate`. |
 
 ```bash

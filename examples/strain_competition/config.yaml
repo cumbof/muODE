@@ -1,0 +1,71 @@
+# muODE pipeline config -- strain-competition example (one species, 3 strains).
+# Run from the REPOSITORY ROOT so `pip install -e .` in the conda envs resolves
+# the local muode package:
+#
+#   conda activate muode
+#   pip install -e .
+#   snakemake --snakefile workflow/Snakefile \
+#             --use-conda --cores 8 \
+#             --configfile examples/strain_competition/config.yaml
+#
+# All three members are STRAINS OF ONE SPECIES, so reconstruction is uniform:
+#   bacteria --> CarveMe (-u gramneg).  The interesting differences (accessory
+#   sugar catabolism, a colicin operon + immunity) come out of each strain's
+#   GEM; the colicin interference itself is added as a Bacteriocin ecology layer
+#   in mechanistic_demo.py (the workflow reconstructs + simulates the metabolic
+#   core; ecology layers that need per-organism roles are wired in code).
+#
+# PREREQUISITE: the three genomes must be genuinely STRAIN-RESOLVED. Do NOT feed
+# this the dereplicated catalogue from ../../metagenomics/: dRep at 0.95 ANI
+# collapses same-species strains into one representative. Use reference isolate
+# genomes (download_genomes.sh) or strain-resolved metagenomics (inStrain/strainGE).
+
+# --- inputs / outputs -------------------------------------------------------
+mags_dir: "examples/strain_competition/data/mags"
+mag_extension: "fna"
+abundance: "examples/strain_competition/abundance.tsv"
+traits: "examples/strain_competition/traits.tsv"
+outdir: "examples/strain_competition/results"
+
+# --- Phase 0: MAG quality gate ----------------------------------------------
+run_checkm2: false
+min_completeness: 50.0
+max_contamination: 10.0
+
+# --- Phase 1: reconstruction ------------------------------------------------
+# All strains are gram-negative bacteria -> CarveMe. Keep a single engine so the
+# GEMs share one metabolite namespace (BiGG) and thus one extracellular pool --
+# a hard requirement for the strains to actually compete in the same medium.
+engine: "carveme"
+universe: "gramneg"
+gapfill_media: null
+euk_ref_db: null
+eukaryote_models: {}
+
+# --- Phase 2/3: refinement --------------------------------------------------
+universal_model: null
+run_memote: false
+predict_kinetics: false
+predictor: "heuristic"
+enzyme_constraints: false
+default_vmax: 10.0
+default_km: 0.01
+
+# --- Phase 4: simulation ----------------------------------------------------
+# A simple shared medium; the workflow simulates pure resource competition among
+# the real GEMs. The colicin (interference) and private-niche scenarios are in
+# mechanistic_demo.py. With real genomes, WHO WINS is an OUTPUT of the GEMs, not
+# assigned as in the toy demo -- see README "What is / isn't modelled".
+diet: "western_gut"
+total_biomass: 0.03
+t_end: 48.0
+dt: 0.02
+
+# --- abundance-aware subsampling --------------------------------------------
+max_species: null
+min_abundance: null
+abundance_coverage: null
+
+# --- compute ----------------------------------------------------------------
+threads: 8
+perturbation: null

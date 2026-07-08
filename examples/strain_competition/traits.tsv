@@ -1,0 +1,11 @@
+# Per-strain kingdom / oxygen traits (side file; abundance.tsv stays a plain
+# 2-column mag_id<TAB>rel_abundance contract). All three are strains of ONE
+# species (Escherichia coli), so all are bacteria and facultative anaerobes;
+# what distinguishes them is accessory metabolism / interference, encoded in
+# each strain's GEM and in the mechanistic_demo.py ecology layers.
+# domain : bacteria | archaea | fungus | eukaryote | virus
+# oxygen : obligate_anaerobe | aerotolerant | facultative | obligate_aerobe
+mag_id	domain	oxygen
+Ecoli__glc_specialist	bacteria	facultative
+Ecoli__colicinogenic	bacteria	facultative
+Ecoli__arabinose_user	bacteria	facultative

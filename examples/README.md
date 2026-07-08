@@ -158,3 +158,30 @@ scavenged poisons the obligate-anaerobe keystone; drop the **phage** and the
 explicit about reconstruction routing (CarveMe cannot build the fungus; the phage
 has no GEM at all) and about what stays out of scope (phage/host *evolution*).
 See **[multikingdom/README.md](multikingdom/README.md)**.
+
+## Strain competition (one species, three strains)
+
+`strain_competition/` asks **which strain of the same species survives** in a
+shared environment. Three *E. coli* strains — differing only in accessory traits
+— start at equal biomass on one glucose pool, and the winner depends on which
+competition dominates:
+
+| Strain | Differs by | |
+|--------|------------|--|
+| `Ecoli__glc_specialist` | best glucose grower (lowest R\*) | wins on resources |
+| `Ecoli__colicinogenic` | secretes a **colicin** | wins by interference |
+| `Ecoli__arabinose_user` | has a **private sugar** | coexists by niche |
+
+```bash
+# any machine — toy-model mechanistic demo (no GEMs, no CarveMe)
+PYTHONPATH=$(git rev-parse --show-toplevel) python examples/strain_competition/mechanistic_demo.py
+```
+
+Three emergent outcomes: on glucose alone the specialist **competitively
+excludes** the rest (Gause / Tilman R\*); adding the colicin (`muode.Bacteriocin`)
+lets the *weaker* producer **overturn** the specialist (interference beats
+exploitation); giving one strain a private substrate yields **coexistence** (niche
+differentiation). Its key prerequisite — and honest caveat — is that the inputs be
+**strain-resolved** genomes: the `../metagenomics/` catalogue's dRep step (0.95
+ANI) would merge the strains, so use reference isolates or strain-resolved
+metagenomics. See **[strain_competition/README.md](strain_competition/README.md)**.
