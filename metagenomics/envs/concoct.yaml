@@ -1,4 +1,8 @@
 # CONCOCT (pinned to a Python it supports; it ships the cut_up_fasta.py etc. helpers).
+# scikit-learn MUST stay <1.0: CONCOCT 1.1.0 passes PCA.fit() a DataFrame with
+# mixed int/str column names, which sklearn>=1.0 rejects via _check_feature_names
+# ("Feature names are only supported if all input features have string names").
+# 0.24.x predates that check and is the version CONCOCT was written against.
 name: mgx-concoct
 channels:
   - conda-forge
@@ -6,3 +10,4 @@ channels:
 dependencies:
   - python=3.8
   - concoct>=1.1.0
+  - scikit-learn<1.0
