@@ -1,8 +1,14 @@
 # CheckM2 prokaryotic MAG QC.
+# CheckM2 1.1.0 ships its completeness model in the Keras 3 native ".keras"
+# format (models/specific_model_COMP.keras). A py3.8 pin forces an ancient
+# TensorFlow (2.4.x) that cannot read ".keras" and falls back to SavedModel
+# loading -> "Saved models could not be loaded". Require py>=3.9 + a modern,
+# .keras-capable TensorFlow so the model loads.
 name: mgx-checkm2
 channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python=3.8
-  - checkm2>=1.0
+  - python>=3.9
+  - checkm2>=1.1
+  - tensorflow>=2.13
