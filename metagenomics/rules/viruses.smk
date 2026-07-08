@@ -59,8 +59,9 @@ rule checkv:
         fi
         dbarg=""
         [ -n "{params.db}" ] && dbarg="-d {params.db}"
+        # CheckV writes quality_summary.tsv straight into {params.outdir}, which is
+        # exactly {output.quality} -- no copy needed (a cp here would be file-onto-itself).
         checkv end_to_end {input.virus} {params.outdir} -t {threads} $dbarg
-        cp {params.outdir}/quality_summary.tsv {output.quality}
         """
 
 
