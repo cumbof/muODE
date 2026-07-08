@@ -1,0 +1,7 @@
+# DAS_Tool bin consolidation (pulls diamond/prodigal/ruby deps).
+name: mgx-dastool
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - das_tool>=1.1.6

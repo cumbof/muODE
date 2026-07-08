@@ -1,0 +1,10 @@
+# Phase 0 QC + read mapping: trimming (fastp), host filtering + mapping (bowtie2),
+# BAM handling (samtools).
+name: mgx-qc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastp>=0.23
+  - bowtie2>=2.5
+  - samtools>=1.18

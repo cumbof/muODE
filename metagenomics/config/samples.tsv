@@ -1,0 +1,8 @@
+sample	r1	r2
+# One row per sample. Columns: sample id, forward reads, reverse reads.
+# Absolute paths are safest on a cluster. Lines starting with # are ignored.
+# Generate this file from a run directory of *_1/_2.fastq[.gz] with:
+#   python scripts/make_samplesheet.py /path/to/PRJNA426573 > config/samples.tsv
+# Example (delete these rows):
+SRR5677765	/home/cumbof/isilon/cumbof/git/muODE-results/PRJNA426573/SRR5677765_1.fastq	/home/cumbof/isilon/cumbof/git/muODE-results/PRJNA426573/SRR5677765_2.fastq
+SRR5677766	/home/cumbof/isilon/cumbof/git/muODE-results/PRJNA426573/SRR5677766_1.fastq	/home/cumbof/isilon/cumbof/git/muODE-results/PRJNA426573/SRR5677766_2.fastq

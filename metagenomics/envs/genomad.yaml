@@ -1,0 +1,8 @@
+# geNomad virus + plasmid identification. Needs the geNomad DB (config genomad_db);
+# see README.
+name: mgx-genomad
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - genomad>=1.7

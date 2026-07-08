@@ -1,0 +1,8 @@
+# Tiara deep-learning contig domain classifier (+ seqkit for length filtering).
+name: mgx-tiara
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - tiara>=1.0.3
+  - seqkit>=2.5

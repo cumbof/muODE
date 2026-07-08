@@ -1,0 +1,8 @@
+# CONCOCT (pinned to a Python it supports; it ships the cut_up_fasta.py etc. helpers).
+name: mgx-concoct
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.8
+  - concoct>=1.1.0

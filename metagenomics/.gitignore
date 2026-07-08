@@ -1,0 +1,5 @@
+# Pipeline outputs and Snakemake state (never committed).
+results/
+.snakemake/
+# Local sample sheets pointing at private data paths (keep the template only).
+config/samples.local.tsv

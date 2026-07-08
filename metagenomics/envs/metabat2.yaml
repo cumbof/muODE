@@ -1,0 +1,7 @@
+# MetaBAT2 (also provides jgi_summarize_bam_contig_depths).
+name: mgx-metabat2
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - metabat2>=2.15

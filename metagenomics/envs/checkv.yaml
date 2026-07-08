@@ -1,0 +1,7 @@
+# CheckV viral genome quality. Needs the CheckV DB (config checkv_db); see README.
+name: mgx-checkv
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - checkv>=1.0

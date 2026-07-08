@@ -1,0 +1,59 @@
+# =============================================================================
+# metagenomics/ pipeline configuration
+# =============================================================================
+# Paths may be absolute or relative to the directory you launch snakemake from
+# (recommended: this metagenomics/ directory). Reference-database paths are left
+# blank -- fill them in for the tracks you enable (see README.md "Reference
+# databases"). Rules whose DB is unset will fail fast with a clear message.
+
+# --- inputs / outputs -------------------------------------------------------
+# Sample sheet: TSV with header `sample<TAB>r1<TAB>r2`. Generate it from a run
+# directory with:  python scripts/make_samplesheet.py <fastq_dir> > config/samples.tsv
+samples: "config/samples.tsv"
+outdir: "results"
+
+# --- Phase 0: QC ------------------------------------------------------------
+min_read_len: 50            # fastp: drop reads shorter than this after trimming
+remove_host: false         # true -> bowtie2-filter reads against `host_index`
+host_index: ""             # bowtie2 index PREFIX for the host (e.g. human GRCh38)
+
+# --- Phase 1: assembly ------------------------------------------------------
+assembler: "megahit"       # megahit (fast, low-mem; default) | metaspades (higher-mem)
+min_contig_len: 1000       # discard contigs shorter than this before binning
+spades_mem_gb: 250         # metaspades only: memory cap (GB)
+
+# --- Phase 2: binning -------------------------------------------------------
+# Any subset may be enabled; DAS_Tool consolidates whatever ran. >=2 recommended.
+binners:
+  metabat2: true
+  maxbin2: true
+  concoct: true
+min_bin_size: 200000       # DAS_Tool score_threshold applies; this is a sanity floor
+
+# --- Phase 3: prokaryotic MAG quality gate (CheckM2) ------------------------
+min_completeness: 50.0     # keep MAGs with completeness >= this
+max_contamination: 10.0    # ...and contamination <= this
+checkm2_db: ""             # CheckM2 diamond DB (uniref100.KO...). Blank -> CheckM2's default path.
+
+# --- Phase 4: dereplication across samples (dRep) ---------------------------
+derep_ani: 0.95            # secondary ANI threshold (0.95 ~ species-level catalogue)
+
+# --- Phase 5: prokaryotic taxonomy (GTDB-Tk) --------------------------------
+classify_gtdbtk: true
+gtdbtk_db: ""              # GTDB-Tk reference data dir (GTDBTK_DATA_PATH). Required if classify_gtdbtk.
+
+# --- Phase 6: eukaryote recovery (Tiara -> binning -> EukCC) ----------------
+# Optional and lower-yield than the prokaryotic track (honest caveat -- see README).
+recover_eukaryotes: false
+euk_min_contig_len: 5000   # euk contigs are large; bin only long ones
+eukcc_db: ""               # EukCC2 database dir. Required if recover_eukaryotes.
+eukcc_min_completeness: 50.0
+eukcc_max_contamination: 10.0
+
+# --- Phase 7: virus / phage detection (geNomad -> CheckV) -------------------
+detect_viruses: true
+genomad_db: ""             # geNomad database dir. Required if detect_viruses.
+checkv_db: ""              # CheckV database dir. Required if detect_viruses.
+
+# --- resources (overridable per-rule in profiles/slurm/config.yaml) ---------
+threads: 16

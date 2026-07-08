@@ -1,0 +1,7 @@
+# CoverM per-genome relative abundance profiling.
+name: mgx-coverm
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - coverm>=0.7

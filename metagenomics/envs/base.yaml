@@ -1,0 +1,6 @@
+# Minimal env for the pure-stdlib helper scripts (select/collect/convert/domains).
+name: mgx-base
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11

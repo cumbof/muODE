@@ -1,0 +1,135 @@
+# =============================================================================
+# metagenomics/ -- reads -> MAGs pipeline (the UPSTREAM companion to muODE)
+# =============================================================================
+# This is a self-contained Snakemake workflow that turns raw paired-end shotgun
+# metagenomes into the exact inputs muODE consumes:
+#
+#     raw FASTQ  ->  [ this pipeline ]  ->  mags/            (per-genome FASTA)
+#                                          abundance/*.tsv   (mag_id, rel_abundance)
+#                                          domains.tsv       (mag_id, domain)  -> muODE `traits:`
+#                                          viruses/          (phage/plasmid contigs)
+#
+# It recovers BACTERIA + ARCHAEA (co-classified by GTDB-Tk), EUKARYOTES (Tiara ->
+# binning -> EukCC), and detects VIRUSES/PHAGES + PLASMIDS (geNomad -> CheckV),
+# then profiles every sample against the dereplicated catalogue (CoverM) to emit
+# muODE's 2-column abundance contract.
+#
+# It is deliberately NOT part of the muode package: muODE starts from MAGs; this
+# produces them. Structure and conventions mirror ../workflow/ (per-tool conda
+# envs under envs/, a SLURM profile under profiles/slurm) so both feel familiar.
+#
+# Run (from THIS directory, on a capable x86_64 host with the reference DBs set
+# in config/config.yaml):
+#     snakemake --use-conda --cores 32 --configfile config/config.yaml
+#     # validate the DAG first, no tools needed:
+#     snakemake -n --configfile config/config.yaml
+#     # on a cluster:
+#     snakemake --workflow-profile profiles/slurm --use-conda
+#
+# See README.md for reference-database setup and the muODE hand-off.
+# =============================================================================
+
+import csv
+import os
+import re
+
+configfile: "config/config.yaml"
+
+
+# --- sample sheet -----------------------------------------------------------
+# config["samples"] is a TSV with header:  sample<TAB>r1<TAB>r2
+# Build it from a directory of *_1/_2.fastq[.gz] with scripts/make_samplesheet.py.
+def _load_samples(path):
+    samples = {}
+    with open(path) as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        required = {"sample", "r1", "r2"}
+        if not required.issubset(reader.fieldnames or []):
+            raise ValueError(
+                f"{path}: sample sheet must have columns {sorted(required)}; "
+                f"found {reader.fieldnames}"
+            )
+        for row in reader:
+            sid = (row["sample"] or "").strip()
+            if not sid or sid.startswith("#"):
+                continue
+            if sid in samples:
+                raise ValueError(f"{path}: duplicate sample id {sid!r}")
+            samples[sid] = (row["r1"].strip(), row["r2"].strip())
+    if not samples:
+        raise ValueError(f"{path}: no samples found")
+    return samples
+
+
+SAMPLES = _load_samples(config["samples"])
+SAMPLE_IDS = sorted(SAMPLES)
+
+OUT = config["outdir"].rstrip("/")
+
+
+def raw_reads(wildcards):
+    r1, r2 = SAMPLES[wildcards.sample]
+    return {"r1": r1, "r2": r2}
+
+
+# Reads handed to the assembler/mapper: host-filtered if remove_host, else trimmed.
+def clean_reads(wildcards):
+    stage = "hostfree" if REMOVE_HOST else "trimmed"
+    s = wildcards.sample
+    return {
+        "r1": f"{OUT}/qc/{stage}/{s}_1.fastq.gz",
+        "r2": f"{OUT}/qc/{stage}/{s}_2.fastq.gz",
+    }
+
+
+wildcard_constraints:
+    sample="|".join(re.escape(s) for s in SAMPLE_IDS) if SAMPLE_IDS else "^$",
+
+
+# --- feature toggles --------------------------------------------------------
+# Coerce robustly: YAML gives real booleans, but a CLI `--config key=false`
+# override arrives as the STRING "false", which is truthy -- so bool() alone
+# would silently ignore command-line toggles.
+def as_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "t", "on"}
+
+
+DO_EUK = as_bool(config.get("recover_eukaryotes"), False)
+DO_VIRUS = as_bool(config.get("detect_viruses"), True)
+DO_GTDBTK = as_bool(config.get("classify_gtdbtk"), True)
+REMOVE_HOST = as_bool(config.get("remove_host"), False)
+
+
+# --- modular rule files -----------------------------------------------------
+include: "rules/qc.smk"          # fastp (+ optional bowtie2 host removal)
+include: "rules/assembly.smk"    # MEGAHIT / metaSPAdes + read mapping
+include: "rules/binning.smk"     # MetaBAT2 + MaxBin2 + CONCOCT -> DAS_Tool
+include: "rules/checkm.smk"      # CheckM2 quality gate + rename to <sample>__bin.<k>
+include: "rules/eukaryotes.smk"  # Tiara -> euk binning -> EukCC   (optional)
+include: "rules/viruses.smk"     # geNomad -> CheckV               (optional)
+include: "rules/dereplicate.smk" # dRep -> non-redundant prok+euk catalogue
+include: "rules/taxonomy.smk"    # GTDB-Tk (bacteria+archaea)
+include: "rules/abundance.smk"   # CoverM per-sample relative abundance
+include: "rules/handoff.smk"     # assemble mags/ + abundance/ + domains.tsv
+
+
+# --- default target: everything muODE needs ---------------------------------
+def _final_targets():
+    t = [
+        f"{OUT}/muode_inputs/domains.tsv",
+        f"{OUT}/muode_inputs/catalogue_quality.tsv",
+        f"{OUT}/muode_inputs/MANIFEST.md",
+    ]
+    t += [f"{OUT}/muode_inputs/abundance/{s}.tsv" for s in SAMPLE_IDS]
+    if DO_VIRUS:
+        t += [f"{OUT}/viruses/{s}/{s}.virus_summary.done" for s in SAMPLE_IDS]
+    return t
+
+
+rule all:
+    input:
+        _final_targets(),

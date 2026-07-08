@@ -1,0 +1,8 @@
+# GTDB-Tk bacterial + archaeal classification. Needs the GTDB reference release
+# (config gtdbtk_db -> GTDBTK_DATA_PATH); see README.
+name: mgx-gtdbtk
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - gtdbtk>=2.4

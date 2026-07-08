@@ -1,0 +1,8 @@
+# EukCC eukaryotic MAG completeness/contamination. Needs the EukCC2 DB (config
+# eukcc_db); see README.
+name: mgx-eukcc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - eukcc>=2.1

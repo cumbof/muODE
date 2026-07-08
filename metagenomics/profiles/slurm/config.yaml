@@ -1,0 +1,55 @@
+# SLURM profile for the metagenomics/ reads->MAGs pipeline.
+# Usage (from the metagenomics/ dir):
+#   snakemake --workflow-profile profiles/slurm --use-conda
+# Requires: pip install snakemake-executor-plugin-slurm
+#
+# Assembly + mapping are the heavy steps on deep gut metagenomes; tune mem/time
+# to your cluster and data depth (metaSPAdes in particular is memory-hungry --
+# raise `assemble` mem_mb, or use the default megahit).
+
+executor: slurm
+jobs: 100
+use-conda: true
+rerun-incomplete: true
+keep-going: true
+
+default-resources:
+  slurm_partition: "normal"
+  mem_mb: 8000
+  runtime: 240              # minutes
+
+set-resources:
+  fastp:          {mem_mb: 16000, runtime: 240}
+  host_removal:   {mem_mb: 24000, runtime: 360}
+  assemble:       {mem_mb: 120000, runtime: 1440}   # raise for metaspades on deep samples
+  map_reads:      {mem_mb: 32000, runtime: 480}
+  contig_depth:   {mem_mb: 16000, runtime: 120}
+  metabat2:       {mem_mb: 24000, runtime: 240}
+  maxbin2:        {mem_mb: 24000, runtime: 480}
+  concoct:        {mem_mb: 32000, runtime: 480}
+  das_tool:       {mem_mb: 32000, runtime: 240}
+  checkm2:        {mem_mb: 40000, runtime: 240}
+  dereplicate:    {mem_mb: 64000, runtime: 720}
+  gtdbtk:         {mem_mb: 128000, runtime: 720}    # GTDB reference is large (pplacer)
+  tiara_classify: {mem_mb: 24000, runtime: 240}
+  euk_bin:        {mem_mb: 32000, runtime: 360}
+  eukcc:          {mem_mb: 32000, runtime: 360}
+  genomad:        {mem_mb: 48000, runtime: 480}
+  checkv:         {mem_mb: 24000, runtime: 240}
+  coverm_abundance: {mem_mb: 32000, runtime: 360}
+
+set-threads:
+  fastp: 8
+  assemble: 32
+  map_reads: 16
+  metabat2: 8
+  maxbin2: 8
+  concoct: 16
+  das_tool: 16
+  checkm2: 16
+  dereplicate: 16
+  gtdbtk: 16
+  tiara_classify: 8
+  genomad: 16
+  checkv: 8
+  coverm_abundance: 16

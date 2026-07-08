@@ -1,0 +1,9 @@
+# dRep dereplication (+ mash prefilter, fastANI secondary clustering).
+name: mgx-drep
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - drep>=3.4
+  - mash>=2.3
+  - fastani>=1.33
