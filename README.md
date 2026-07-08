@@ -414,8 +414,6 @@ research in the meantime, please cite this repository:
 }
 ```
 
-A citable reference for the accompanying paper will be added here once available.
-
 ## 📄 License
 
 µODE is released under the **MIT License**. See [LICENSE](LICENSE) for the full text.
