@@ -57,3 +57,9 @@ checkv_db: ""              # CheckV database dir. Required if detect_viruses.
 
 # --- resources (overridable per-rule in profiles/slurm/config.yaml) ---------
 threads: 16
+
+# Local (non-NFS) scratch base for tools that break on a networked $TMPDIR.
+# CheckM2's multiprocessing cleanup fails with EBUSY when $TMPDIR is on NFS
+# (e.g. an isilon mount); leave blank to use $SLURM_TMPDIR or /tmp, or set an
+# explicit node-local path with enough space.
+local_tmp: ""

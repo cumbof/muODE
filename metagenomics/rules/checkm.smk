@@ -18,6 +18,7 @@ rule checkm2:
     params:
         outdir=lambda w: f"{OUT}/checkm2/{w.sample}",
         db=config.get("checkm2_db", ""),
+        local_tmp=config.get("local_tmp", ""),
     shell:
         r"""
         set -euo pipefail
@@ -27,6 +28,16 @@ rule checkm2:
           printf 'Name\tCompleteness\tContamination\n' > {output.report}
           exit 0
         fi
+        # CheckM2's prediction phase uses a multiprocessing Manager whose scratch
+        # dir lives in $TMPDIR. On an NFS $TMPDIR (e.g. an isilon mount) the manager
+        # shutdown fails with EBUSY ("Device or resource busy") because NFS cannot
+        # unlink a still-open file. Pin temp to local disk (config local_tmp, else
+        # $SLURM_TMPDIR, else /tmp) and clean it up on exit.
+        tmpbase="{params.local_tmp}"
+        [ -n "$tmpbase" ] || tmpbase="${{SLURM_TMPDIR:-/tmp}}"
+        tmpd="$(mktemp -d "$tmpbase/checkm2.{wildcards.sample}.XXXXXX")"
+        export TMPDIR="$tmpd"
+        trap 'rm -rf "$tmpd" 2>/dev/null || true' EXIT
         dbarg=""
         [ -n "{params.db}" ] && dbarg="--database_path {params.db}"
         checkm2 predict --threads {threads} -x fa \
