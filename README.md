@@ -6,18 +6,6 @@ An automated, ODE-based simulation engine for modeling large-scale microbial com
 
 µODE automates the construction of Genome-Scale Metabolic Models (GEMs) from MAGs, uses deep learning to predict missing kinetic parameters, and simulates dynamic community evolution using **dynamic Flux Balance Analysis (dFBA)** — plus an optional **ecology layer** (pH, bile acids, sporulation, antibiotic pharmacokinetics, bacteriocins, oxygen, bacteriophage predation) and **multi-kingdom** support (bacteria, archaea, fungi/eukaryotes, viruses) that turn a metabolic core into a mechanistic model of community ecology.
 
-> **Status.** The dynamic-FBA community engine, the perturbation and timed-injection
-> engines, the diet/kinetics layers (Km/Vmax uptake + GECKO-lite enzyme constraints
-> with a protein-pool budget), the full ecology layer, multi-kingdom support, the 2D
-> spatial reaction–diffusion engine, the benchmark/validation framework, the static
-> HTML reporter, the COMETS export bridge, the CLI and the Snakemake workflow are
-> **implemented and tested** (108 tests; toy cross-feeding **and** a real *E. coli*
-> core dFBA reproducing the textbook acetate-overflow result). The external
-> reconstruction/AI tools (CarveMe, gapseq, CarveFungi, CheckM2, DLKcat) are wired as
-> per-MAG workflow rules and run on a capable host. See **[docs/](docs/)** for detailed
-> per-feature documentation and **[docs/LIMITATIONS.md](docs/LIMITATIONS.md)** for the
-> complete, honest inventory of what muODE can and cannot model.
-
 ## 📑 Table of Contents
 
 - [Key Features](#-key-features)
@@ -31,7 +19,8 @@ An automated, ODE-based simulation engine for modeling large-scale microbial com
 - [Mathematical Framework](#-mathematical-framework)
 - [Perturbation & Antibiotic Modeling](#-perturbation--antibiotic-modeling)
 - [Documentation](#-documentation)
-- [Acknowledgments](#-acknowledgments)
+- [Citation](#-citation)
+- [License](#-license)
 
 ## 🚀 Key Features
 
@@ -411,6 +400,24 @@ Detailed per-feature docs live in **[docs/](docs/)**:
 | [LIMITATIONS.md](docs/LIMITATIONS.md) | Complete, honest inventory of what muODE can and cannot model |
 | [EVALUATION.md](docs/EVALUATION.md) | Scientific assessment, design rationale, references |
 
-## 🙏 Acknowledgments
+## 📖 Citation
 
-µODE stands on the shoulders of giants in the open-source systems-biology community, including the dynamic-FBA formulation of **Mahadevan et al. (2002)**, **COBRApy**, **CarveMe**, **gapseq**, **CarveFungi**, **MetaEuk**, **MICOM**, **COMETS**, **MetaPathPredict**, **DLKcat**, **CheckM2**, and **memote**. See [docs/EVALUATION.md](docs/EVALUATION.md) for full citations.
+A manuscript describing µODE is **in preparation**. If you use µODE in your
+research in the meantime, please cite this repository:
+
+```bibtex
+@software{muode,
+  author = {Cumbo, Fabio},
+  title  = {{µODE}: an ODE-based simulation engine for microbial community dynamics},
+  url    = {https://github.com/cumbof/muODE},
+  year   = {2026}
+}
+```
+
+A citable reference for the accompanying paper will be added here once available.
+
+## 📄 License
+
+µODE is released under the **MIT License**. See [LICENSE](LICENSE) for the full text.
+
+© 2026 Fabio Cumbo.
