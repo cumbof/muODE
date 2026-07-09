@@ -1,8 +1,14 @@
 # GTDB-Tk bacterial + archaeal classification. Needs the GTDB reference release
 # (config gtdbtk_db -> GTDBTK_DATA_PATH); see README.
+#
+# >=2.7 is required, for two reasons:
+#   * GTDB release R232 is only supported from 2.7.0 (2.4.1 tops out at R226);
+#   * 2.7 replaced the mash-based ANI pre-screen with skani and REMOVED the
+#     `--skip_ani_screen` / `--mash_db` flags, so rules/taxonomy.smk targets that
+#     CLI. An older gtdbtk would reject the R232 data anyway.
 name: mgx-gtdbtk
 channels:
   - conda-forge
   - bioconda
 dependencies:
-  - gtdbtk>=2.4
+  - gtdbtk>=2.7

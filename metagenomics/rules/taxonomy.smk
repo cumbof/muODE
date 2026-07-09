@@ -44,8 +44,12 @@ rule gtdbtk:
           exit 0
         fi
 
+        # GTDB-Tk >=2.7 does the ANI pre-screen with skani and no longer accepts
+        # `--skip_ani_screen` / `--mash_db` (mash was dropped); passing them is an
+        # argparse error. The env pins >=2.7, which is also the first release that
+        # supports the R232 data.
         gtdbtk classify_wf --genome_dir {params.genomes} --out_dir {params.outdir} \
-          -x fa --cpus {threads} --skip_ani_screen --mash_db {params.outdir}/mash
+          -x fa --cpus {threads}
 
         # Merge the bacterial + archaeal summaries into one (keep header once).
         head -n1 {params.outdir}/gtdbtk.bac120.summary.tsv 2>/dev/null \
