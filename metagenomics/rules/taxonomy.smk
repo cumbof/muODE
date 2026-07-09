@@ -64,11 +64,27 @@ rule gtdbtk:
         gtdbtk classify_wf --genome_dir {params.genomes} --out_dir {params.outdir} \
           -x fa --cpus {threads}
 
-        # Merge the bacterial + archaeal summaries into one (keep header once).
-        head -n1 {params.outdir}/gtdbtk.bac120.summary.tsv 2>/dev/null \
-          > {output.summary} || printf 'user_genome\tclassification\n' > {output.summary}
+        # Merge the bacterial + archaeal summaries into one, keeping the header
+        # from whichever exists first (a sample with no archaea has no ar53 file,
+        # and one with no bacteria has no bac120 file -- both are normal).
+        #
+        # The test must not be the loop's last command: `[ -e "$s" ] && tail ...`
+        # returns 1 when the file is absent, and as the final command of the shell
+        # body that status becomes the rule's exit status. GTDB-Tk would succeed
+        # and the rule would still fail, on every sample without archaea.
+        wrote_header=0
+        : > {output.summary}
         for s in {params.outdir}/gtdbtk.bac120.summary.tsv \
                  {params.outdir}/gtdbtk.ar53.summary.tsv; do
-          [ -e "$s" ] && tail -n +2 "$s" >> {output.summary}
+          [ -e "$s" ] || continue
+          if [ "$wrote_header" -eq 0 ]; then
+            head -n1 "$s" > {output.summary}
+            wrote_header=1
+          fi
+          tail -n +2 "$s" >> {output.summary}
         done
+        if [ "$wrote_header" -eq 0 ]; then
+          echo "gtdbtk: {wildcards.sample}: no bac120/ar53 summary produced" >&2
+          printf 'user_genome\tclassification\n' > {output.summary}
+        fi
         """
