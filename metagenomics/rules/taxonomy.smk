@@ -23,6 +23,7 @@ rule gtdbtk:
         db=config.get("gtdbtk_db", ""),
         genomes=lambda w: f"{OUT}/taxonomy/{w.sample}/prok_genomes",
         outdir=lambda w: f"{OUT}/taxonomy/{w.sample}/gtdbtk",
+        local_tmp=config.get("local_tmp", ""),
     shell:
         r"""
         set -euo pipefail
@@ -31,6 +32,18 @@ rule gtdbtk:
           exit 1
         fi
         export GTDBTK_DATA_PATH="{params.db}"
+
+        # GTDB-Tk parallelises with Python multiprocessing, whose Manager scratch
+        # dir lives in $TMPDIR. On an NFS $TMPDIR (e.g. an isilon mount) the
+        # manager shutdown fails with EBUSY because NFS cannot unlink a file that
+        # is still open -- the same failure CheckM2 hits (see rules/checkm.smk).
+        # Pin temp to local disk: config local_tmp, else $SLURM_TMPDIR, else /tmp.
+        tmpbase="{params.local_tmp}"
+        [ -n "$tmpbase" ] || tmpbase="${{SLURM_TMPDIR:-/tmp}}"
+        tmpd="$(mktemp -d "$tmpbase/gtdbtk.{wildcards.sample}.XXXXXX")"
+        export TMPDIR="$tmpd"
+        trap 'rm -rf "$tmpd" 2>/dev/null || true' EXIT
+
         rm -rf {params.genomes}; mkdir -p {params.genomes} {params.outdir}
 
         # Prokaryotic catalogue members only (exclude euk MAGs).
