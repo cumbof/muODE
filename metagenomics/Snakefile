@@ -2,17 +2,28 @@
 # metagenomics/ -- reads -> MAGs pipeline (the UPSTREAM companion to muODE)
 # =============================================================================
 # This is a self-contained Snakemake workflow that turns raw paired-end shotgun
-# metagenomes into the exact inputs muODE consumes:
+# metagenomes into the exact inputs muODE consumes -- ONE SELF-CONTAINED BUNDLE
+# PER SAMPLE:
 #
-#     raw FASTQ  ->  [ this pipeline ]  ->  mags/            (per-genome FASTA)
-#                                          abundance/*.tsv   (mag_id, rel_abundance)
-#                                          domains.tsv       (mag_id, domain)  -> muODE `traits:`
-#                                          viruses/          (phage/plasmid contigs)
+#     raw FASTQ  ->  [ this pipeline ]  ->  muode_inputs/<sample>/
+#                                             mags/               (per-genome FASTA)
+#                                             abundance.tsv       (mag_id, rel_abundance)
+#                                             domains.tsv         (mag_id, domain) -> `traits:`
+#                                             catalogue_quality.tsv
+#                                             reconciliation.tsv  (reconstructed vs profiled)
+#                                             MANIFEST.md
+#                                          viruses/<sample>/      (phage/plasmid contigs)
+#
+# Samples are NEVER pooled: each is a distinct community (in a case/control design,
+# a distinct patient), so a genome recovered from one sample never enters another's
+# simulated community. Dereplication runs within each sample.
 #
 # It recovers BACTERIA + ARCHAEA (co-classified by GTDB-Tk), EUKARYOTES (Tiara ->
-# binning -> EukCC), and detects VIRUSES/PHAGES + PLASMIDS (geNomad -> CheckV),
-# then profiles every sample against the dereplicated catalogue (CoverM) to emit
-# muODE's 2-column abundance contract.
+# binning -> EukCC), and detects VIRUSES/PHAGES + PLASMIDS (geNomad -> CheckV).
+# Abundance comes from two independent views -- CoverM coverage of the assembled
+# genomes and MetaPhlAn4 SGB-level profiling -- reconciled on GTDB species into
+# muODE's 2-column abundance contract, with everything excluded from either view
+# itemised in reconciliation.tsv.
 #
 # It is deliberately NOT part of the muode package: muODE starts from MAGs; this
 # produces them. Structure and conventions mirror ../workflow/ (per-tool conda
@@ -101,7 +112,17 @@ def as_bool(value, default=False):
 DO_EUK = as_bool(config.get("recover_eukaryotes"), False)
 DO_VIRUS = as_bool(config.get("detect_viruses"), True)
 DO_GTDBTK = as_bool(config.get("classify_gtdbtk"), True)
+DO_PROFILE = as_bool(config.get("run_profiling"), False)
 REMOVE_HOST = as_bool(config.get("remove_host"), False)
+
+# Reconciliation joins MAGs to profiled taxa on their GTDB species, so it needs
+# GTDB-Tk. Profiling without taxonomy would silently degrade to CoverM abundance.
+if DO_PROFILE and not DO_GTDBTK:
+    raise ValueError(
+        "run_profiling requires classify_gtdbtk: MetaPhlAn SGBs are matched to "
+        "MAGs through their GTDB species. Enable classify_gtdbtk (and set "
+        "gtdbtk_db), or set run_profiling: false to use CoverM abundance."
+    )
 
 
 # --- modular rule files -----------------------------------------------------
@@ -111,22 +132,27 @@ include: "rules/binning.smk"     # MetaBAT2 + MaxBin2 + CONCOCT -> DAS_Tool
 include: "rules/checkm.smk"      # CheckM2 quality gate + rename to <sample>__bin.<k>
 include: "rules/eukaryotes.smk"  # Tiara -> euk binning -> EukCC   (optional)
 include: "rules/viruses.smk"     # geNomad -> CheckV               (optional)
-include: "rules/dereplicate.smk" # dRep -> non-redundant prok+euk catalogue
-include: "rules/taxonomy.smk"    # GTDB-Tk (bacteria+archaea)
-include: "rules/abundance.smk"   # CoverM per-sample relative abundance
-include: "rules/handoff.smk"     # assemble mags/ + abundance/ + domains.tsv
+include: "rules/dereplicate.smk" # dRep within each sample -> per-sample catalogue
+include: "rules/taxonomy.smk"    # GTDB-Tk (bacteria+archaea), per sample
+include: "rules/profile.smk"     # MetaPhlAn4 SGB profiling        (optional)
+include: "rules/abundance.smk"   # CoverM + reconstructed-vs-profiled reconciliation
+include: "rules/handoff.smk"     # per-sample muODE bundle
 
 
-# --- default target: everything muODE needs ---------------------------------
+# --- default target: one complete muODE bundle per sample -------------------
 def _final_targets():
-    t = [
-        f"{OUT}/muode_inputs/domains.tsv",
-        f"{OUT}/muode_inputs/catalogue_quality.tsv",
-        f"{OUT}/muode_inputs/MANIFEST.md",
-    ]
-    t += [f"{OUT}/muode_inputs/abundance/{s}.tsv" for s in SAMPLE_IDS]
-    if DO_VIRUS:
-        t += [f"{OUT}/viruses/{s}/{s}.virus_summary.done" for s in SAMPLE_IDS]
+    t = [f"{OUT}/muode_inputs/reconciliation_summary.tsv"]
+    for s in SAMPLE_IDS:
+        t += [
+            f"{OUT}/muode_inputs/{s}/mags",
+            f"{OUT}/muode_inputs/{s}/domains.tsv",
+            f"{OUT}/muode_inputs/{s}/abundance.tsv",
+            f"{OUT}/muode_inputs/{s}/catalogue_quality.tsv",
+            f"{OUT}/muode_inputs/{s}/reconciliation.tsv",
+            f"{OUT}/muode_inputs/{s}/MANIFEST.md",
+        ]
+        if DO_VIRUS:
+            t.append(f"{OUT}/viruses/{s}/{s}.virus_summary.done")
     return t
 
 

@@ -1,24 +1,28 @@
 # =============================================================================
 # Phase 5 -- prokaryotic taxonomy (GTDB-Tk classifies BACTERIA + ARCHAEA)
 # =============================================================================
-# GTDB-Tk assigns a GTDB lineage to every prokaryotic catalogue MAG. One tool
-# covers both domains, so the bacteria/archaea split in domains.tsv is read
-# straight from the `d__Bacteria` / `d__Archaea` prefix of the classification.
-# Eukaryotic MAGs (ids containing `__euk.`) are excluded here.
+# Runs per sample, against that sample's own catalogue. One tool covers both
+# domains, so the bacteria/archaea split in domains.tsv is read straight from the
+# `d__Bacteria` / `d__Archaea` prefix of the classification. Eukaryotic MAGs (ids
+# containing `__euk.`) are excluded here.
+#
+# The GTDB species assigned here is also the KEY that joins a MAG to the
+# quantitative profile (rules/profile.smk), so this must run for the
+# reconstructed-vs-profiled reconciliation to be possible at all.
 
 rule gtdbtk:
     input:
-        catalogue=f"{OUT}/catalogue/mags",
-        done=f"{OUT}/catalogue/dereplicate.done",
+        catalogue=f"{OUT}/catalogue/{{sample}}/mags",
+        done=f"{OUT}/catalogue/{{sample}}/dereplicate.done",
     output:
-        summary=f"{OUT}/taxonomy/gtdbtk.summary.tsv",
+        summary=f"{OUT}/taxonomy/{{sample}}/gtdbtk.summary.tsv",
     threads: config["threads"]
     conda:
         "../envs/gtdbtk.yaml"
     params:
         db=config.get("gtdbtk_db", ""),
-        genomes=f"{OUT}/taxonomy/prok_genomes",
-        outdir=f"{OUT}/taxonomy/gtdbtk",
+        genomes=lambda w: f"{OUT}/taxonomy/{w.sample}/prok_genomes",
+        outdir=lambda w: f"{OUT}/taxonomy/{w.sample}/gtdbtk",
     shell:
         r"""
         set -euo pipefail

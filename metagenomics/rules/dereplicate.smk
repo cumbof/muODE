@@ -1,49 +1,56 @@
 # =============================================================================
-# Phase 4 -- cross-sample dereplication (dRep) -> non-redundant MAG catalogue
+# Phase 4 -- WITHIN-SAMPLE dereplication (dRep) -> one catalogue per sample
 # =============================================================================
-# The same genome is usually recovered from many samples. dRep collapses those
-# into one representative per species-level cluster, yielding the non-redundant
-# catalogue that becomes muODE's `mags_dir`. Prokaryotic and (optional) eukaryotic
-# MAGs are pooled; pre-computed completeness/contamination are handed to dRep via
-# genomeInfo so it does not re-run CheckM (and can rank euk MAGs it otherwise
-# couldn't score).
+# Samples are NOT pooled. Each sample is a distinct biological community -- in a
+# case/control design the samples are different patients -- so a genome recovered
+# from patient B must never end up in patient A's simulated community.
+#
+# Pooling would also be lossy in a subtler way: dRep keeps ONE representative per
+# 0.95-ANI cluster, so if two patients carry different strains of the same species
+# the catalogue silently substitutes one patient's strain for the other's.
+#
+# Dereplication is therefore run *within* each sample, where it does the job it
+# should: collapsing near-identical bins recovered by the binning ensemble (and
+# the prokaryotic + eukaryotic tracks) into one non-redundant per-sample
+# catalogue. Pre-computed completeness/contamination go to dRep via genomeInfo so
+# it does not re-run CheckM (and can rank euk MAGs it otherwise couldn't score).
 
-def all_quality_tables(_):
-    tabs = [f"{OUT}/mags_per_sample/{s}/prok.quality.tsv" for s in SAMPLE_IDS]
+def sample_quality_tables(wildcards):
+    tabs = [f"{OUT}/mags_per_sample/{wildcards.sample}/prok.quality.tsv"]
     if DO_EUK:
-        tabs += [f"{OUT}/mags_per_sample/{s}/euk.quality.tsv" for s in SAMPLE_IDS]
+        tabs.append(f"{OUT}/mags_per_sample/{wildcards.sample}/euk.quality.tsv")
     return tabs
 
 
-def all_mag_dirs(_):
-    dirs = [f"{OUT}/mags_per_sample/{s}/prok" for s in SAMPLE_IDS]
+def sample_mag_dirs(wildcards):
+    dirs = [f"{OUT}/mags_per_sample/{wildcards.sample}/prok"]
     if DO_EUK:
-        dirs += [f"{OUT}/mags_per_sample/{s}/euk" for s in SAMPLE_IDS]
+        dirs.append(f"{OUT}/mags_per_sample/{wildcards.sample}/euk")
     return dirs
 
 
 rule dereplicate:
     input:
-        quality=all_quality_tables,
-        magdirs=all_mag_dirs,
+        quality=sample_quality_tables,
+        magdirs=sample_mag_dirs,
     output:
-        catalogue=directory(f"{OUT}/catalogue/mags"),
-        merged_quality=f"{OUT}/catalogue/all_mags.quality.tsv",
-        done=f"{OUT}/catalogue/dereplicate.done",
+        catalogue=directory(f"{OUT}/catalogue/{{sample}}/mags"),
+        merged_quality=f"{OUT}/catalogue/{{sample}}/all_mags.quality.tsv",
+        done=f"{OUT}/catalogue/{{sample}}/dereplicate.done",
     threads: config["threads"]
     conda:
         "../envs/drep.yaml"
     params:
         ani=config.get("derep_ani", 0.95),
-        work=f"{OUT}/catalogue/drep",
-        pool=f"{OUT}/catalogue/pool",
+        work=lambda w: f"{OUT}/catalogue/{w.sample}/drep",
+        pool=lambda w: f"{OUT}/catalogue/{w.sample}/pool",
     shell:
         r"""
         set -euo pipefail
         rm -rf {params.pool} {params.work}
         mkdir -p {params.pool} {output.catalogue}
 
-        # Pool every passing MAG (unique ids guaranteed by <sample>__tag.k naming).
+        # Pool this sample's MAGs only (prok + euk); ids are <sample>__tag.k.
         found=0
         for d in {input.magdirs}; do
           if compgen -G "$d/*.fa" > /dev/null; then
@@ -58,7 +65,7 @@ rule dereplicate:
           --genomeinfo-out {params.pool}/genomeInfo.csv
 
         if [ "$found" -eq 0 ]; then
-          echo "dereplicate: no MAGs passed QC in any sample" >&2
+          echo "dereplicate: no MAGs passed QC for {wildcards.sample}" >&2
           touch {output.done}; exit 0
         fi
 

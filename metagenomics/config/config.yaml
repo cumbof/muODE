@@ -35,10 +35,15 @@ min_completeness: 50.0     # keep MAGs with completeness >= this
 max_contamination: 10.0    # ...and contamination <= this
 checkm2_db: ""             # CheckM2 diamond DB (uniref100.KO...). Blank -> CheckM2's default path.
 
-# --- Phase 4: dereplication across samples (dRep) ---------------------------
-derep_ani: 0.95            # secondary ANI threshold (0.95 ~ species-level catalogue)
+# --- Phase 4: dereplication WITHIN each sample (dRep) -----------------------
+# Samples are never pooled: each is its own community (in a case/control design,
+# its own patient). dRep here only collapses near-identical bins recovered by the
+# binning ensemble within one sample.
+derep_ani: 0.95            # secondary ANI threshold (0.95 ~ species-level clusters)
 
 # --- Phase 5: prokaryotic taxonomy (GTDB-Tk) --------------------------------
+# Also supplies the GTDB species that joins a MAG to its MetaPhlAn SGB, so this
+# is required whenever run_profiling is true.
 classify_gtdbtk: true
 gtdbtk_db: ""              # GTDB-Tk reference data dir (GTDBTK_DATA_PATH). Required if classify_gtdbtk.
 
@@ -54,6 +59,25 @@ eukcc_max_contamination: 10.0
 detect_viruses: true
 genomad_db: ""             # geNomad database dir. Required if detect_viruses.
 checkv_db: ""              # CheckV database dir. Required if detect_viruses.
+
+# --- Phase 7: quantitative profiling (MetaPhlAn4) ---------------------------
+# Profiles each sample's reads against MetaPhlAn4's SGB database, which covers
+# UNCHARACTERISED taxa as uSGBs -- so a MAG of an uncultivated organism can still
+# be matched. The profile is joined to the MAGs on GTDB species, and muODE's
+# abundance is written over the intersection (see reconciliation.tsv for what is
+# excluded on either side). Requires classify_gtdbtk.
+run_profiling: false       # true -> MetaPhlAn4 + reconstructed-vs-profiled reconciliation
+metaphlan_db: ""           # ChocoPhlAn SGB bowtie2 DB dir. Required if run_profiling.
+metaphlan_index: ""        # pin an index, e.g. mpa_vJun23_CHOCOPhlAnSGB_202403 (blank -> latest in db)
+metaphlan_sgb2gtdb: ""     # override the SGB->GTDB table (blank -> *_SGB2GTDB.tsv in metaphlan_db)
+
+# Which abundance muODE consumes:
+#   reconciled -> MetaPhlAn relative abundance over MAGs that were also profiled
+#                 (comparable across samples/studies). Needs run_profiling.
+#   coverm     -> CoverM coverage share over every MAG in the sample.
+# With run_profiling: false this is forced to `coverm`; the summary records which
+# source was actually used, including any fallback.
+abundance_source: "reconciled"
 
 # --- resources (overridable per-rule in profiles/slurm/config.yaml) ---------
 threads: 16
