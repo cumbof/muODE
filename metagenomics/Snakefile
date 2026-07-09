@@ -9,6 +9,7 @@
 #                                             mags/               (per-genome FASTA)
 #                                             abundance.tsv       (mag_id, rel_abundance)
 #                                             domains.tsv         (mag_id, domain) -> `traits:`
+#                                             genome_sources.tsv  (mag vs reference)
 #                                             catalogue_quality.tsv
 #                                             reconciliation.tsv  (reconstructed vs profiled)
 #                                             MANIFEST.md
@@ -20,10 +21,14 @@
 #
 # It recovers BACTERIA + ARCHAEA (co-classified by GTDB-Tk), EUKARYOTES (Tiara ->
 # binning -> EukCC), and detects VIRUSES/PHAGES + PLASMIDS (geNomad -> CheckV).
-# Abundance comes from two independent views -- CoverM coverage of the assembled
-# genomes and MetaPhlAn4 SGB-level profiling -- reconciled on GTDB species into
-# muODE's 2-column abundance contract, with everything excluded from either view
-# itemised in reconciliation.tsv.
+#
+# Abundance. Assembly cannot recover every species that is present, so optionally
+# MetaPhlAn4 profiles the reads (SGB-level, uncharacterised taxa included) purely
+# to DISCOVER what assembly missed; a reference genome is then fetched from NCBI
+# for each profiled-but-unassembled species. The final genome set is therefore
+# MAGs + references, and CoverM is run ONCE over it -- one tool, one denominator,
+# one abundance table. The two profilers' numbers are never merged: CoverM measures
+# a read fraction, MetaPhlAn a marker-normalised cell fraction.
 #
 # It is deliberately NOT part of the muode package: muODE starts from MAGs; this
 # produces them. Structure and conventions mirror ../workflow/ (per-tool conda
@@ -113,15 +118,24 @@ DO_EUK = as_bool(config.get("recover_eukaryotes"), False)
 DO_VIRUS = as_bool(config.get("detect_viruses"), True)
 DO_GTDBTK = as_bool(config.get("classify_gtdbtk"), True)
 DO_PROFILE = as_bool(config.get("run_profiling"), False)
+DO_FETCH = as_bool(config.get("fetch_missing_genomes"), False)
 REMOVE_HOST = as_bool(config.get("remove_host"), False)
 
 # Reconciliation joins MAGs to profiled taxa on their GTDB species, so it needs
-# GTDB-Tk. Profiling without taxonomy would silently degrade to CoverM abundance.
+# GTDB-Tk. Without taxonomy the two views share no namespace and cannot be joined.
 if DO_PROFILE and not DO_GTDBTK:
     raise ValueError(
         "run_profiling requires classify_gtdbtk: MetaPhlAn SGBs are matched to "
         "MAGs through their GTDB species. Enable classify_gtdbtk (and set "
-        "gtdbtk_db), or set run_profiling: false to use CoverM abundance."
+        "gtdbtk_db), or set run_profiling: false."
+    )
+# Fetching reference genomes only makes sense for taxa a profiler found and
+# assembly missed -- without a profile there is no such list.
+if DO_FETCH and not DO_PROFILE:
+    raise ValueError(
+        "fetch_missing_genomes requires run_profiling: reference genomes are "
+        "fetched for species the quantitative profiler detected but assembly "
+        "never recovered. Enable run_profiling, or set fetch_missing_genomes: false."
     )
 
 
@@ -135,7 +149,8 @@ include: "rules/viruses.smk"     # geNomad -> CheckV               (optional)
 include: "rules/dereplicate.smk" # dRep within each sample -> per-sample catalogue
 include: "rules/taxonomy.smk"    # GTDB-Tk (bacteria+archaea), per sample
 include: "rules/profile.smk"     # MetaPhlAn4 SGB profiling        (optional)
-include: "rules/abundance.smk"   # CoverM + reconstructed-vs-profiled reconciliation
+include: "rules/references.smk"  # reconcile + NCBI genomes for unassembled taxa
+include: "rules/abundance.smk"   # ONE CoverM pass over the final genome set
 include: "rules/handoff.smk"     # per-sample muODE bundle
 
 
@@ -147,6 +162,7 @@ def _final_targets():
             f"{OUT}/muode_inputs/{s}/mags",
             f"{OUT}/muode_inputs/{s}/domains.tsv",
             f"{OUT}/muode_inputs/{s}/abundance.tsv",
+            f"{OUT}/muode_inputs/{s}/genome_sources.tsv",
             f"{OUT}/muode_inputs/{s}/catalogue_quality.tsv",
             f"{OUT}/muode_inputs/{s}/reconciliation.tsv",
             f"{OUT}/muode_inputs/{s}/MANIFEST.md",

@@ -1,23 +1,23 @@
 # =============================================================================
-# Phase 8 -- abundance: CoverM coverage + reconciliation with the profile
+# Phase 8 -- abundance: ONE CoverM pass over the final genome set
 # =============================================================================
-# Two abundance estimates per sample, over that sample's OWN catalogue:
+# muODE takes exactly one abundance table, so this pipeline produces exactly one
+# measurement -- it never merges two.
 #
-#   CoverM     -- maps the sample's reads back to its own MAGs. Direct and exact
-#                 for genomes that assembled, but blind to everything that didn't,
-#                 and it is a within-sample coverage share (not comparable across
-#                 samples with different assembly success).
-#   MetaPhlAn  -- marker-based SGB relative abundance. Sees taxa that never
-#                 assembled, and is comparable across samples and studies.
+# The temptation is to concatenate CoverM's numbers for the MAGs with MetaPhlAn's
+# numbers for the fetched reference genomes. That would be wrong: CoverM's
+# `relative_abundance` is a fraction of READS (with an `unmapped` remainder),
+# MetaPhlAn's is a marker-normalised fraction of CELLS. Renormalising across both
+# silently mixes two different quantities.
 #
-# `reconcile_abundance.py` joins them on GTDB species and writes muODE's abundance
-# over the INTERSECTION (using the profiler's value), plus a reconciliation table
-# naming everything excluded from either side. See scripts/reconcile_abundance.py.
+# So the sets are merged at the GENOME level (rules/handoff.smk builds
+# MAGs + references), and CoverM is then run ONCE over that final set: one tool,
+# one denominator, one table that sums to 1. MetaPhlAn's role was discovery --
+# telling us which genomes were missing -- and reporting, not quantification.
 
 rule coverm_abundance:
     input:
-        catalogue=f"{OUT}/catalogue/{{sample}}/mags",
-        done=f"{OUT}/catalogue/{{sample}}/dereplicate.done",
+        genomes=f"{OUT}/muode_inputs/{{sample}}/mags",
         r1=lambda w: clean_reads(w)["r1"],
         r2=lambda w: clean_reads(w)["r2"],
     output:
@@ -28,71 +28,28 @@ rule coverm_abundance:
     shell:
         r"""
         set -euo pipefail
-        if ! compgen -G "{input.catalogue}/*.fa" > /dev/null; then
+        if ! compgen -G "{input.genomes}/*.fa" > /dev/null; then
           printf 'Genome\t{wildcards.sample}\nunmapped\t100\n' > {output.raw}
           exit 0
         fi
         coverm genome \
           --coupled {input.r1} {input.r2} \
-          --genome-fasta-directory {input.catalogue} -x fa \
+          --genome-fasta-directory {input.genomes} -x fa \
           --methods relative_abundance \
           --threads {threads} \
           --output-file {output.raw}
         """
 
 
-def _reconcile_inputs(wildcards):
-    """Only depend on the profile / taxonomy that the enabled tracks produce."""
-    inputs = {"coverm": f"{OUT}/abundance/{wildcards.sample}.coverm.tsv"}
-    if DO_GTDBTK:
-        inputs["gtdbtk"] = f"{OUT}/taxonomy/{wildcards.sample}/gtdbtk.summary.tsv"
-    if DO_PROFILE:
-        inputs["profile"] = f"{OUT}/profile/{wildcards.sample}.metaphlan.tsv"
-        inputs["sgb2gtdb"] = f"{OUT}/profile/sgb2gtdb.tsv"
-    return inputs
-
-
-rule reconcile_abundance:
-    """Intersect this sample's reconstructed genomes with its profiled taxa."""
+rule abundance_to_muode:
+    """CoverM percentages -> muODE's `(mag_id, rel_abundance)` contract."""
     input:
-        unpack(_reconcile_inputs),
+        raw=f"{OUT}/abundance/{{sample}}.coverm.tsv",
     output:
-        abundance=f"{OUT}/muode_inputs/{{sample}}/abundance.tsv",
-        reconciliation=f"{OUT}/muode_inputs/{{sample}}/reconciliation.tsv",
-        summary=f"{OUT}/muode_inputs/{{sample}}/reconciliation_summary.tsv",
-    conda:
-        "../envs/base.yaml"
-    params:
-        gtdbtk=lambda w, input: f"--gtdbtk {input.gtdbtk}" if DO_GTDBTK else "",
-        profile=lambda w, input: (
-            f"--profile {input.profile} --sgb2gtdb {input.sgb2gtdb}" if DO_PROFILE else ""),
-        source=config.get("abundance_source", "reconciled"),
-    shell:
-        r"""
-        python scripts/reconcile_abundance.py \
-          --sample {wildcards.sample} \
-          --coverm {input.coverm} {params.gtdbtk} {params.profile} \
-          --source {params.source} \
-          --out-abundance {output.abundance} \
-          --out-reconciliation {output.reconciliation} \
-          --out-summary {output.summary}
-        """
-
-
-rule reconciliation_summary:
-    """One row per sample: how much of each community the simulated genomes cover.
-
-    This is a statistics table only -- no genomes are pooled across samples.
-    """
-    input:
-        rows=[f"{OUT}/muode_inputs/{s}/reconciliation_summary.tsv" for s in SAMPLE_IDS],
-    output:
-        summary=f"{OUT}/muode_inputs/reconciliation_summary.tsv",
+        tsv=f"{OUT}/muode_inputs/{{sample}}/abundance.tsv",
     conda:
         "../envs/base.yaml"
     shell:
         r"""
-        set -euo pipefail
-        head -n1 {input.rows[0]} > {output.summary}
-        for f in {input.rows}; do tail -n +2 "$f" >> {output.summary}; done
+        python scripts/coverm_to_muode.py --coverm {input.raw} --out {output.tsv}
         """

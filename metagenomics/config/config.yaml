@@ -61,23 +61,34 @@ genomad_db: ""             # geNomad database dir. Required if detect_viruses.
 checkv_db: ""              # CheckV database dir. Required if detect_viruses.
 
 # --- Phase 7: quantitative profiling (MetaPhlAn4) ---------------------------
-# Profiles each sample's reads against MetaPhlAn4's SGB database, which covers
-# UNCHARACTERISED taxa as uSGBs -- so a MAG of an uncultivated organism can still
-# be matched. The profile is joined to the MAGs on GTDB species, and muODE's
-# abundance is written over the intersection (see reconciliation.tsv for what is
-# excluded on either side). Requires classify_gtdbtk.
+# Entirely OPTIONAL. Profiles each sample's reads against MetaPhlAn4's SGB
+# database, which covers UNCHARACTERISED taxa as uSGBs. Its job is DISCOVERY: it
+# reveals which species are present that assembly failed to recover. It never
+# supplies abundances to muODE -- CoverM does all quantification (see Phase 8).
+# Requires classify_gtdbtk (the GTDB species is the join key).
 run_profiling: false       # true -> MetaPhlAn4 + reconstructed-vs-profiled reconciliation
 metaphlan_db: ""           # ChocoPhlAn SGB bowtie2 DB dir. Required if run_profiling.
 metaphlan_index: ""        # pin an index, e.g. mpa_vJun23_CHOCOPhlAnSGB_202403 (blank -> latest in db)
 metaphlan_sgb2gtdb: ""     # override the SGB->GTDB table (blank -> *_SGB2GTDB.tsv in metaphlan_db)
 
-# Which abundance muODE consumes:
-#   reconciled -> MetaPhlAn relative abundance over MAGs that were also profiled
-#                 (comparable across samples/studies). Needs run_profiling.
-#   coverm     -> CoverM coverage share over every MAG in the sample.
-# With run_profiling: false this is forced to `coverm`; the summary records which
-# source was actually used, including any fallback.
-abundance_source: "reconciled"
+# --- Phase 7c: reference genomes for profiled-but-unassembled taxa ----------
+# For each species the profiler saw but assembly never recovered, fetch a public
+# NCBI genome of that species so muODE can simulate it. This EXPANDS the community
+# rather than dropping those taxa. Requires run_profiling.
+#
+# The fetched genome is a PROXY: a reference isolate of the species, not the strain
+# actually in the sample. Every one is flagged `source=reference` in
+# genome_sources.tsv and reconciliation.tsv. Needs network access on the node.
+fetch_missing_genomes: false
+gtdb_taxonomy: ""          # gtdb_taxonomy.tsv (blank -> <gtdbtk_db>/taxonomy/gtdb_taxonomy.tsv)
+reference_min_abundance: 0.1   # skip profiled species below this MetaPhlAn %
+max_reference_genomes: 50      # cap per sample; 0 = no cap
+
+# --- Phase 8: abundance (CoverM) --------------------------------------------
+# CoverM is run ONCE, over the FINAL genome set (MAGs + fetched references), so
+# there is exactly one abundance table with one denominator. CoverM and MetaPhlAn
+# percentages are never merged -- a read fraction and a marker-normalised cell
+# fraction are different quantities.
 
 # --- resources (overridable per-rule in profiles/slurm/config.yaml) ---------
 threads: 16

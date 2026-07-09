@@ -1,0 +1,8 @@
+# NCBI datasets CLI: fetches reference genomes for profiled-but-unassembled taxa.
+name: mgx-datasets
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - ncbi-datasets-cli>=16
