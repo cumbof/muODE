@@ -18,7 +18,7 @@
 # simulated genomes actually represent instead of quietly renormalising it away.
 
 rule metaphlan_sgb2gtdb_table:
-    """Locate the SGB->GTDB mapping shipped with the MetaPhlAn database.
+    """Locate the SGB->GTDB mapping that ships with the MetaPhlAn package.
 
     MetaPhlAn reports SGB ids; GTDB-Tk assigns GTDB lineages to MAGs. This table
     (the one `sgb_to_gtdb_profile.py` itself reads) is what puts both in a single
@@ -42,19 +42,23 @@ rule metaphlan_sgb2gtdb_table:
             echo "metaphlan: run_profiling is true but metaphlan_db is empty" >&2
             exit 1
           fi
-          # Prefer the table matching the pinned index, else any SGB2GTDB table.
-          if [ -n "{params.index}" ] && [ -f "{params.db}/{params.index}_SGB2GTDB.tsv" ]; then
-            src="{params.db}/{params.index}_SGB2GTDB.tsv"
-          else
-            src="$(ls -1 {params.db}/*_SGB2GTDB.tsv 2>/dev/null | sort | tail -1 || true)"
+          # Prefer the table matching the pinned index, else any SGB->GTDB table.
+          # Real files carry a GTDB-release suffix (e.g. ..._SGB2GTDB_r220.tsv),
+          # so match with a glob, not an exact name; sort|tail then prefers the
+          # newest release (r220 sorts after r207).
+          if [ -n "{params.index}" ]; then
+            src="$(ls -1 {params.db}/{params.index}_SGB2GTDB*.tsv 2>/dev/null | sort | tail -1 || true)"
+          fi
+          if [ -z "$src" ]; then
+            src="$(ls -1 {params.db}/*_SGB2GTDB*.tsv 2>/dev/null | sort | tail -1 || true)"
           fi
         fi
 
         if [ -z "$src" ] || [ ! -f "$src" ]; then
-          echo "metaphlan: could not find an SGB->GTDB table (*_SGB2GTDB.tsv) in" >&2
+          echo "metaphlan: could not find an SGB->GTDB table (*_SGB2GTDB*.tsv) in" >&2
           echo "  metaphlan_db='{params.db}'" >&2
-          echo "Without it, MetaPhlAn SGBs cannot be matched to GTDB-Tk MAG species." >&2
-          echo "Point config 'metaphlan_sgb2gtdb' at the table shipped with your DB," >&2
+          echo "It ships in the MetaPhlAn package's utils/ dir (not the DB dir), as" >&2
+          echo "  <index>_SGB2GTDB_r<NNN>.tsv. Point config 'metaphlan_sgb2gtdb' at it," >&2
           echo "or set 'run_profiling: false' to fall back to CoverM abundance." >&2
           exit 1
         fi
