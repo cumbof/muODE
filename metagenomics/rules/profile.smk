@@ -12,8 +12,9 @@
 # UNCHARACTERISED taxa as uSGBs -- exactly the uncultivated organisms that MAG
 # assembly recovers -- rather than only named reference species.
 #
-# `--unclassified_estimation` makes MetaPhlAn report the fraction of the sample it
-# could not assign, so the hand-off can state how much of the community the
+# Unclassified estimation is ON by default in MetaPhlAn >=4.2 (it was opt-in via
+# `--unclassified_estimation` in 4.1): MetaPhlAn reports the fraction of the sample
+# it could not assign, so the hand-off can state how much of the community the
 # simulated genomes actually represent instead of quietly renormalising it away.
 
 rule metaphlan_sgb2gtdb_table:
@@ -68,7 +69,7 @@ rule metaphlan:
         unpack(clean_reads),
     output:
         profile=f"{OUT}/profile/{{sample}}.metaphlan.tsv",
-        bt2=f"{OUT}/profile/{{sample}}.bowtie2.bz2",
+        mapout=f"{OUT}/profile/{{sample}}.mapout.bz2",
     threads: config["threads"]
     conda:
         "../envs/metaphlan.yaml"
@@ -82,21 +83,22 @@ rule metaphlan:
           echo "metaphlan: run_profiling is true but metaphlan_db is empty" >&2
           exit 1
         fi
-        # MetaPhlAn refuses to overwrite an existing --bowtie2out; a killed job
+        # MetaPhlAn refuses to overwrite an existing --mapout; a killed job
         # leaves one behind and every rerun would then fail.
-        rm -f {output.bt2}
+        rm -f {output.mapout}
 
         idx=""
         [ -n "{params.index}" ] && idx="--index {params.index}"
 
-        # Paired files are passed comma-separated: MetaPhlAn maps reads
-        # independently against its marker set (it does not use pairing).
+        # MetaPhlAn >=4.2 CLI: --db_dir (was --bowtie2db) and --mapout (was
+        # --bowtie2out); unclassified estimation is the default, so the old
+        # --unclassified_estimation flag is gone. Paired files are passed
+        # comma-separated; MetaPhlAn maps reads independently of pairing.
         metaphlan {input.r1},{input.r2} \
           --input_type fastq \
-          --bowtie2db {params.db} $idx \
-          --bowtie2out {output.bt2} \
+          --db_dir {params.db} $idx \
+          --mapout {output.mapout} \
           --nproc {threads} \
-          --unclassified_estimation \
           --sample_id {wildcards.sample} \
           -o {output.profile}
         """

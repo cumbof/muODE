@@ -132,7 +132,7 @@ Rules whose DB is required but unset fail immediately with a clear message.
 | DB | Used by | Get it |
 |---|---|---|
 | GTDB-Tk reference (`gtdbtk_db`) | `gtdbtk` | `gtdbtk download-db.sh`, or download the GTDB release and point `GTDBTK_DATA_PATH` at it |
-| MetaPhlAn4 SGB DB (`metaphlan_db`) | `metaphlan` | `metaphlan --install --bowtie2db <dir>` (~20 GB; must contain a `*_SGB2GTDB.tsv`) |
+| MetaPhlAn4 SGB DB (`metaphlan_db`) | `metaphlan` | `metaphlan --install --index mpa_vJan25_CHOCOPhlAnSGB_202503 --db_dir <dir>` (~30 GB; the SGB→GTDB table ships in the package `utils/`, point `metaphlan_sgb2gtdb` at it) |
 | GTDB taxonomy (`gtdb_taxonomy`) | `fetch_reference_genomes` | already inside the GTDB-Tk data at `<gtdbtk_db>/taxonomy/gtdb_taxonomy.tsv`; set only to override. Fetching also needs **network access on the compute node** |
 | CheckM2 diamond DB (`checkm2_db`) | `checkm2` | `checkm2 database --download` (blank ⇒ CheckM2's default location) |
 | geNomad DB (`genomad_db`) | `genomad` | `genomad download-database .` |
@@ -193,8 +193,8 @@ pretending otherwise silently misstates what a simulation represents:
 - a novel MAG can **assemble yet carry no markers**, so the profiler misses it.
 
 With `run_profiling: true`, MetaPhlAn4 profiles each sample (SGB-level, so
-*uncharacterised* taxa are covered as uSGBs; `--unclassified_estimation` reports
-the unassignable fraction). Its job here is **discovery, not quantification**:
+*uncharacterised* taxa are covered as uSGBs; MetaPhlAn ≥4.2 reports the
+unassignable fraction by default). Its job here is **discovery, not quantification**:
 `reconcile_profile.py` joins the two views on **GTDB species** — GTDB-Tk supplies it
 for each MAG, the SGB→GTDB table shipped with the MetaPhlAn DB supplies it for each
 SGB — and hands the profiled-but-unassembled species to

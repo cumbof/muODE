@@ -68,7 +68,7 @@ checkv_db: ""              # CheckV database dir. Required if detect_viruses.
 # Requires classify_gtdbtk (the GTDB species is the join key).
 run_profiling: false       # true -> MetaPhlAn4 + reconstructed-vs-profiled reconciliation
 metaphlan_db: ""           # ChocoPhlAn SGB bowtie2 DB dir. Required if run_profiling.
-metaphlan_index: ""        # pin an index, e.g. mpa_vJun23_CHOCOPhlAnSGB_202403 (blank -> latest in db)
+metaphlan_index: ""        # pin an index, e.g. mpa_vJan25_CHOCOPhlAnSGB_202503 (blank -> latest in db)
 metaphlan_sgb2gtdb: ""     # override the SGB->GTDB table (blank -> *_SGB2GTDB.tsv in metaphlan_db)
 
 # --- Phase 7c: reference genomes for profiled-but-unassembled taxa ----------

@@ -1,9 +1,10 @@
 # MetaPhlAn4 SGB-level quantitative profiling. Needs the ChocoPhlAn SGB database
-# (config metaphlan_db); see README. MetaPhlAn >=4.1 for `--unclassified_estimation`.
+# (config metaphlan_db); see README. >=4.2 for the --db_dir/--mapout CLI and the
+# vJan25 database (rules/profile.smk targets the 4.2 argument names).
 name: mgx-metaphlan
 channels:
   - conda-forge
   - bioconda
 dependencies:
   - python>=3.9
-  - metaphlan>=4.1
+  - metaphlan>=4.2
