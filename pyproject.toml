@@ -57,6 +57,9 @@ Homepage = "https://github.com/cumbof/muODE"
 [tool.setuptools.packages.find]
 include = ["muode*"]
 
+[tool.setuptools.package-data]
+muode = ["data/diets/*.csv"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

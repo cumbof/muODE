@@ -165,6 +165,7 @@ def test_spores_survive_antibiotic_when_vegetative_die():
     assert sf_total > 5.0 * max(ns_total, 1e-9)  # it survived; the non-spore did not
 
 
+@pytest.mark.filterwarnings("ignore:no species grew at any point:RuntimeWarning")
 def test_germination_is_gated_by_bile_acids():
     """Seeded spores germinate when the germinant is present, but secondary bile
     acids slow germination -- so more spores stay dormant and less vegetative

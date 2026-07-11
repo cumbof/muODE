@@ -55,10 +55,13 @@ glucose/fructose (diet)
 A. muciniphila: mucin ──▶ propionate + acetate
 ```
 
-The diet for this example (`western_gut` preset) supplies glucose (10 mmol/L,
-1 mmol/L/h influx), fructose (5 mmol/L, 0.5 mmol/L/h), and lactose (2 mmol/L)
-as primary nutrients. For a production analysis, replace with a full VMH western
-diet CSV (see [docs/assembly.md](../../docs/assembly.md)):
+The diet for this example (`western_gut` preset) is a complete anaerobic gut
+medium in the BiGG namespace: dietary sugars and mucin glycans, plus the
+nitrogen, phosphate, sulfur, ions, trace metals, amino acids, nucleobases and
+vitamins a genome-scale biomass reaction needs. SCFAs start at zero — they are
+cross-fed, not supplied. It is curated, *not* the official VMH table; for a
+published diet, export VMH's and load it as a CSV (see
+[docs/assembly.md](../../docs/assembly.md)):
 ```yaml
 diet: "path/to/vmh_western_diet.csv"
 ```

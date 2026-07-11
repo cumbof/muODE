@@ -47,7 +47,10 @@ def test_vmax_from_kcat_units():
 def test_diet_presets_exist():
     assert "western_gut" in available_presets()
     d = load_preset("western_gut")
-    assert d.initial_concentration("glc_e") > 0
+    # BiGG namespace: glucose is `glc__D_e`. A bare `glc_e` matches no exchange in
+    # a CarveMe model, which is what silently starved the first real community.
+    assert d.initial_concentration("glc__D_e") > 0
+    assert d.initial_concentration("glc_e") == 0
 
 
 def test_diet_csv_roundtrip(tmp_path):

@@ -176,6 +176,89 @@ class SimulationResult:
             snap.to_csv(outdir / "abundance_snapshots.tsv", sep="\t", index_label="time_h")
 
 
+# Uptake routes (BiGG) by the element a biomass reaction cannot be built without.
+# A diet supplying none of a row, for models that *can* take one up, cannot grow.
+_ELEMENTAL_SOURCES: tuple = (
+    ("nitrogen", {"nh4_e", "no3_e", "no2_e", "urea_e", "gln__L_e", "glu__L_e",
+                  "ala__L_e", "asp__L_e", "asn__L_e", "arg__L_e", "ser__L_e"}),
+    ("phosphorus", {"pi_e", "ppi_e", "g3pe_e", "glyc3p_e", "pep_e"}),
+    ("sulfur", {"so4_e", "so3_e", "h2s_e", "tsul_e", "cys__L_e", "met__L_e"}),
+)
+
+
+def _warn_if_medium_cannot_feed(organisms, diet: Diet, eco_mets=()) -> None:
+    """Warn when the diet cannot actually feed the models.
+
+    A metabolite absent from the diet starts at concentration zero, and a
+    zero concentration gives a zero uptake bound -- so an organism can only ever
+    consume what the diet names.  A diet whose ids do not match the models'
+    exchange namespace (BiGG `glc__D_e` vs a bare `glc_e`), or one missing the
+    N/P/S and ion sources a genome-scale biomass reaction needs, therefore yields
+    growth = 0 for every species and a perfectly flat, plausible-looking run.
+    That silent failure is worse than a loud one, so say it out loud.
+    """
+    supplied = {
+        m for m in diet.metabolites()
+        if diet.initial_concentration(m) > 0.0 or diet.influx_rate(m) > 0.0
+    }
+    if not supplied:
+        warnings.warn(
+            f"diet '{diet.name}' supplies no nutrient at a nonzero concentration or "
+            "influx: every species will have zero uptake and cannot grow.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return
+
+    known: set = set()
+    for o in organisms:
+        known |= set(o.exchange_metabolites())
+
+    # An ecology layer (bile acids, antibiotics, oxygen) may own a metabolite no
+    # organism exchanges -- it acts on growth directly, so it is not inert.
+    accounted = known | set(eco_mets)
+
+    # (1) Namespace mismatch: diet ids that name no exchange in any model. These
+    # are silently inert, so a diet can look full and feed nothing.
+    unmatched = supplied - accounted
+    if unmatched and len(unmatched) == len(supplied):
+        warnings.warn(
+            f"diet '{diet.name}': none of its {len(supplied)} nutrients match an exchange "
+            "in any model -- the diet and the models are probably in different namespaces "
+            f"(CarveMe emits BiGG, e.g. 'glc__D_e'). Unmatched: {sorted(unmatched)[:5]}...",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    elif unmatched:
+        warnings.warn(
+            f"diet '{diet.name}': {len(unmatched)} of {len(supplied)} nutrients match no "
+            f"exchange in any model and are inert: {sorted(unmatched)[:5]}"
+            f"{'...' if len(unmatched) > 5 else ''}",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+    # (2) Missing elemental source.  Biomass is not made of carbon alone: with no
+    # N, P or S source the LP is feasible but its objective is 0, so every species
+    # sits at exactly its seeded biomass and the run looks "successful" while
+    # being flat.  Only complain when the models *do* have an uptake route for
+    # that element -- otherwise this is a toy model with a lumped biomass, not a
+    # broken diet.  (Note we deliberately do NOT flag a species that shares no
+    # metabolite with the diet: an obligate cross-feeder is fed by the community,
+    # not by the medium, and that is legitimate.)
+    for element, sources in _ELEMENTAL_SOURCES:
+        routes = sources & known
+        if routes and not (sources & supplied):
+            warnings.warn(
+                f"diet '{diet.name}' supplies no {element} source, but the models can take "
+                f"one up ({', '.join(sorted(routes)[:4])}). A genome-scale biomass reaction "
+                f"cannot fire without {element}: expect zero growth for every species and a "
+                "flat run. Add one to the diet.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+
+
 @dataclass
 class DynamicFBA:
     """Configurable dynamic-FBA community integrator.
@@ -259,6 +342,8 @@ class DynamicFBA:
                 c = float(eco_init[m])
             M[m] = c
 
+        _warn_if_medium_cannot_feed(organisms, diet, ecology.extra_metabolites())
+
         n_steps = int(round(self.t_end / self.dt))
         times = np.linspace(0.0, n_steps * self.dt, n_steps + 1)
 
@@ -275,6 +360,7 @@ class DynamicFBA:
         spore_hist: List[dict] = []    # dormant biomass per species per step
 
         depletion_warned = False
+        anything_grew = False
 
         # Per-step LP solves are independent across species -- within a step they
         # share only the read-only medium M and biomasses X -- so they can run on
@@ -352,6 +438,9 @@ class DynamicFBA:
                 step_flux[o.id] = flux
                 mu_hist[o.id][step] = mu_eff
 
+            if any(step_growth[o.id] > 0.0 for o in active):
+                anything_grew = True
+
             if self.record_fluxes:
                 for o in organisms:
                     for m in env_mets:
@@ -393,6 +482,22 @@ class DynamicFBA:
 
         if pool is not None:
             pool.shutdown()
+
+        # Not one species grew at any point in the whole run: biomass is exactly
+        # what was seeded, and the output is a flat line that looks like a
+        # successful simulation. Nearly always a setup error (a medium that does
+        # not feed these models, a namespace mismatch, models that never
+        # gap-filled) rather than biology, so refuse to let it pass silently.
+        if organisms and not anything_grew:
+            warnings.warn(
+                f"no species grew at any point on diet '{diet.name}': every growth rate was "
+                "zero for the entire run, so biomass is flat and identical to the inoculum. "
+                "Check that the diet feeds these models -- ids in the same namespace (CarveMe "
+                "emits BiGG, e.g. 'glc__D_e'), and a nitrogen, phosphate and sulfur source "
+                "present -- and that the models grow standalone.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         # --- assemble result -------------------------------------------------
         biomass_df = pd.DataFrame(bio_hist, index=times)

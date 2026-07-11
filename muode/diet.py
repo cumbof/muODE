@@ -18,7 +18,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Mapping, Optional
+from typing import Dict, Iterable, Iterator, Mapping, Optional
+
+_DIET_DIR = Path(__file__).parent / "data" / "diets"
+
+
+def _strip_comments(lines: Iterable[str]) -> Iterator[str]:
+    """Drop blank lines and ``#`` comments so a diet CSV can be documented."""
+    for line in lines:
+        if line.strip() and not line.lstrip().startswith("#"):
+            yield line
 
 
 @dataclass
@@ -71,7 +80,7 @@ class Diet:
         conc: Dict[str, float] = {}
         influx: Dict[str, float] = {}
         with path.open(newline="") as fh:
-            reader = csv.DictReader(fh)
+            reader = csv.DictReader(_strip_comments(fh))
             fields = {f.lower(): f for f in (reader.fieldnames or [])}
             met_col = fields.get("metabolite") or fields.get("reaction") or fields.get("id")
             conc_col = fields.get("concentration") or fields.get("flux") or fields.get("amount")
@@ -113,29 +122,43 @@ def _glucose_minimal() -> Diet:
 
 
 def _western_gut_demo() -> Diet:
-    """Tiny stand-in for a Western gut diet.
+    """Tiny stand-in for a Western gut diet -- TOY MEDIUM, sugars only.
 
-    The real Western gut diet is a ~200-metabolite VMH table; load it with
-    :meth:`Diet.from_csv`.  This demo keeps just a few representative inputs so
-    the engine has something to chew on out of the box.
+    Six metabolites, no nitrogen/phosphate/sulfur/ion source, so a *genome-scale*
+    biomass reaction cannot fire on it: real GEMs will report zero growth.  It is
+    here for the toy `LinprogOrganism` examples and engine smoke-tests only.  For
+    real GEMs use the ``western_gut`` preset (:func:`_western_gut`), which is a
+    complete medium.
     """
     return Diet(
         concentrations={
-            "glc_e": 10.0,   # glucose
-            "fru_e": 5.0,    # fructose
-            "lcts_e": 2.0,   # lactose
-            "ac_e": 0.0,     # acetate (cross-fed)
-            "but_e": 0.0,    # butyrate
-            "ppa_e": 0.0,    # propionate
+            "glc__D_e": 10.0,  # glucose (BiGG id -- NOT `glc_e`, which matches nothing)
+            "fru_e": 5.0,      # fructose
+            "lcts_e": 2.0,     # lactose
+            "ac_e": 0.0,       # acetate (cross-fed)
+            "but_e": 0.0,      # butyrate
+            "ppa_e": 0.0,      # propionate
         },
-        influx={"glc_e": 1.0, "fru_e": 0.5},
+        influx={"glc__D_e": 1.0, "fru_e": 0.5},
         name="western_gut_demo",
     )
 
 
+def _western_gut() -> Diet:
+    """Anaerobic Western-style gut medium in the BiGG namespace (CarveMe-compatible).
+
+    A *complete* medium: carbon sources plus the nitrogen, phosphate, sulfur,
+    ions, trace metals, amino acids, nucleobases and vitamins a genome-scale
+    biomass reaction needs.  Curated and literature-informed -- it is **not** the
+    official VMH Western-diet table; export that and use :meth:`Diet.from_csv` if
+    you need a published diet.
+    """
+    return Diet.from_csv(_DIET_DIR / "western_gut.csv", name="western_gut")
+
+
 _PRESETS = {
     "glucose_minimal": _glucose_minimal,
-    "western_gut": _western_gut_demo,
+    "western_gut": _western_gut,
     "western_gut_demo": _western_gut_demo,
 }
 

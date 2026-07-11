@@ -56,5 +56,5 @@ def test_export_resolves_manifest_diet_when_none(tmp_path):
     manifest = dict(_manifest(), diet="western_gut")
     paths = export_comets(manifest, tmp_path, diet=None)
     layout = json.loads(paths["layout"].read_text())
-    assert layout["diet"] == "western_gut_demo"
-    assert "glc_e" in layout["media"]
+    assert layout["diet"] == "western_gut"
+    assert "glc__D_e" in layout["media"]

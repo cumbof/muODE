@@ -5,8 +5,8 @@
 #
 # Tolerances are intentionally generous:
 #   - GEM quality varies across reconstruction runs and CarveMe versions.
-#   - The built-in western_gut diet preset is a simplified stand-in (glucose +
-#     fructose + lactose) rather than the full ~200-metabolite VMH diet.
+#   - The built-in western_gut diet is a curated complete medium, not the
+#     official ~200-metabolite VMH diet, so exact fluxes will differ.
 #   - These thresholds check the broad ecological signal (Bacteroides dominance,
 #     SCFA cross-feeding) rather than exact numerical reproducibility.
 name: western_gut_12sp

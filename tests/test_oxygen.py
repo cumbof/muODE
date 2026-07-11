@@ -93,7 +93,10 @@ def test_facultative_scavenger_rescues_anaerobe():
     assert res_pair.environment["oxygen"].iloc[-1] < res_solo.environment["oxygen"].iloc[-1]
 
 
+@pytest.mark.filterwarnings("ignore:no species grew at any point:RuntimeWarning")
 def test_obligate_aerobe_needs_oxygen():
+    # The no-oxygen arm is *meant* to be flat -- that is the assertion -- so the
+    # engine's flat-run warning fires correctly and is ignored here.
     diet = Diet(concentrations={"glc_e": 10.0}, influx={"glc_e": 1.0}, name="ox")
     kin = KineticParameters(metabolite_defaults={"glc_e": (10.0, 0.5)})
     comm = Community([_grower("aer")], {"aer": 1.0}, total_biomass=0.02)

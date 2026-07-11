@@ -72,8 +72,13 @@ def test_metabolites_never_negative(sim):
     assert (result.metabolites.values >= -1e-9).all()
 
 
+@pytest.mark.filterwarnings("ignore:no species grew at any point:RuntimeWarning")
 def test_secondary_extinction_on_feeder_removal(sim):
-    """Removing A must starve B even though the perturbation never touches B."""
+    """Removing A must starve B even though the perturbation never touches B.
+
+    A flat run is the *expected* outcome here (that is the extinction), so the
+    engine's flat-run warning is correct and deliberately ignored.
+    """
     community = build_toy_community()
     pert = Perturbation.remove_species(["A_glucose"])
     result = sim.run(community, toy_diet(), toy_kinetics(), perturbation=pert)

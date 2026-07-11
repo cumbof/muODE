@@ -74,6 +74,15 @@ class SporeForming(EcologyLayer):
     ki_inhibitor: float = 0.02
     _spores: Dict[str, float] = field(default_factory=dict, init=False, repr=False)
 
+    def extra_metabolites(self) -> Tuple[str, ...]:
+        """The germinant and its inhibitors: read from the medium, so declare them.
+
+        No organism *exchanges* these -- they gate germination rather than being
+        consumed -- but they are not inert, and an undeclared metabolite looks to
+        the engine like a diet entry that feeds nothing.
+        """
+        return (self.germinant, *self.inhibitor)
+
     def reset(self, community) -> None:
         self._spores = {s: float(self.initial_spores.get(s, 0.0)) for s in self.species}
 
