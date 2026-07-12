@@ -1,0 +1,83 @@
+# DM38 -- the chemically defined medium of Clark et al. 2021, in the BiGG
+# namespace.  DERIVED FILE: regenerate with
+#   python examples/benchmarks/clark2021/derive_dm38.py
+#
+# Source: Clark et al., 'Design of synthetic human gut microbiome assembly
+# and butyrate production', Nat Commun 12, 3254 (2021), Supplementary Data 4.
+# https://doi.org/10.1038/s41467-021-22938-y  (CC-BY 4.0)
+#
+# Concentrations are mmol/L, exactly as published.  Influx is 0 throughout:
+# the experiment is a sealed 48 h batch culture, not a chemostat.
+# Anaerobic -- no o2_e.  Salts are dissociated into the ions a GEM imports,
+# summing shared ions across salts.
+#
+# NOTE: L-lactate is a MEDIUM COMPONENT here (28.3 mM sodium lactate), not
+# only a fermentation product.  Score measured lactate as a change from this
+# baseline, never as an endpoint concentration.
+# 67 components -> 65 exchange metabolites.
+metabolite,concentration,influx
+4abz_e,0.0730729,0.0
+ade_e,5.99423e-05,0.0
+ala__L_e,5.3,0.0
+arab__L_e,21.3149,0.0
+arg__L_e,21.814,0.0
+asn__L_e,2.6,0.0
+asp__L_e,0.4,0.0
+btn_e,0.0409521,0.0
+ca2_e,1.29032,0.0
+cbl1_e,1.47561e-06,0.0
+cl_e,17.0321,0.0
+cobalt2_e,0.0546618,0.0
+csn_e,5.94059e-05,0.0
+cu2_e,0.0212653,0.0
+cys__L_e,8.4,0.0
+fe2_e,0.0658293,0.0
+fol_e,0.00240283,0.0
+glc__D_e,24.9784,0.0
+gln__L_e,2.7,0.0
+glu__L_e,0.662722,0.0
+gly_e,4.7,0.0
+gua_e,5.95514e-05,0.0
+h2o_e,1000,0.0
+h_e,1000,0.0
+hco3_e,47.6151,0.0
+his__L_e,1,0.0
+ile__L_e,1.6,0.0
+inost_e,6.2722,0.0
+k_e,6.61372,0.0
+lac__L_e,28.3082,0.0
+leu__L_e,3.6,0.0
+lys__L_e,2.4,0.0
+malt_e,4.38212,0.0
+met__L_e,0.84,0.0
+mg2_e,4.42213,0.0
+mn2_e,0.331124,0.0
+mobd_e,0.00485625,0.0
+na1_e,92.3885,0.0
+ncam_e,0.0343924,0.0
+nh4_e,9.34737,0.0
+ni2_e,0.0154322,0.0
+no3_e,0.109324,0.0
+orot_e,0.0640615,0.0
+phe__L_e,4.5,0.0
+pheme_e,0.0153388,0.0
+pi_e,6.61327,0.0
+pnto__R_e,0.000419695,0.0
+pro__L_e,5.9,0.0
+pydam_e,0.021,0.0
+pydx_e,0.00982222,0.0
+pydxn_e,0.000972583,0.0
+ribflv_e,0.000531406,0.0
+ser__L_e,6.4,0.0
+slnt_e,0.000578243,0.0
+so4_e,10.2621,0.0
+thf_e,2.80628e-06,0.0
+thm_e,0.000593064,0.0
+thr__L_e,1.9,0.0
+thymd_e,0.021,0.0
+trp__L_e,0.73,0.0
+tyr__L_e,3.20106,0.0
+ura_e,5.88829e-05,0.0
+val__L_e,2.8,0.0
+xan_e,0.0249819,0.0
+zn2_e,0.061931,0.0

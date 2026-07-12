@@ -9,7 +9,7 @@ relative_abundances:
   consumer: 0.5
 
 metabolites:
-  glc_e: 0.1          # glucose drawn down (small standing influx in the diet)
+  glc__D_e: 0.1       # glucose drawn down (small standing influx in the diet)
   ac_e: 0.1           # acetate produced then cross-fed down
 
 cross_feeding:

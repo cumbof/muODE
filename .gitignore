@@ -35,3 +35,7 @@ simulation_env/
 # Claude Code local settings (machine-specific; never version these)
 .claude/settings.local.json
 .claude/*.tmp*
+
+# Clark et al. 2021 benchmark data -- fetched, not vendored (see muode.benchmarks.clark2021.fetch)
+examples/benchmarks/clark2021/data/
+examples/benchmarks/clark2021/*.csv

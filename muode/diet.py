@@ -165,10 +165,27 @@ def _western_gut() -> Diet:
     return Diet.from_csv(_DIET_DIR / "western_gut.csv", name="western_gut")
 
 
+def _dm38() -> Diet:
+    """DM38 -- the chemically defined medium of Clark et al. 2021 (Nat Commun).
+
+    Unlike :func:`_western_gut`, this is a *published* medium with an exact
+    composition, and it is the medium in which 1,850 synthetic gut communities
+    were actually measured.  It is therefore the medium to use whenever the point
+    is to compare a prediction against those measurements
+    (:mod:`muode.benchmarks.clark2021`).
+
+    Anaerobic batch culture: no oxygen, and no influx of anything.  Note that it
+    supplies 28.3 mM L-lactate, so lactate is a substrate here as well as a
+    fermentation product.
+    """
+    return Diet.from_csv(_DIET_DIR / "dm38.csv", name="DM38")
+
+
 _PRESETS = {
     "glucose_minimal": _glucose_minimal,
     "western_gut": _western_gut,
     "western_gut_demo": _western_gut_demo,
+    "dm38": _dm38,
 }
 
 
