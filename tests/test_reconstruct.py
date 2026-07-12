@@ -36,7 +36,7 @@ def test_stub_role_parsing(tmp_path):
 def test_stub_fermenter_grows_and_secretes_acetate(tmp_path):
     out = stub_reconstruct(_write_mag(tmp_path / "ferm.fna", "fermenter"), tmp_path / "ferm.xml")
     model = cobra.io.read_sbml_model(str(out))
-    assert {"EX_glc_e", "EX_ac_e"} <= {r.id for r in model.reactions}
+    assert {"EX_glc__D_e", "EX_ac_e"} <= {r.id for r in model.reactions}
     sol = model.optimize()
     assert sol.objective_value > 1e-6                 # grows
     assert sol.fluxes["EX_ac_e"] > 1e-6               # secretes acetate
@@ -45,7 +45,7 @@ def test_stub_fermenter_grows_and_secretes_acetate(tmp_path):
 def test_stub_consumer_cannot_use_glucose(tmp_path):
     out = stub_reconstruct(_write_mag(tmp_path / "cons.fna", "consumer"), tmp_path / "cons.xml")
     model = cobra.io.read_sbml_model(str(out))
-    assert "EX_glc_e" not in {r.id for r in model.reactions}
+    assert "EX_glc__D_e" not in {r.id for r in model.reactions}
     assert "EX_ac_e" in {r.id for r in model.reactions}
     # no acetate available on a closed medium -> no growth
     model.reactions.EX_ac_e.lower_bound = 0.0
@@ -67,14 +67,34 @@ def test_stub_pair_cross_feeds(tmp_path):
         abundances={"ferm": 0.7, "cons": 0.3},
         total_biomass=0.02,
     )
-    diet = Diet({"glc_e": 20.0, "ac_e": 0.0}, name="glc")
-    kin = KineticParameters(metabolite_defaults={"glc_e": (10.0, 0.5), "ac_e": (10.0, 0.5)})
+    diet = Diet({"glc__D_e": 20.0, "ac_e": 0.0}, name="glc")
+    kin = KineticParameters(metabolite_defaults={"glc__D_e": (10.0, 0.5), "ac_e": (10.0, 0.5)})
     res = DynamicFBA(t_end=12.0, dt=0.1).run(comm, diet, kin)
 
     # both grow, and the acetate consumer depends entirely on the fermenter
     assert res.biomass["ferm"].iloc[-1] > res.biomass["ferm"].iloc[0]
     assert res.biomass["cons"].iloc[-1] > res.biomass["cons"].iloc[0]
     assert not res.cross_feeding().empty
+
+
+def test_stub_models_speak_the_same_namespace_as_the_shipped_diets(tmp_path):
+    """The stub MAGs must be fed by the built-in presets, or the demo is a flat line.
+
+    The stubs stand in for CarveMe models, so their exchange ids have to be BiGG
+    (`glc__D_e`, not `glc_e`) -- otherwise the bundled demo silently simulates a
+    community whose only carbon source matches nothing in the diet.
+    """
+    from muode.diet import load_preset
+    from muode.media import growth_on_diet
+
+    ferm = cobra.io.read_sbml_model(
+        str(stub_reconstruct(_write_mag(tmp_path / "f.fna", "fermenter"), tmp_path / "f.xml"))
+    )
+    for preset in ("western_gut", "western_gut_demo"):
+        assert growth_on_diet(ferm, load_preset(preset)) > 1e-6, (
+            f"the stub fermenter cannot grow on the '{preset}' preset: the demo "
+            "pipeline would produce a flat community"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +114,26 @@ def test_carveme_command_construction(tmp_path, monkeypatch):
     assert cmd[0] == "carve"
     assert "-u" in cmd and "grampos" in cmd
     assert "-g" in cmd and "M9" in cmd
+
+
+def test_carveme_carves_against_a_custom_media_db(tmp_path, monkeypatch):
+    """A diet-derived medium is not one of CarveMe's built-ins, so `-g` needs `--mediadb`."""
+    import muode.reconstruct as recon
+
+    captured = {}
+    monkeypatch.setattr(recon, "require", lambda binary, env_hint="": binary)
+    monkeypatch.setattr(recon, "run", lambda cmd, log=None: captured.setdefault("cmd", list(map(str, cmd))))
+
+    recon.carveme(tmp_path / "p.faa", tmp_path / "m.xml",
+                  gapfill_media="western_gut", mediadb=tmp_path / "mediadb.tsv")
+    cmd = captured["cmd"]
+    assert "-g" in cmd and "western_gut" in cmd
+    assert "--mediadb" in cmd and str(tmp_path / "mediadb.tsv") in cmd
+
+    # no gap-fill medium -> no media db either (it would have nothing to define)
+    captured.clear()
+    recon.carveme(tmp_path / "p.faa", tmp_path / "m.xml", mediadb=tmp_path / "mediadb.tsv")
+    assert "--mediadb" not in captured["cmd"]
 
 
 # ---------------------------------------------------------------------------

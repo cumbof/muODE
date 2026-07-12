@@ -184,10 +184,20 @@ def carveme(
     output_xml: str | Path,
     universe: str = "bacteria",
     gapfill_media: Optional[str] = None,
+    mediadb: Optional[str | Path] = None,
     solver: Optional[str] = None,
     from_dna: bool = False,
 ) -> Path:
-    """Reconstruct a GEM with CarveMe (top-down, BiGG namespace)."""
+    """Reconstruct a GEM with CarveMe (top-down, BiGG namespace).
+
+    ``gapfill_media`` is the medium to gap-fill on, and it matters more than it
+    looks: without it CarveMe only guarantees growth with *every* exchange open,
+    so the model may import finished cofactors (CoA, glutathione, NMN) instead of
+    synthesising them and will not grow on any defined diet.  ``mediadb`` points
+    at a CarveMe media-db TSV -- write one from the simulation diet with
+    :func:`muode.media.write_carveme_mediadb` -- so the medium carved against and
+    the medium simulated on are the same medium.
+    """
     output_xml = Path(output_xml)
     output_xml.parent.mkdir(parents=True, exist_ok=True)
     carve = require("carve", env_hint="mamba install -c bioconda carveme")
@@ -196,6 +206,8 @@ def carveme(
         cmd.append("--dna")
     if gapfill_media:
         cmd += ["-g", gapfill_media]
+        if mediadb:
+            cmd += ["--mediadb", str(mediadb)]
     if solver:
         cmd += ["--solver", solver]
     run(cmd, log=output_xml.with_suffix(".carveme.log"))
@@ -231,6 +243,7 @@ def reconstruct_mag(
     engine: str = "carveme",
     universe: str = "bacteria",
     gapfill_media: Optional[str] = None,
+    mediadb: Optional[str | Path] = None,
     solver: Optional[str] = None,
     ref_db: Optional[str | Path] = None,
     threads: int = 1,
@@ -254,7 +267,7 @@ def reconstruct_mag(
         proteins = output_xml.with_suffix(".faa")
         call_genes(genome_fna, proteins)
         return carveme(proteins, output_xml, universe=universe,
-                       gapfill_media=gapfill_media, solver=solver)
+                       gapfill_media=gapfill_media, mediadb=mediadb, solver=solver)
     if engine == "gapseq":
         produced = gapseq(genome_fna, output_xml.parent, media=gapfill_media)
         if produced != output_xml:
@@ -318,9 +331,10 @@ def stub_reconstruct(genome_fna: str | Path, output_xml: str | Path) -> Path:
     * ``consumer``  -- grows only on acetate (cross-feeds off a fermenter);
     * ``generic``   -- grows on glucose alone (the default).
 
-    Exchange-metabolite ids (``glc_e``, ``ac_e``) match the built-in diet presets,
-    so a directory of stub MAGs assembles into a real cross-feeding community.
-    Swap ``engine: carveme`` on a capable machine for actual models.
+    Exchange-metabolite ids are BiGG (``glc__D_e``, ``ac_e``) so they match both the
+    built-in diet presets and the ids CarveMe emits: a directory of stub MAGs
+    assembles into a real cross-feeding community, and swapping in
+    ``engine: carveme`` on a capable machine changes the models, not the medium.
     """
     from cobra import Metabolite, Model, Reaction
 
@@ -329,7 +343,7 @@ def stub_reconstruct(genome_fna: str | Path, output_xml: str | Path) -> Path:
     role = _stub_role(genome_fna)
 
     model = Model(f"stub_{genome_fna.stem}")
-    glc_e = Metabolite("glc_e", name="D-glucose [e]", compartment="e")
+    glc_e = Metabolite("glc__D_e", name="D-glucose [e]", compartment="e")
     ac_e = Metabolite("ac_e", name="acetate [e]", compartment="e")
 
     def _exchange(met: Metabolite, lower: float, upper: float) -> Reaction:

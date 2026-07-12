@@ -84,12 +84,19 @@ def summarize_reconstruction(qc_json_paths):
             "grew_initially": d.get("grew_initially"),
             "n_reactions_added": len(d.get("reactions_added") or []),
             "grows_now": bool(d.get("grows_now")),
+            # growth on the *simulation medium* vs with every exchange open.  A
+            # model that grows only on the latter will flatline in the community.
+            "growth_on_diet": d.get("growth_on_diet"),
+            "growth_on_complete_medium": d.get("growth_on_complete_medium"),
             "n_mass_unbalanced": qc.get("n_mass_unbalanced"),
             "energy_generating_cycle": qc.get("energy_generating_cycle"),
             "qc_passed": qc.get("passed"),
         })
     df = pd.DataFrame(rows)
     if not df.empty:
+        # the diet columns are absent when refine ran without one: don't carry
+        # a column of blanks into the report
+        df = df.dropna(axis=1, how="all")
         df = df.sort_values("mag").reset_index(drop=True)
         egc = df.get("energy_generating_cycle")
         df["simulatable"] = df["grows_now"].fillna(False) & (egc.fillna(False) == False)  # noqa: E712

@@ -23,6 +23,8 @@ def main() -> None:
     )
     p.add_argument("--universe", default="bacteria")
     p.add_argument("--gapfill-media", default=None)
+    p.add_argument("--mediadb", default=None,
+                   help="CarveMe media-db TSV defining --gapfill-media")
     p.add_argument("--ref-db", default=None,
                    help="MetaEuk protein reference DB (eukaryote engines)")
     p.add_argument("--threads", type=int, default=1)
@@ -37,7 +39,7 @@ def main() -> None:
     out = reconstruct_mag(
         args.genome, args.output, engine=args.engine,
         universe=args.universe, gapfill_media=args.gapfill_media,
-        ref_db=args.ref_db, threads=args.threads,
+        mediadb=args.mediadb, ref_db=args.ref_db, threads=args.threads,
         carvefungi_cmd=args.carvefungi_cmd, eggnog_data_dir=args.eggnog_data_dir,
     )
     print(f"reconstructed [{args.engine}] {Path(args.genome).stem} -> {out}")

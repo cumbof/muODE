@@ -15,6 +15,7 @@ from pathlib import Path
 
 import cobra
 
+from muode.diet import load_diet
 from muode.gapfill import ensure_biomass
 from muode.qc import sanity_check_model
 
@@ -24,6 +25,8 @@ def main() -> None:
     p.add_argument("draft", help="input draft SBML model")
     p.add_argument("output", help="output refined SBML model")
     p.add_argument("--universal", help="universal model (SBML) for LP gap-filling")
+    p.add_argument("--diet", help="diet preset name or CSV: judge growth on the "
+                                  "simulation medium instead of the model's open one")
     p.add_argument("--qc-json", help="path to write the QC report")
     p.add_argument("--kinetics-json", help="path to write predicted kinetics")
     p.add_argument("--predict-kinetics", action="store_true",
@@ -34,8 +37,9 @@ def main() -> None:
     stem = Path(args.draft).stem
     model = cobra.io.read_sbml_model(args.draft)
     universal = cobra.io.read_sbml_model(args.universal) if args.universal else None
+    diet = load_diet(args.diet) if args.diet else None
 
-    gap = ensure_biomass(model, universal=universal)
+    gap = ensure_biomass(model, universal=universal, diet=diet)
     qc = sanity_check_model(model)
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
@@ -54,7 +58,8 @@ def main() -> None:
     report = {"model": stem, **gap, "qc": qc}
     if args.qc_json:
         Path(args.qc_json).write_text(json.dumps(report, indent=2, default=str))
-    print(json.dumps({k: report[k] for k in ("model", "grows_now")}, default=str))
+    keys = [k for k in ("model", "grows_now", "growth_on_diet") if k in report]
+    print(json.dumps({k: report[k] for k in keys}, default=str))
 
 
 if __name__ == "__main__":

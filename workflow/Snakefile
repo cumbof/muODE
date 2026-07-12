@@ -64,6 +64,33 @@ ENGINE = config.get("engine", "carveme")
 UNIVERSE = config.get("universe", "bacteria")
 SCRIPTS = os.path.join(workflow.basedir, "scripts")
 
+# --- gap-fill on the medium we actually simulate on ------------------------
+# A model carved with no medium (`carve` without `-g`) is only guaranteed to grow
+# with *every* exchange open: it may import finished CoA / glutathione / NMN
+# rather than synthesise them, because nothing forced it to close those gaps.  It
+# then flatlines the instant the engine restricts it to a defined diet -- passing
+# QC all the way.  So by default we render the configured diet as a CarveMe media
+# db and carve against it.
+#   gapfill_media: "diet"  -> gap-fill on `diet:` (default)
+#   gapfill_media: "M9"    -> a CarveMe built-in medium
+#   gapfill_media: null    -> no gap-filling (expect a flat community)
+DIET = config.get("diet", "western_gut")
+MEDIADB = f"{OUT}/mediadb.tsv"
+
+from muode.diet import load_diet  # noqa: E402  (needs the active muode env)
+
+DIET_NAME = load_diet(DIET).name
+_gapfill = config.get("gapfill_media", "diet")
+if _gapfill in ("diet", "", True):
+    # only CarveMe consumes a media-db medium by name; gapseq wants a medium *file*
+    # and the stub has no medium at all, so "diet" is a no-op for them.
+    GAPFILL_MEDIA = DIET_NAME if ENGINE == "carveme" else None
+    USE_DIET_MEDIADB = GAPFILL_MEDIA is not None
+elif _gapfill in (None, False, "none", "null"):
+    GAPFILL_MEDIA, USE_DIET_MEDIADB = None, False
+else:
+    GAPFILL_MEDIA, USE_DIET_MEDIADB = str(_gapfill), False
+
 # --- domain-aware routing (optional traits.tsv side file) ------------------
 # If `traits:` is set in config, read per-MAG domains so the pipeline can
 # route each genome to the correct reconstruction tool and skip virus MAGs
@@ -169,7 +196,15 @@ def _recon_cmd(wildcards, input, output):
     domain = _mag_domain(wildcards.mag)
     genome = str(input.genome)
     model  = str(output.model)
-    media_flag = f"-g {config['gapfill_media']}" if config.get("gapfill_media") else ""
+    # carve takes `-g MEDIUM [--mediadb FILE]`; reconstruct_one.py takes the
+    # long-form equivalents (passing carve's own flags to it is an argparse error)
+    carve_media = script_media = ""
+    if GAPFILL_MEDIA:
+        carve_media = f"-g {GAPFILL_MEDIA}"
+        script_media = f"--gapfill-media {GAPFILL_MEDIA}"
+        if USE_DIET_MEDIADB:
+            carve_media += f" --mediadb {MEDIADB}"
+            script_media += f" --mediadb {MEDIADB}"
 
     if domain in EUK_DOMAINS:
         route = _euk_engine(wildcards.mag, domain)
@@ -198,12 +233,12 @@ def _recon_cmd(wildcards, input, output):
         proteins = model.replace(".xml", ".faa")
         return (
             f"prodigal -i {genome} -a {proteins} -p meta -q && "
-            f"carve {proteins} -o {model} -u {UNIVERSE} {media_flag}"
+            f"carve {proteins} -o {model} -u {UNIVERSE} {carve_media}"
         )
     # stub / gapseq global engine
     return (
         f"python {SCRIPTS}/reconstruct_one.py {genome} {model} "
-        f"--engine {ENGINE} --universe {UNIVERSE} {media_flag}"
+        f"--engine {ENGINE} --universe {UNIVERSE} {script_media}"
     )
 
 
@@ -271,9 +306,22 @@ checkpoint select_mags:
 # --- Phase 1: reconstruction (per MAG) ------------------------------------
 # conda env and shell command are determined per-wildcard by domain (from traits.tsv
 # if provided) so bacteria→carveme, eukaryote→gapseq, and viruses are skipped above.
+rule mediadb:
+    # Render the simulation diet as a CarveMe media db, so the medium we gap-fill
+    # against and the medium we simulate on are the same object.
+    output:
+        mediadb=MEDIADB,
+    run:
+        from muode.media import write_carveme_mediadb
+
+        write_carveme_mediadb(load_diet(DIET), output.mediadb, medium=DIET_NAME)
+        print(f"wrote CarveMe media db for diet '{DIET_NAME}' -> {output.mediadb}")
+
+
 rule reconstruct:
     input:
         genome=f"{MAGS_DIR}/{{mag}}.{EXT}",
+        mediadb=(MEDIADB if USE_DIET_MEDIADB else []),
     output:
         model=f"{OUT}/models/draft/{{mag}}.xml",
     params:
@@ -299,13 +347,14 @@ rule refine:
         universal=(f"--universal {config['universal_model']}" if config.get("universal_model") else ""),
         predict=("--predict-kinetics" if config.get("predict_kinetics", False) else ""),
         predictor=config.get("predictor", "heuristic"),
+        diet=f"--diet {DIET}",   # judge growth on the medium the engine imposes
     log:
         f"{OUT}/logs/refine/{{mag}}.log",
     conda:
         "envs/muode.yaml"
     shell:
         "python {SCRIPTS}/refine_one.py {input.model} {output.model} "
-        "--qc-json {output.qc} --kinetics-json {output.kinetics} "
+        "--qc-json {output.qc} --kinetics-json {output.kinetics} {params.diet} "
         "--predictor {params.predictor} {params.predict} {params.universal} > {log} 2>&1"
 
 
@@ -329,6 +378,25 @@ rule reconstruct_report:
         df.to_csv(output.summary, sep="\t", index=False)
         n_ok = int(df["simulatable"].sum()) if "simulatable" in df.columns and not df.empty else 0
         print(f"reconstruction summary: {n_ok}/{len(df)} models simulatable -> {output.summary}")
+
+        # A model can be perfectly "simulatable" (makes biomass, no energy cycle)
+        # and still be dead on the diet -- which is what produces a flat community
+        # out of a flawless-looking reconstruction.  Say so here, loudly, rather
+        # than letting the simulation return a plausible flat line.
+        if "growth_on_diet" in df.columns and not df.empty:
+            n_fed = int((df["growth_on_diet"].fillna(0.0) > 1e-6).sum())
+            print(f"growth on diet '{DIET_NAME}': {n_fed}/{len(df)} models grow on the medium alone")
+            if n_fed < 0.5 * len(df):
+                print(
+                    f"\n!! WARNING: only {n_fed}/{len(df)} models can grow on diet "
+                    f"'{DIET_NAME}'.\n"
+                    "   Some species are legitimately obligate cross-feeders, but a large\n"
+                    "   majority failing usually means the models were carved WITHOUT\n"
+                    "   gap-filling on this medium, so they rely on nutrients it does not\n"
+                    "   supply (imported CoA, glutathione, NMN, peptidoglycan precursors).\n"
+                    "   Such a community will barely grow. Set `gapfill_media: \"diet\"` and\n"
+                    "   re-run reconstruction, or check the diet matches the model namespace.\n"
+                )
 
 
 # --- Phase 3c: full memote model QC (optional, `run_memote: true`) ---------

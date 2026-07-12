@@ -21,7 +21,12 @@ max_contamination: 10.0
 # config/config.demo.yaml. gapseq (ModelSEED) is available via `muode build`.
 engine: "carveme"
 universe: "bacteria"          # CarveMe universe / template
-gapfill_media: null           # e.g. "M9" to gap-fill during reconstruction
+# Medium to gap-fill on during reconstruction. "diet" (default) carves against
+# the `diet:` set below, so the medium the models are built for is the medium
+# they are simulated on. A CarveMe built-in name ("M9", "LB") also works.
+# null disables gap-filling: CarveMe then only guarantees growth with *every*
+# exchange open, and such models flatline on any defined diet -- don't.
+gapfill_media: "diet"
 
 # --- Phase 2/3: refinement -------------------------------------------------
 universal_model: null         # SBML universal model for LP gap-filling (optional)

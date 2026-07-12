@@ -30,13 +30,11 @@ console = Console()
 
 
 def _load_diet(spec: str):
-    from muode.diet import Diet, available_presets, load_preset
+    from muode.diet import load_diet
 
-    if spec.endswith(".csv") and Path(spec).exists():
-        return Diet.from_csv(spec)
     try:
-        return load_preset(spec)
-    except KeyError as exc:
+        return load_diet(spec)
+    except (KeyError, FileNotFoundError) as exc:
         raise typer.BadParameter(f"{exc}; or pass a path to a diet CSV") from exc
 
 
@@ -126,6 +124,9 @@ def build(
     engine: str = typer.Option("carveme", help="carveme | gapseq."),
     universe: str = typer.Option("bacteria", help="CarveMe universe / template."),
     gapfill_media: Optional[str] = typer.Option(None, help="Medium to gap-fill on during build."),
+    mediadb: Optional[Path] = typer.Option(None, help="CarveMe media-db TSV defining --gapfill-media."),
+    diet: Optional[str] = typer.Option(None, help="Gap-fill on this muODE diet (preset or CSV): "
+                                                  "writes a media db and carves against it."),
     solver: Optional[str] = typer.Option(None, help="LP solver (gurobi/cplex)."),
     pattern: str = typer.Option("*.fna", help="Glob for MAG files."),
 ) -> None:
@@ -133,6 +134,15 @@ def build(
     from muode.reconstruct import reconstruct_mag
 
     outdir.mkdir(parents=True, exist_ok=True)
+    # Carve against the diet we will simulate on: without a gap-fill medium
+    # CarveMe only guarantees growth with every exchange open (see muode.media).
+    if diet:
+        from muode.media import write_carveme_mediadb
+
+        d = _load_diet(diet)
+        mediadb = write_carveme_mediadb(d, mediadb or outdir / "mediadb.tsv")
+        gapfill_media = d.name
+        console.print(f"gap-filling on diet [cyan]{d.name}[/cyan] (media db: {mediadb})")
     genomes = sorted(Path(mags).glob(pattern))
     if not genomes:
         raise typer.BadParameter(f"no files matching {pattern} in {mags}")
@@ -140,7 +150,7 @@ def build(
         out = outdir / f"{g.stem}.xml"
         console.print(f"reconstructing [cyan]{g.stem}[/cyan] -> {out}")
         reconstruct_mag(g, out, engine=engine, universe=universe,
-                        gapfill_media=gapfill_media, solver=solver)
+                        gapfill_media=gapfill_media, mediadb=mediadb, solver=solver)
     console.print(f"[bold]Built {len(genomes)} model(s).[/bold] "
                   "For >100 MAGs use the Snakemake workflow for parallelism.")
 

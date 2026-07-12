@@ -49,7 +49,16 @@ class Diet:
     name: str = "custom"
 
     def metabolites(self) -> tuple[str, ...]:
-        return tuple(self.concentrations)
+        """Every metabolite the diet mentions, including influx-only ones.
+
+        A nutrient can be supplied purely by influx (initial concentration 0, fed
+        in continuously).  Listing only ``concentrations`` would hide it from the
+        engine's environment and from the medium exporters, so it would silently
+        never be provided.
+        """
+        return tuple(self.concentrations) + tuple(
+            m for m in self.influx if m not in self.concentrations
+        )
 
     def initial_concentration(self, metabolite_id: str) -> float:
         return float(self.concentrations.get(metabolite_id, 0.0))
@@ -168,6 +177,17 @@ def load_preset(name: str) -> Diet:
     if name not in _PRESETS:
         raise KeyError(f"unknown diet preset '{name}'; available: {sorted(_PRESETS)}")
     return _PRESETS[name]()
+
+
+def load_diet(spec: str | Path) -> Diet:
+    """Resolve a diet given as a preset name *or* a path to a CSV."""
+    text = str(spec)
+    if text.endswith(".csv"):
+        path = Path(text)
+        if not path.exists():
+            raise FileNotFoundError(f"diet CSV not found: {path}")
+        return Diet.from_csv(path)
+    return load_preset(text)
 
 
 def available_presets() -> tuple[str, ...]:
