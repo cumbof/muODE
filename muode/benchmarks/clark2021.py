@@ -69,49 +69,68 @@ METABOLITES: Dict[str, str] = {
 class Strain:
     """One strain of the panel.
 
-    ``reference`` is the genome label the authors themselves used (their
-    ``metadata_2019_06_17.py``), kept verbatim because it is what the 16S reads
-    were mapped against -- so it is the genome muODE should reconstruct from if
-    the predicted abundances are to mean the same thing as the measured ones.
+    ``strain`` is load-bearing, not decoration.  Metabolic phenotype is a *strain*
+    property: NCBI's species reference for *F. prausnitzii* is M21/2, but Clark et
+    al. measured A2-165, and reconstructing the wrong one would validate a model
+    of an organism nobody grew.  `fetch_genomes.py` matches on this field and
+    shouts when it cannot.
+
+    ``reference`` is the genome label the authors used themselves (their
+    ``metadata_2019_06_17.py``), kept verbatim: it is what the 16S reads were
+    mapped against, so it is what the measured abundances actually refer to.
     """
 
     abbreviation: str
     species: str
+    strain: str
     reference: str
+    #: The name to search NCBI under, when the organism has since been
+    #: reclassified and the name in the 2021 paper no longer resolves.  Empty
+    #: means "same as ``species``".
+    ncbi_taxon: str = ""
+
+    @property
+    def taxon(self) -> str:
+        return self.ncbi_taxon or self.species
 
 
 #: Every strain code that appears in the measurement table, from the authors'
-#: `namedict`.  Note **26**, not 25: ``HB`` (*Holdemanella biformis*) was used in
-#: the pairwise and COMM2/COMM3 experiments but is not part of the authors' 25-
-#: species design space (:data:`DESIGN_SPECIES`).  It is included here because
-#: dropping it would silently discard every community that contains it.
+#: `namedict` and Supplementary Data 1.  Note **26**, not 25: ``HB``
+#: (*Holdemanella biformis*) was used in the pairwise and COMM2/COMM3 experiments
+#: but is not part of the authors' 25-species design space (:data:`DESIGN_SPECIES`).
+#: It is included because dropping it would silently discard every community that
+#: contains it.
 STRAINS: Dict[str, Strain] = {s.abbreviation: s for s in [
-    Strain("PC", "Prevotella copri", "Prevotella_copri_DSM_18205"),
-    Strain("PJ", "Parabacteroides johnsonii", "Parabacteroides_johnsonii_DSM_18315_NZ_ABYH01000014"),
-    Strain("BV", "Phocaeicola vulgatus", "Bacteroides_vulgatus_ATCC_8482_NC_009614"),
-    Strain("BF", "Bacteroides fragilis", "Bacteroides_fragilis_NCTC_9343"),
-    Strain("BO", "Bacteroides ovatus", "Bacteroides_ovatus_ATCC_8483"),
-    Strain("BT", "Bacteroides thetaiotaomicron", "Bacteroides_thetaiotaomicron_VPI-5482_NC_004663"),
-    Strain("BC", "Bacteroides caccae", "Bacteroides_caccae_ATCC_43185"),
-    Strain("BY", "Bacteroides cellulosilyticus", "Bacteroides_cellulosilyticus_DSM_14838"),
-    Strain("BU", "Bacteroides uniformis", "Bacteroides_uniformis_ATCC_8492"),
-    Strain("DP", "Desulfovibrio piger", "Desulfovibrio_piger_ATCC_29098"),
-    Strain("BL", "Bifidobacterium longum subsp. infantis", "Bifidobacterium_longum_subsp_infantis"),
-    Strain("BA", "Bifidobacterium adolescentis", "Bifidobacterium_adolescentis_ATCC_15703_NC_008618"),
-    Strain("BP", "Bifidobacterium pseudocatenulatum", "Bifidobacterium_pseudocatenulatum_DSM20438"),
-    Strain("CA", "Collinsella aerofaciens", "Collinsella_aerofaciens_ATCC_25986"),
-    Strain("EL", "Eggerthella lenta", "Eggerthella_lenta_DSM_2243_NC_013204"),
-    Strain("FP", "Faecalibacterium prausnitzii", "Faecalibacterium_prausnitzii_A2_165"),
-    Strain("CH", "Clostridium hiranonis", "Clostridium_hiranonis_DSM_13275"),
-    Strain("AC", "Anaerostipes caccae", "Anaerostipes_caccae_DSM_14662"),
-    Strain("BH", "Blautia hydrogenotrophica", "Blautia_hydrogenotrophica_DSM_10507"),
-    Strain("CG", "Clostridium asparagiforme", "Clostridium_asparagiforme_DSM_15981"),
-    Strain("ER", "Eubacterium rectale", "Eubacterium_rectale_ATCC_33656_NC_012781"),
-    Strain("RI", "Roseburia intestinalis", "Roseburia_intestinalis_L1_82"),
-    Strain("CC", "Coprococcus comes", "Coprococcus_comes_ATCC_27758"),
-    Strain("DL", "Dorea longicatena", "Dorea_longicatena_DSM_13814"),
-    Strain("DF", "Dorea formicigenerans", "Dorea_formicigenerans_ATCC_27755"),
-    Strain("HB", "Holdemanella biformis", "Holdemanella_biformis_DSM_3989"),
+    Strain("PC", "Prevotella copri", "DSM 18205", "Prevotella_copri_DSM_18205"),
+    Strain("PJ", "Parabacteroides johnsonii", "DSM 18315", "Parabacteroides_johnsonii_DSM_18315_NZ_ABYH01000014"),
+    Strain("BV", "Phocaeicola vulgatus", "ATCC 8482", "Bacteroides_vulgatus_ATCC_8482_NC_009614"),
+    Strain("BF", "Bacteroides fragilis", "NCTC 9343", "Bacteroides_fragilis_NCTC_9343"),
+    Strain("BO", "Bacteroides ovatus", "ATCC 8483", "Bacteroides_ovatus_ATCC_8483"),
+    Strain("BT", "Bacteroides thetaiotaomicron", "VPI-5482", "Bacteroides_thetaiotaomicron_VPI-5482_NC_004663"),
+    Strain("BC", "Bacteroides caccae", "ATCC 43185", "Bacteroides_caccae_ATCC_43185"),
+    Strain("BY", "Bacteroides cellulosilyticus", "DSM 14838", "Bacteroides_cellulosilyticus_DSM_14838"),
+    Strain("BU", "Bacteroides uniformis", "ATCC 8492", "Bacteroides_uniformis_ATCC_8492"),
+    Strain("DP", "Desulfovibrio piger", "ATCC 29098", "Desulfovibrio_piger_ATCC_29098"),
+    Strain("BL", "Bifidobacterium longum subsp. infantis", "ATCC 15697", "Bifidobacterium_longum_subsp_infantis"),
+    Strain("BA", "Bifidobacterium adolescentis", "ATCC 15703", "Bifidobacterium_adolescentis_ATCC_15703_NC_008618"),
+    Strain("BP", "Bifidobacterium pseudocatenulatum", "DSM 20438", "Bifidobacterium_pseudocatenulatum_DSM20438"),
+    Strain("CA", "Collinsella aerofaciens", "ATCC 25986", "Collinsella_aerofaciens_ATCC_25986"),
+    Strain("EL", "Eggerthella lenta", "DSM 2243", "Eggerthella_lenta_DSM_2243_NC_013204"),
+    # Reclassified since the paper: F. prausnitzii A2-165 is now *Faecalibacterium
+    # duncaniae* A2-165.  Searching NCBI under the 2021 name cannot find it, and
+    # silently returns the species reference (M21/2) -- a different organism.
+    Strain("FP", "Faecalibacterium prausnitzii", "A2-165", "Faecalibacterium_prausnitzii_A2_165",
+           ncbi_taxon="Faecalibacterium duncaniae"),
+    Strain("CH", "Clostridium hiranonis", "DSM 13275", "Clostridium_hiranonis_DSM_13275"),
+    Strain("AC", "Anaerostipes caccae", "DSM 14662", "Anaerostipes_caccae_DSM_14662"),
+    Strain("BH", "Blautia hydrogenotrophica", "DSM 10507", "Blautia_hydrogenotrophica_DSM_10507"),
+    Strain("CG", "Clostridium asparagiforme", "DSM 15981", "Clostridium_asparagiforme_DSM_15981"),
+    Strain("ER", "Eubacterium rectale", "ATCC 33656", "Eubacterium_rectale_ATCC_33656_NC_012781"),
+    Strain("RI", "Roseburia intestinalis", "L1-82", "Roseburia_intestinalis_L1_82"),
+    Strain("CC", "Coprococcus comes", "ATCC 27758", "Coprococcus_comes_ATCC_27758"),
+    Strain("DL", "Dorea longicatena", "DSM 13814", "Dorea_longicatena_DSM_13814"),
+    Strain("DF", "Dorea formicigenerans", "ATCC 27755", "Dorea_formicigenerans_ATCC_27755"),
+    Strain("HB", "Holdemanella biformis", "DSM 3989", "Holdemanella_biformis_DSM_3989"),
 ]}
 
 #: The authors' 25-species design space (their ``allspecies``): the strains the
