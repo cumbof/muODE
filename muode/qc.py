@@ -7,8 +7,9 @@ Good simulations require good inputs.  Two gates:
 
 * **Model QC.**  :func:`sanity_check_model` runs cheap, decisive tests that
   catch the GEM artefacts most likely to wreck a dynamic simulation: mass /
-  charge imbalance and -- crucially -- *energy-generating cycles* (an ability to
-  make ATP from nothing, which would let a species "grow" on an empty medium).
+  charge imbalance, *energy-generating cycles* (an ability to make ATP from
+  nothing, which would let a species "grow" on an empty medium), and growth at a
+  rate no organism achieves (see :data:`MAX_PLAUSIBLE_GROWTH`).
   :func:`memote_report` wraps the community-standard memote test suite for a full
   report.
 """
@@ -19,6 +20,19 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from muode.external import require, run
+
+
+#: Growth rates above this (1/h) are not biology, they are a modelling artefact.
+#:
+#: Gut anaerobes run 0.1-0.5/h; the fastest organism ever measured (*Vibrio
+#: natriegens*, rich aerobic medium) tops out near 4/h, and no gut commensal comes
+#: close.  A GEM reporting more than this on a defined medium is being handed more
+#: nutrient than a cell can physically consume -- typically because every exchange
+#: in a large diet is opened at the same uniform Vmax, so the model eats 80+ carbon
+#: sources at once.  The number is a *ceiling on the absurd*, deliberately well
+#: above any real gut organism: tripping it means the medium is wrong, not that the
+#: species is unusually fast.
+MAX_PLAUSIBLE_GROWTH = 1.5
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +104,7 @@ def summarize_reconstruction(qc_json_paths):
             "growth_on_complete_medium": d.get("growth_on_complete_medium"),
             "n_mass_unbalanced": qc.get("n_mass_unbalanced"),
             "energy_generating_cycle": qc.get("energy_generating_cycle"),
+            "implausible_growth": qc.get("implausible_growth"),
             "qc_passed": qc.get("passed"),
         })
     df = pd.DataFrame(rows)
@@ -99,6 +114,10 @@ def summarize_reconstruction(qc_json_paths):
         df = df.dropna(axis=1, how="all")
         df = df.sort_values("mag").reset_index(drop=True)
         egc = df.get("energy_generating_cycle")
+        # NB: `implausible_growth` deliberately does NOT gate `simulatable`.  It
+        # indicts the *medium*, not the model -- every model on a too-rich diet
+        # trips it -- so dropping those models would delete most of the community
+        # and hide the cause.  It is surfaced, loudly, and left in.
         df["simulatable"] = df["grows_now"].fillna(False) & (egc.fillna(False) == False)  # noqa: E712
     return df
 
@@ -118,11 +137,17 @@ def simulatable_mags(summary_tsv: str | Path) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
-def sanity_check_model(model, medium: Optional[Dict[str, float]] = None) -> dict:
+def sanity_check_model(
+    model,
+    medium: Optional[Dict[str, float]] = None,
+    growth_rate: Optional[float] = None,
+) -> dict:
     """Fast structural sanity checks on a GEM.
 
-    Returns a report dict; ``passed`` is False if a likely-fatal artefact (an
-    energy-generating cycle) is detected.
+    Returns a report dict; ``passed`` is False if a likely-fatal artefact is
+    detected: an energy-generating cycle, or -- when ``growth_rate`` is supplied
+    (the model's growth on the simulation medium) -- a rate above
+    :data:`MAX_PLAUSIBLE_GROWTH`.
     """
     report: dict = {}
 
@@ -152,8 +177,19 @@ def sanity_check_model(model, medium: Optional[Dict[str, float]] = None) -> dict
         with model:
             model.medium = {k: v for k, v in medium.items() if k in [r.id for r in model.exchanges]}
             report["growth_on_medium"] = float(model.slim_optimize() or 0.0)
+        if growth_rate is None:
+            growth_rate = report["growth_on_medium"]
 
-    report["passed"] = not report["energy_generating_cycle"]
+    # a rate no organism achieves.  This is not a slow-growing-species judgement
+    # call: it is a rate faster than any cell that has been measured, so it can
+    # only be the medium handing out more nutrient than a cell can consume.
+    if growth_rate is not None:
+        report["growth_rate"] = float(growth_rate)
+        report["implausible_growth"] = bool(growth_rate > MAX_PLAUSIBLE_GROWTH)
+
+    report["passed"] = not report["energy_generating_cycle"] and not report.get(
+        "implausible_growth", False
+    )
     return report
 
 

@@ -40,7 +40,10 @@ def main() -> None:
     diet = load_diet(args.diet) if args.diet else None
 
     gap = ensure_biomass(model, universal=universal, diet=diet)
-    qc = sanity_check_model(model)
+    # judge plausibility on the medium we actually simulate, not on the model's
+    # open bounds -- with every exchange open any GEM grows absurdly fast, so the
+    # open-bounds rate carries no information about whether the run is sane.
+    qc = sanity_check_model(model, growth_rate=gap.get("growth_on_diet"))
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     cobra.io.write_sbml_model(model, args.output)

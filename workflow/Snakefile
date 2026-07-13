@@ -398,6 +398,28 @@ rule reconstruct_report:
                     "   re-run reconstruction, or check the diet matches the model namespace.\n"
                 )
 
+        # The opposite failure, and the quieter one: models growing *faster than
+        # any organism that exists*.  A flat community looks broken; an absurdly
+        # fast one looks like a result.  It means the diet is handing out more
+        # nutrient than a cell can consume, so the numbers downstream are fiction.
+        if "implausible_growth" in df.columns and not df.empty:
+            from muode.qc import MAX_PLAUSIBLE_GROWTH
+
+            bad = df[df["implausible_growth"].fillna(False)]
+            if len(bad):
+                fastest = float(df["growth_on_diet"].max())
+                print(
+                    f"\n!! WARNING: {len(bad)}/{len(df)} models grow faster than "
+                    f"{MAX_PLAUSIBLE_GROWTH}/h on diet '{DIET_NAME}'\n"
+                    f"   (fastest: {fastest:.2f}/h = a {60 * 0.693 / fastest:.0f}-minute doubling; "
+                    "gut anaerobes run 0.1-0.5/h).\n"
+                    "   This indicts the DIET, not the models: a medium that opens every\n"
+                    "   exchange at the same uptake bound feeds a GEM dozens of carbon\n"
+                    "   sources at once.  Give the diet per-metabolite flux bounds.\n"
+                    "   These models are NOT dropped -- the simulation would just be wrong\n"
+                    "   more quietly.  Fix the medium and re-run.\n"
+                )
+
 
 # --- Phase 3c: full memote model QC (optional, `run_memote: true`) ---------
 rule memote:
