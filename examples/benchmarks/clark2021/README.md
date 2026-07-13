@@ -95,6 +95,46 @@ A2-165. Searching NCBI under the name in the 2021 paper returns the species
 reference (M21/2) — a different strain, with different metabolism. `fetch_genomes.py`
 carries a taxon override so it resolves the strain that was actually grown.
 
+## Kinetics: the endpoint bounds Vmax, it does not identify it
+
+```bash
+python examples/benchmarks/clark2021/fit_kinetics.py \
+  --models results/clark2021/models/refined --outdir results/clark2021/kinetics
+```
+
+muODE's Vmax values are invented, so the obvious move is to fit them to this data.
+Mostly, **you cannot** — and the calibration says so instead of pretending.
+
+A 48 h sealed batch culture runs to substrate exhaustion. Its endpoint is therefore
+set by **yield** (biomass and product per mole of substrate — i.e. the
+reconstruction's stoichiometry) and not by **rate**. Raising Vmax makes the culture
+finish *sooner*, not *differently*. On E. coli core in DM38, endpoint acetate moves
+22.4 → 20.4 mM while Vmax ranges over 6 → 100 mmol/gDW/h: a 16× change in the
+parameter for a 9% change in the observable, most of it integration noise. Hand that
+objective to an optimiser and it will return a confident minimum sitting on a
+plateau.
+
+So `muode.calibrate` classifies each strain rather than fitting it blindly:
+
+| verdict | meaning |
+|---|---|
+| `identified` | the endpoint really does move with Vmax, and the optimum is interior. A number is reported. |
+| `bounded_below` | Vmax must exceed some value to grow/finish; above that, nothing changes. **A bound is reported and the point estimate is withheld.** |
+| `unidentifiable` | Vmax moves nothing here. |
+| `no_growth` | the model never grew — that indicts the reconstruction or the medium, and must *not* be papered over by tuning Vmax. |
+
+**This is a result, not a disappointment.** If the predictions are insensitive to
+Vmax above the bound, then the Clark endpoint scores are testing the *reconstructions
+and their stoichiometry*, and muODE's invented kinetics are demonstrably **not**
+contaminating them. That is a stronger claim than a fitted parameter would have been,
+and this script is the evidence for it.
+
+Where kinetics genuinely do bite: **competition** — who wins a shared substrate, i.e.
+community composition — and any time-resolved prediction. An endpoint measures
+neither. Pinning Vmax down properly needs growth curves (Clark reports none) or the
+16S fractions; fitting on the fractions would burn the very data the benchmark
+scores, so it is left alone.
+
 ## What to report
 
 From `benchmark_report.json`:
