@@ -72,6 +72,14 @@ def diet_medium(model, diet: Diet, kinetics=None) -> Dict[str, float]:
     Keyed by exchange-reaction id, so it can be assigned to ``model.medium``.
     Exchanges for metabolites the diet does not supply get a bound of 0 -- which is
     the whole point: the engine closes them, so a growth check must too.
+
+    The bound is ``min(Michaelis-Menten rate, dietary availability)``.  The kinetic
+    term is what the *cell* can transport; ``diet.max_uptake`` is what the *diet*
+    supplies.  Neither alone is sufficient: kinetics without a dietary ceiling let a
+    model import every nutrient in a large medium at the same uniform Vmax (which
+    is how a GEM ends up "growing" at 6.5/h), and a dietary ceiling without kinetics
+    ignores that a cell with no transporter for a sugar cannot eat it however much
+    is present.  Diets that specify no ``max_uptake`` are unchanged.
     """
     from muode.kinetics import KineticParameters
 
@@ -82,7 +90,9 @@ def diet_medium(model, diet: Diet, kinetics=None) -> Dict[str, float]:
         if len(ex.metabolites) != 1:
             continue
         met = next(iter(ex.metabolites)).id
-        medium[ex.id] = kinetics.michaelis_menten(model.id, met, conc.get(met, 0.0))
+        rate = kinetics.michaelis_menten(model.id, met, conc.get(met, 0.0))
+        limit = diet.uptake_limit(met)
+        medium[ex.id] = rate if limit is None else min(rate, limit)
     return medium
 
 

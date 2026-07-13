@@ -335,6 +335,12 @@ def stub_reconstruct(genome_fna: str | Path, output_xml: str | Path) -> Path:
     built-in diet presets and the ids CarveMe emits: a directory of stub MAGs
     assembles into a real cross-feeding community, and swapping in
     ``engine: carveme`` on a capable machine changes the models, not the medium.
+
+    Every glucose consumer also carries a maltase (``MALTHYD``: maltose -> 2
+    glucose), because the *colon has no free glucose* -- it is absorbed in the small
+    intestine, and the ``western_gut`` medium correctly supplies none.  Without a way
+    into a disaccharide, a stub would starve on the very diet it is meant to
+    exercise, and a real CarveMe MAG is in the same position.
     """
     from cobra import Metabolite, Model, Reaction
 
@@ -345,6 +351,7 @@ def stub_reconstruct(genome_fna: str | Path, output_xml: str | Path) -> Path:
     model = Model(f"stub_{genome_fna.stem}")
     glc_e = Metabolite("glc__D_e", name="D-glucose [e]", compartment="e")
     ac_e = Metabolite("ac_e", name="acetate [e]", compartment="e")
+    malt_e = Metabolite("malt_e", name="maltose [e]", compartment="e")
 
     def _exchange(met: Metabolite, lower: float, upper: float) -> Reaction:
         rxn = Reaction(f"EX_{met.id}", name=f"{met.id} exchange")
@@ -352,16 +359,23 @@ def stub_reconstruct(genome_fna: str | Path, output_xml: str | Path) -> Path:
         rxn.bounds = (lower, upper)
         return rxn
 
+    def _maltase() -> Reaction:
+        rxn = Reaction("MALTHYD", name="maltase (maltose -> 2 D-glucose)")
+        rxn.add_metabolites({malt_e: -1.0, glc_e: 2.0})
+        rxn.bounds = (0.0, 1000.0)
+        return rxn
+
     biomass = Reaction("BIOMASS_stub", name="stub biomass")
     rxns = [biomass]
+    sugar = [_exchange(glc_e, -10.0, 1000.0), _exchange(malt_e, -10.0, 1000.0), _maltase()]
     if role == "fermenter":
-        rxns += [_exchange(glc_e, -10.0, 1000.0), _exchange(ac_e, 0.0, 1000.0)]
+        rxns += sugar + [_exchange(ac_e, 0.0, 1000.0)]
         biomass.add_metabolites({glc_e: -1.0, ac_e: 1.0})  # glucose -> acetate + growth
     elif role == "consumer":
         rxns += [_exchange(ac_e, -10.0, 1000.0)]
         biomass.add_metabolites({ac_e: -1.0})              # grows only on acetate
     else:  # generic
-        rxns += [_exchange(glc_e, -10.0, 1000.0)]
+        rxns += sugar
         biomass.add_metabolites({glc_e: -1.0})
     biomass.bounds = (0.0, 1000.0)
 

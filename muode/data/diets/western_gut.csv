@@ -1,140 +1,172 @@
-metabolite,concentration,influx
-# Anaerobic Western-style gut medium, BiGG namespace (CarveMe-compatible).
+# western_gut -- anaerobic western-diet colonic medium, BiGG/CarveMe namespace
 #
-# Concentrations mmol/L; influx mmol/L/h (a flow-through gut, not a sealed batch).
-# This is a CURATED, literature-informed medium -- it is NOT the official VMH
-# "Western diet" table.  It exists so that a real CarveMe (BiGG) community can
-# actually grow: it supplies carbon sources plus the N/P/S, ions, trace metals,
-# amino acids, nucleobases and vitamins that a genome-scale biomass reaction
-# requires.  For a published diet, export the VMH table and load it with
-# `Diet.from_csv` (muODE does not ship VMH data).
+# DERIVED FILE -- do not hand-edit.  Regenerate with:
+#   python examples/diets/derive_western_gut.py
 #
-# Fermentation products (acetate, butyrate, propionate, lactate, ...) start at 0
-# with no influx: they are produced by the community and cross-fed, not supplied.
-# o2_e is present at 0.0 -- the colon is anaerobic; aerotolerant taxa can still
-# scavenge whatever the community releases (see muode.oxygen).
-
-# --- carbon sources: dietary sugars & fibre-degradation products -------------
-glc__D_e,10.0,1.0
-fru_e,3.0,0.3
-gal_e,2.0,0.2
-lcts_e,2.0,0.2
-malt_e,2.0,0.2
-sucr_e,2.0,0.2
-cellb_e,1.0,0.1
-man_e,1.0,0.1
-melib_e,0.5,0.05
-tre_e,0.5,0.05
-arab__L_e,1.0,0.1
-xyl__D_e,1.0,0.1
-rib__D_e,0.5,0.05
-rmn_e,1.0,0.1
-inost_e,0.5,0.05
-glyc_e,1.0,0.1
-galur_e,1.0,0.1
-glcur_e,1.0,0.1
-
-# --- host-derived: mucin glycans (what survives when dietary fibre runs out) --
-acgam_e,1.0,0.1
-acnam_e,0.5,0.05
-gam_e,0.5,0.05
-fuc__L_e,0.5,0.05
-
-# --- amino acids -------------------------------------------------------------
-ala__L_e,1.0,0.1
-arg__L_e,1.0,0.1
-asn__L_e,1.0,0.1
-asp__L_e,1.0,0.1
-cys__L_e,1.0,0.1
-gln__L_e,1.0,0.1
-glu__L_e,1.0,0.1
-gly_e,1.0,0.1
-his__L_e,1.0,0.1
-ile__L_e,1.0,0.1
-leu__L_e,1.0,0.1
-lys__L_e,1.0,0.1
-met__L_e,1.0,0.1
-phe__L_e,1.0,0.1
-pro__L_e,1.0,0.1
-ser__L_e,1.0,0.1
-thr__L_e,1.0,0.1
-trp__L_e,1.0,0.1
-tyr__L_e,1.0,0.1
-val__L_e,1.0,0.1
-
-# --- nucleobases / nucleosides (many gut anaerobes are auxotrophic) ----------
-ade_e,0.2,0.02
-gua_e,0.2,0.02
-ura_e,0.2,0.02
-csn_e,0.2,0.02
-thym_e,0.2,0.02
-hxan_e,0.2,0.02
-xan_e,0.2,0.02
-orot_e,0.1,0.01
-
-# --- vitamins & cofactors ----------------------------------------------------
-thm_e,0.01,0.001
-ribflv_e,0.01,0.001
-nac_e,0.01,0.001
-ncam_e,0.01,0.001
-pnto__R_e,0.01,0.001
-pydxn_e,0.01,0.001
-pydx_e,0.01,0.001
-pydam_e,0.01,0.001
-fol_e,0.01,0.001
-btn_e,0.01,0.001
-4abz_e,0.01,0.001
-cbl1_e,0.01,0.001
-adocbl_e,0.01,0.001
-pheme_e,0.01,0.001
-
-# --- nitrogen, phosphorus, sulfur (biomass precursors -- the missing piece) ---
-nh4_e,100.0,10.0
-pi_e,50.0,5.0
-so4_e,20.0,2.0
-urea_e,1.0,0.1
-
-# --- bulk ions ---------------------------------------------------------------
-k_e,30.0,3.0
-na1_e,100.0,10.0
-cl_e,100.0,10.0
-ca2_e,5.0,0.5
-mg2_e,5.0,0.5
-h2o_e,1000.0,100.0
-h_e,100.0,10.0
-
-# --- trace metals ------------------------------------------------------------
-fe2_e,0.1,0.01
-fe3_e,0.1,0.01
-mn2_e,0.1,0.01
-zn2_e,0.1,0.01
-cu2_e,0.1,0.01
-cobalt2_e,0.1,0.01
-ni2_e,0.1,0.01
-mobd_e,0.1,0.01
-slnt_e,0.01,0.001
-tungs_e,0.01,0.001
-
-# --- misc host / dietary compounds -------------------------------------------
-chol_e,0.5,0.05
-taur_e,0.5,0.05
-ptrc_e,0.1,0.01
-spmd_e,0.1,0.01
-
-# --- anaerobic: no oxygen supplied -------------------------------------------
-o2_e,0.0,0.0
-
-# --- fermentation products: produced by the community, cross-fed, not fed -----
-ac_e,0.0,0.0
-ppa_e,0.0,0.0
-but_e,0.0,0.0
-for_e,0.0,0.0
-lac__D_e,0.0,0.0
-lac__L_e,0.0,0.0
-etoh_e,0.0,0.0
-succ_e,0.0,0.0
-pyr_e,0.0,0.0
-co2_e,0.0,0.0
-h2_e,0.0,0.0
-ch4_e,0.0,0.0
-h2s_e,0.0,0.0
+# max_uptake (mmol/gDW/h) is the PUBLISHED dietary flux bound, taken from
+# western_diet_gut_carveme.qza in the MICOM media collection
+# (github.com/micom-dev/media), which maps the VMH/AGORA western gut diet
+# into the BiGG namespace.  Cite:
+#   Diener C, Gibbons SM, Resendis-Antonio O.  MICOM: Metagenome-Scale
+#   Modeling To Infer Metabolic Interactions in the Gut Microbiota.
+#   mSystems 5, e00606-19 (2020).  doi:10.1128/mSystems.00606-19
+#
+# These bounds are the point of this file.  The median is 0.1 mmol/gDW/h;
+# muODE's uniform default Vmax was 10, i.e. 100x too permissive on every one
+# of ~90 nutrients at once, which is how GEMs reached 6.5/h (a 6-minute
+# doubling).  See muode/qc.py::MAX_PLAUSIBLE_GROWTH.
+#
+# concentration (mmol/L) = max_uptake * 20 gDW/L * 24 h  -- the pool a flow system of this
+# density and residence time sustains.  influx replenishes it at the same
+# rate.  Those two constants are assumptions, not measurements: they set the
+# size of the pool, NOT how fast a cell may eat from it (max_uptake does).
+#
+# Anaerobic: o2_e is dropped (see SKIPPED in the derive script).
+#
+# Fermentation products start at 0 with a BLANK max_uptake (= uncapped), even
+# where the source supplies them (it gives acetate, formate and H2 a dietary
+# flux).  They must be PREDICTED, not assumed -- seeding 48 mM acetate would
+# make SCFA production unfalsifiable -- and cross-feeding on them must be
+# governed by the cell's kinetics, not by a dietary ceiling.
+#
+# Trace minerals and vitamins are ADDED (see SUPPLEMENT in the derive script):
+# the source is a dietary-intake table and itemises food, not the ubiquitous
+# trace nutrients.  These are a modelling addition, not a measurement.
+metabolite,concentration,influx,max_uptake
+26dap__M_e,48,0.1,0.1
+2obut_e,48,0.1,0.1
+4abz_e,48,0.1,0.1
+4hbz_e,48,0.1,0.1
+acgam_e,48,0.1,0.1
+acmana_e,48,0.1,0.1
+acnam_e,48,0.1,0.1
+ade_e,48,0.1,0.1
+adn_e,48,0.1,0.1
+ala__D_e,48,0.1,0.1
+ala__L_e,48,0.1,0.1
+amp_e,48,0.1,0.1
+amylose300_e,0.048,0.0001,0.0001
+arab__D_e,48,0.1,0.1
+arab__L_e,8.58158,0.0178783,0.0178783
+arg__L_e,7.2,0.015,0.015
+asn__L_e,10.8,0.0225,0.0225
+asp__L_e,10.8,0.0225,0.0225
+ca2_e,48,0.1,0.1
+cellb_e,35.7566,0.074493,0.074493
+cgly_e,48,0.1,0.1
+chol_e,48,0.1,0.1
+chor_e,48,0.1,0.1
+cit_e,48,0.1,0.1
+cl_e,48,0.1,0.1
+cobalt2_e,48,0.1,0.1
+csn_e,48,0.1,0.1
+cu2_e,48,0.1,0.1
+cys__L_e,48,0.1,0.1
+cytd_e,48,0.1,0.1
+dad_2_e,48,0.1,0.1
+dcyt_e,48,0.1,0.1
+ddca_e,48,0.1,0.1
+dgsn_e,48,0.1,0.1
+drib_e,8.58158,0.0178783,0.0178783
+fald_e,48,0.1,0.1
+fe2_e,48,0.1,0.1
+fe3_e,48,0.1,0.1
+fol_e,48,0.1,0.1
+fru_e,7.15133,0.0148986,0.0148986
+fuc__L_e,7.15133,0.0148986,0.0148986
+fum_e,48,0.1,0.1
+gal_e,7.15133,0.0148986,0.0148986
+gam_e,48,0.1,0.1
+glcn_e,7.15133,0.0148986,0.0148986
+gln__L_e,8.64,0.018,0.018
+glu__L_e,8.64,0.018,0.018
+gly_e,21.6,0.045,0.045
+glyc3p_e,48,0.1,0.1
+glyc_e,86.3834,0.179966,0.179966
+gsn_e,48,0.1,0.1
+gthox_e,48,0.1,0.1
+gthrd_e,48,0.1,0.1
+gua_e,48,0.1,0.1
+h2o_e,4800,10,10
+h2s_e,48,0.1,0.1
+h_e,48,0.1,0.1
+hdca_e,19.0258,0.0396371,0.0396371
+his__L_e,7.2,0.015,0.015
+hxan_e,48,0.1,0.1
+ile__L_e,7.2,0.015,0.015
+indole_e,48,0.1,0.1
+k_e,48,0.1,0.1
+lcts_e,3.57566,0.0074493,0.0074493
+leu__L_e,7.2,0.015,0.015
+lmn30_e,0.225694,0.000470195,0.000470195
+lys__L_e,7.2,0.015,0.015
+malt_e,3.57566,0.0074493,0.0074493
+man_e,7.15133,0.0148986,0.0148986
+melib_e,3.57566,0.0074493,0.0074493
+meoh_e,4800,10,10
+met__L_e,8.64,0.018,0.018
+mg2_e,48,0.1,0.1
+mn2_e,48,0.1,0.1
+mnl_e,7.15133,0.0148986,0.0148986
+mobd_e,48,0.1,0.1
+nac_e,48,0.1,0.1
+ncam_e,48,0.1,0.1
+nmn_e,48,0.1,0.1
+no2_e,48,0.1,0.1
+ocdca_e,8.12558,0.0169283,0.0169283
+ocdcea_e,32.7094,0.0681445,0.0681445
+orn_e,48,0.1,0.1
+oxa_e,21.4539,0.0446957,0.0446957
+phe__L_e,48,0.1,0.1
+pheme_e,48,0.1,0.1
+pheme_e,48,0.1,0.1
+pi_e,48,0.1,0.1
+pnto__R_e,48,0.1,0.1
+pro__L_e,8.64,0.018,0.018
+ptrc_e,48,0.1,0.1
+pullulan1200_e,0.048,0.0001,0.0001
+pydam_e,48,0.1,0.1
+pydx_e,48,0.1,0.1
+pydxn_e,48,0.1,0.1
+raffin_e,2.25693,0.00470194,0.00470194
+rib__D_e,8.58158,0.0178783,0.0178783
+ribflv_e,48,0.1,0.1
+rmn_e,7.15133,0.0148986,0.0148986
+ser__L_e,48,0.1,0.1
+so4_e,48,0.1,0.1
+spmd_e,48,0.1,0.1
+spmd_e,48,0.1,0.1
+starch1200_e,0.048,0.0001,0.0001
+sucr_e,3.57566,0.0074493,0.0074493
+thm_e,48,0.1,0.1
+thm_e,48,0.1,0.1
+thr__L_e,10.8,0.0225,0.0225
+thymd_e,48,0.1,0.1
+tre_e,35.7566,0.074493,0.074493
+trp__L_e,3.92736,0.008182,0.008182
+ttdca_e,3.29645,0.0068676,0.0068676
+tyr__L_e,48,0.1,0.1
+ura_e,48,0.1,0.1
+uri_e,48,0.1,0.1
+val__L_e,8.64,0.018,0.018
+xan_e,48,0.1,0.1
+xyl__D_e,8.58158,0.0178783,0.0178783
+zn2_e,48,0.1,0.1
+adocbl_e,48,0.1,0.1
+btn_e,48,0.1,0.1
+na1_e,48,0.1,0.1
+ni2_e,48,0.1,0.1
+sel_e,48,0.1,0.1
+slnt_e,48,0.1,0.1
+tungs_e,48,0.1,0.1
+ac_e,0.0,0.0,
+but_e,0.0,0.0,
+ppa_e,0.0,0.0,
+lac__L_e,0.0,0.0,
+lac__D_e,0.0,0.0,
+succ_e,0.0,0.0,
+for_e,0.0,0.0,
+etoh_e,0.0,0.0,
+h2_e,0.0,0.0,
+ch4_e,0.0,0.0,
+co2_e,0.0,0.0,

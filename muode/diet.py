@@ -1,17 +1,35 @@
 """Diet / growth-medium definitions.
 
 A :class:`Diet` sets the *extracellular* boundary conditions of a simulation:
-the initial concentration of every available nutrient and, optionally, a
-constant influx (for an open/chemostat system) so that staple nutrients are
-replenished rather than exhausted within a few hours of simulated time.
+the initial concentration of every available nutrient, optionally a constant
+influx (for an open/chemostat system), and optionally a **maximum uptake flux**
+per nutrient.
 
-Concentrations are in mmol/L; influx rates in mmol/L/h.
+Units: concentrations in mmol/L; influx in mmol/L/h; ``max_uptake`` in
+mmol/gDW/h.
 
-Realistic diets (e.g. the VMH "Western" gut diet used by MICOM/AGORA) are large
-curated tables keyed by exchange-reaction id.  Those are loaded from CSV with
-:meth:`Diet.from_csv`.  The small built-in presets here are intended for the
-toy example and for smoke-testing the engine, not as biologically complete
-media.
+Why ``max_uptake`` exists
+-------------------------
+Without it, the uptake bound the engine hands a model is purely
+``Vmax * C / (Km + C)`` -- and with a *uniform* default Vmax, every nutrient a
+diet supplies saturates at the same bound.  A genome-scale model presented with
+an 89-metabolite diet then imports 89 nutrients at full tilt simultaneously,
+which is not a medium any cell has ever been in.  In a real run this produced
+growth rates up to 6.5/h (a 6-minute doubling; the fastest organism ever measured
+manages ~10 min, aerobically, in rich medium).
+
+Published diets solve this by specifying a **flux bound per metabolite**, derived
+from actual dietary intake: in the VMH/AGORA western gut diet the median bound is
+0.1 mmol/gDW/h, not 10.  ``max_uptake`` carries those bounds, and
+:func:`muode.media.diet_medium` applies them as a *cap* on the kinetic rate, so
+uptake is ``min(Michaelis-Menten, dietary availability)`` -- a cell can be slower
+than the diet allows (low affinity, low Vmax) but never faster.
+
+A diet with no ``max_uptake`` behaves exactly as before, so this is additive.
+
+Realistic diets are large curated tables; load them from CSV with
+:meth:`Diet.from_csv`.  The small built-in presets here are intended for the toy
+example and for smoke-testing the engine, not as biologically complete media.
 """
 
 from __future__ import annotations
@@ -40,12 +58,17 @@ class Diet:
         Initial concentration (mmol/L) per *extracellular metabolite id*.
     influx:
         Optional constant replenishment rate (mmol/L/h) per metabolite.
+    max_uptake:
+        Optional ceiling on uptake flux (mmol/gDW/h) per metabolite -- how much of
+        this nutrient the diet actually makes available to a cell.  Where given, it
+        caps the kinetic uptake rate; where absent, the kinetics are unconstrained.
     name:
         Human-readable label.
     """
 
     concentrations: Dict[str, float] = field(default_factory=dict)
     influx: Dict[str, float] = field(default_factory=dict)
+    max_uptake: Dict[str, float] = field(default_factory=dict)
     name: str = "custom"
 
     def metabolites(self) -> tuple[str, ...]:
@@ -66,12 +89,17 @@ class Diet:
     def influx_rate(self, metabolite_id: str) -> float:
         return float(self.influx.get(metabolite_id, 0.0))
 
+    def uptake_limit(self, metabolite_id: str) -> Optional[float]:
+        """Dietary ceiling on uptake flux (mmol/gDW/h), or None if unconstrained."""
+        limit = self.max_uptake.get(metabolite_id)
+        return None if limit is None else float(limit)
+
     def with_metabolites(self, extra: Mapping[str, float]) -> "Diet":
         """Return a copy ensuring ``extra`` metabolites exist (default conc 0)."""
         merged = dict(self.concentrations)
         for m, c in extra.items():
             merged.setdefault(m, c)
-        return Diet(merged, dict(self.influx), self.name)
+        return Diet(merged, dict(self.influx), dict(self.max_uptake), self.name)
 
     # -- IO -----------------------------------------------------------------
     @classmethod
@@ -79,21 +107,27 @@ class Diet:
         """Load a diet from CSV.
 
         Expected columns (header, case-insensitive): ``metabolite``,
-        ``concentration`` and optionally ``influx``.  This is intentionally
-        permissive so that VMH/MICOM-style diet exports can be adapted with a
-        light column rename.
+        ``concentration`` and optionally ``influx`` and ``max_uptake``.  This is
+        intentionally permissive so that VMH/MICOM-style diet exports can be
+        adapted with a light column rename.
+
+        An empty ``max_uptake`` cell means *unconstrained*, which is not the same
+        as ``0`` (not supplied at all) -- so blanks are skipped rather than
+        coerced.
         """
         import csv
 
         path = Path(path)
         conc: Dict[str, float] = {}
         influx: Dict[str, float] = {}
+        max_uptake: Dict[str, float] = {}
         with path.open(newline="") as fh:
             reader = csv.DictReader(_strip_comments(fh))
             fields = {f.lower(): f for f in (reader.fieldnames or [])}
             met_col = fields.get("metabolite") or fields.get("reaction") or fields.get("id")
             conc_col = fields.get("concentration") or fields.get("flux") or fields.get("amount")
             influx_col = fields.get("influx")
+            uptake_col = fields.get("max_uptake") or fields.get("max_flux")
             if met_col is None or conc_col is None:
                 raise ValueError(
                     f"{path}: need 'metabolite' and 'concentration' columns, got {reader.fieldnames}"
@@ -105,16 +139,20 @@ class Diet:
                 conc[met] = float(row[conc_col])
                 if influx_col and row.get(influx_col):
                     influx[met] = float(row[influx_col])
-        return cls(conc, influx, name or path.stem)
+                if uptake_col and (row.get(uptake_col) or "").strip():
+                    max_uptake[met] = float(row[uptake_col])
+        return cls(conc, influx, max_uptake, name or path.stem)
 
     def to_csv(self, path: str | Path) -> None:
         import csv
 
         with Path(path).open("w", newline="") as fh:
             writer = csv.writer(fh)
-            writer.writerow(["metabolite", "concentration", "influx"])
+            writer.writerow(["metabolite", "concentration", "influx", "max_uptake"])
             for met, c in sorted(self.concentrations.items()):
-                writer.writerow([met, c, self.influx.get(met, 0.0)])
+                limit = self.max_uptake.get(met)
+                writer.writerow([met, c, self.influx.get(met, 0.0),
+                                 "" if limit is None else limit])
 
 
 # ---------------------------------------------------------------------------
@@ -154,13 +192,25 @@ def _western_gut_demo() -> Diet:
 
 
 def _western_gut() -> Diet:
-    """Anaerobic Western-style gut medium in the BiGG namespace (CarveMe-compatible).
+    """Western-diet colonic medium in the BiGG namespace (CarveMe-compatible).
 
-    A *complete* medium: carbon sources plus the nitrogen, phosphate, sulfur,
-    ions, trace metals, amino acids, nucleobases and vitamins a genome-scale
-    biomass reaction needs.  Curated and literature-informed -- it is **not** the
-    official VMH Western-diet table; export that and use :meth:`Diet.from_csv` if
-    you need a published diet.
+    **Published, not curated.**  Derived from the VMH/AGORA western gut diet as
+    mapped to BiGG by the MICOM media collection (Diener et al., mSystems 2020);
+    regenerate with ``examples/diets/derive_western_gut.py``.  It carries
+    ``max_uptake`` -- the dietary flux bound per metabolite, median 0.1 mmol/gDW/h
+    -- which is what stops a genome-scale model importing every nutrient at once
+    and "growing" faster than any organism alive.
+
+    Two properties surprise people, and both are correct colonic biology:
+
+    * **No free glucose.**  Glucose is absorbed in the small intestine; what
+      reaches the colon is starch, amylose, pullulan, lactose and fibre.  A model
+      that cannot degrade a polysaccharide therefore cannot grow on this medium
+      alone -- in the real gut it lives on sugars cross-fed by primary degraders,
+      and in a muODE simulation it must do the same.
+    * **Microaerobic, not anaerobic.**  o2_e is supplied at 0.001 mmol/gDW/h (100x
+      *below* the median bound) -- the mucosal oxygen gradient.  Far too little to
+      support aerobic growth, but it is not zero.
     """
     return Diet.from_csv(_DIET_DIR / "western_gut.csv", name="western_gut")
 

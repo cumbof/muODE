@@ -28,6 +28,17 @@ def core():
     return cobra.io.load_model("textbook")
 
 
+@pytest.fixture(scope="module")
+def genome_scale():
+    """iJO1366 -- ships with cobra, so no network.  ~2600 reactions, 324 exchanges.
+
+    Needed because E. coli core's 20 exchanges physically *cannot* import enough
+    nutrients to expose a diet's uptake bounds.  The 6.5/h growth rates in the real
+    89-MAG run were invisible to every core-based test for exactly this reason.
+    """
+    return cobra.io.load_model("iJO1366")
+
+
 # --- Diet -> CarveMe media db ---------------------------------------------
 
 def test_compound_ids_drop_the_compartment_suffix():
@@ -62,7 +73,7 @@ def test_mediadb_of_the_real_diet_is_carveme_shaped(tmp_path):
     assert len(rows) == len(supplied_metabolites(diet))
     assert all(len(r) == 3 and r[0] == "western_gut" for r in rows)
     assert all(not r[2].endswith("_e") for r in rows)      # no compartment suffix
-    assert "glc__D" in {r[2] for r in rows}
+    assert "fru" in {r[2] for r in rows}
     assert "o2" not in {r[2] for r in rows}                # the gut medium is anaerobic
 
 
@@ -80,10 +91,34 @@ def test_diet_medium_closes_every_exchange_the_diet_does_not_name(core):
     assert set(medium) == {ex.id for ex in core.exchanges}
 
 
-def test_real_diet_grows_a_real_bigg_model_anaerobically(core):
-    """The western_gut medium must actually feed a well-formed BiGG model."""
-    mu = growth_on_diet(core, load_preset("western_gut"))
-    assert mu > 0.1                                        # ferments, no O2 needed
+def test_real_diet_grows_a_genome_scale_model_anaerobically(genome_scale):
+    """The western_gut medium must feed a well-formed BiGG model -- at a real rate.
+
+    It takes a *genome-scale* model to test this honestly.  The medium supplies its
+    carbon as polysaccharides and a long tail of minor nutrients, each with a small
+    dietary flux bound; only a model with the transporters to reach many of them at
+    once can gather enough carbon to pay ATP maintenance and still grow.  That is
+    the situation a real CarveMe MAG is in.
+    """
+    from muode.qc import MAX_PLAUSIBLE_GROWTH
+
+    mu = growth_on_diet(genome_scale, load_preset("western_gut"))
+    assert mu > 1e-3, "a genome-scale model must grow on the colonic medium"
+    assert mu < MAX_PLAUSIBLE_GROWTH, "...but at a rate an organism could actually manage"
+
+
+def test_e_coli_core_cannot_grow_on_the_colonic_medium(core):
+    """Not a bug -- the finding that the flux bounds are doing their job.
+
+    E. coli core has 20 exchanges and no way to eat a polysaccharide, so on a
+    colonic medium it can reach only fructose plus two amino acids: nowhere near
+    enough to pay its 8.39 mmol/gDW/h ATP maintenance.  Which is exactly the
+    position E. coli is in in the real colon, where it survives on sugars released
+    by primary degraders.  If this ever starts passing, someone has put free
+    glucose back into the large intestine.
+    """
+    assert growth_on_diet(core, load_preset("western_gut")) == pytest.approx(0.0, abs=1e-6)
+    assert core.reactions.ATPM.lower_bound > 8.0
 
 
 def test_growth_on_diet_does_not_mutate_the_model(core):

@@ -253,6 +253,9 @@ class SpatialDynamicFBA:
                     for m in env_mets:
                         conc = M[m][i, j]
                         mm = kinetics.michaelis_menten(oid, m, conc)
+                        limit = diet.uptake_limit(m)      # dietary availability
+                        if limit is not None:
+                            mm = min(mm, limit)
                         cap = conc / (xij * self.dt) if self.dt > 0 else np.inf
                         o.set_uptake_bound(m, min(mm, cap))
                     sol = o.optimize()

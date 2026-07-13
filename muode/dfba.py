@@ -406,6 +406,12 @@ class DynamicFBA:
                 for m in env_mets:
                     conc = M[m]
                     mm = kinetics.michaelis_menten(o.id, m, conc)
+                    # what the *diet* makes available, if it says.  Without this a
+                    # large medium feeds every nutrient at the same uniform Vmax and
+                    # the cell grows faster than any organism ever measured.
+                    limit = diet.uptake_limit(m)
+                    if limit is not None:
+                        mm = min(mm, limit)
                     mm *= ecology.uptake_factor(o.id, m, t_now, M, X)
                     # CFL-style cap: do not let one species take more than exists.
                     cap = conc / (X[o.id] * self.dt) if self.dt > 0 else np.inf

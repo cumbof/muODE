@@ -33,26 +33,59 @@ class _FakeOrganism:
 def test_western_gut_is_a_complete_medium():
     """A genome-scale biomass reaction needs N, P, S and trace ions, not just sugar."""
     d = load_preset("western_gut")
-    for essential in ("nh4_e", "pi_e", "so4_e", "k_e", "mg2_e", "ca2_e", "fe2_e", "h2o_e"):
+    for essential in ("pi_e", "so4_e", "k_e", "mg2_e", "ca2_e", "fe2_e", "h2o_e"):
         assert d.initial_concentration(essential) > 0, f"{essential} missing from the diet"
-    # carbon, amino acids and vitamins too
-    assert d.initial_concentration("glc__D_e") > 0
+    assert d.initial_concentration("btn_e") > 0                # vitamins
+    # nitrogen -- from amino acids, NOT ammonium (see below)
     assert d.initial_concentration("ala__L_e") > 0
-    assert d.initial_concentration("btn_e") > 0
+    # carbon -- from what actually reaches the colon
+    carbon = ("starch1200_e", "amylose300_e", "lcts_e", "malt_e", "sucr_e", "fru_e")
+    assert any(d.initial_concentration(c) > 0 for c in carbon)
+
+
+def test_the_colonic_medium_has_no_free_glucose_and_no_ammonium():
+    """Both absences are correct biology, and both surprise people.
+
+    Glucose is absorbed in the small intestine: what reaches the colon is starch,
+    amylose, pullulan, lactose and fibre.  A model that cannot degrade a
+    polysaccharide therefore cannot grow on this medium *alone* -- in the gut it
+    lives on sugars cross-fed by primary degraders, and in muODE it must do the
+    same.  Nitrogen likewise arrives as amino acids, not as NH4+.
+
+    If a future edit reintroduces either, it is smuggling the small intestine into
+    the colon and every cross-feeding result becomes suspect.
+    """
+    d = load_preset("western_gut")
+    assert d.initial_concentration("glc__D_e") == 0.0
+    assert d.initial_concentration("nh4_e") == 0.0
+    assert sum(1 for m in d.metabolites() if m.endswith("__L_e")) >= 15   # the N source
 
 
 def test_western_gut_is_anaerobic():
     d = load_preset("western_gut")
     assert d.initial_concentration("o2_e") == 0.0
     assert d.influx_rate("o2_e") == 0.0
+    assert d.uptake_limit("o2_e") is None
 
 
 def test_fermentation_products_are_cross_fed_not_supplied():
-    """SCFAs must be produced by the community, not handed to it."""
+    """SCFAs must be produced by the community, not handed to it.
+
+    The published source medium *does* supply acetate, formate and H2 (a dietary
+    flux of 0.1 mmol/gDW/h).  Carrying that through would start the vessel at
+    ~48 mM acetate -- about the colonic steady-state the community is supposed to
+    produce -- and make SCFA prediction unfalsifiable.  Same trap as lactate in
+    DM38.  The derive script forces them to zero.
+    """
     d = load_preset("western_gut")
-    for product in ("ac_e", "but_e", "ppa_e", "lac__D_e", "succ_e"):
+    for product in ("ac_e", "but_e", "ppa_e", "lac__D_e", "succ_e", "for_e", "h2_e"):
         assert d.initial_concentration(product) == 0.0
         assert d.influx_rate(product) == 0.0
+        # ...and uncapped: a butyrate producer eats acetate made by ANOTHER SPECIES,
+        # so throttling it at the *dietary* flux would throttle cross-feeding itself.
+        assert d.uptake_limit(product) is None, (
+            f"{product} is capped at the dietary flux, which would cap cross-feeding"
+        )
 
 
 def test_diet_csv_tolerates_comments_and_blank_lines(tmp_path):
