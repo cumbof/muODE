@@ -48,10 +48,8 @@ Modelling decisions (deliberate -- change them here, not downstream)
       i.e. free).  Water is uncontroversial.  **Methanol is a free carbon source at
       100x the median bound** -- it is real in the colon (pectin demethylation), but
       any model that can oxidise it gets a large gift.  Watch it.
-    - `o2_e` is present at 0.001 mmol/gDW/h -- a trace, 100x *below* the median.
-      The colon is not perfectly anoxic (there is a mucosal oxygen gradient) and
-      this is the published value.  It is far too small to fuel aerobic growth, but
-      it means the medium is strictly *micro*aerobic, not anaerobic.
+    - `o2_e` carries a 0.001 mmol/gDW/h trace in the source, and we DROP it: see
+      SKIPPED below for why.  The derived medium is anaerobic, with no o2_e row.
 """
 
 from __future__ import annotations
@@ -166,17 +164,26 @@ def fetch_medium() -> "list[tuple[str, float]]":
     root = z.namelist()[0].split("/")[0]
     text = z.read(f"{root}/data/medium.csv").decode()
 
-    rows = []
+    # Several source rows can collapse onto one `global_id` (the table is keyed by
+    # MICOM's per-compartment `reaction`).  Deduplicate, and refuse to guess if the
+    # duplicates disagree: last-wins would silently pick one flux over another.
+    fluxes: "dict[str, float]" = {}
     for row in csv.DictReader(io.StringIO(text)):
         # `global_id` is the standard exchange (EX_ac_e); `reaction` is MICOM's
         # gut-compartment variant (EX_ac_m), which no CarveMe model has.
         ex = (row.get("global_id") or "").strip()
         if not ex.startswith("EX_"):
             continue
-        rows.append((ex[len("EX_"):], float(row["flux"])))
-    if not rows:
+        met, flux = ex[len("EX_"):], float(row["flux"])
+        if met in fluxes and fluxes[met] != flux:
+            sys.exit(
+                f"{met}: source gives conflicting fluxes {fluxes[met]:g} and {flux:g} "
+                "-- resolve it here rather than letting one win silently"
+            )
+        fluxes[met] = flux
+    if not fluxes:
         sys.exit("no exchanges parsed from the artifact -- has its schema changed?")
-    return sorted(rows)
+    return sorted(fluxes.items())
 
 
 def main() -> int:
@@ -270,8 +277,7 @@ def main() -> int:
     if low:
         print(f"\n  bounds <1/{OUTLIER_FACTOR:g} of the median -- trace only:")
         for m, f in sorted(low.items(), key=lambda kv: kv[1]):
-            note = " <-- the medium is microaerobic, not anaerobic" if m == "o2_e" else ""
-            print(f"    {m:10} {f:g}{note}")
+            print(f"    {m:10} {f:g}")
     return 0
 
 

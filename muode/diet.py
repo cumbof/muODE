@@ -208,9 +208,11 @@ def _western_gut() -> Diet:
       that cannot degrade a polysaccharide therefore cannot grow on this medium
       alone -- in the real gut it lives on sugars cross-fed by primary degraders,
       and in a muODE simulation it must do the same.
-    * **Microaerobic, not anaerobic.**  o2_e is supplied at 0.001 mmol/gDW/h (100x
-      *below* the median bound) -- the mucosal oxygen gradient.  Far too little to
-      support aerobic growth, but it is not zero.
+    * **Anaerobic: there is no o2_e row at all.**  The source supplies a 0.001
+      mmol/gDW/h trace (the mucosal oxygen gradient), 100x *below* the median bound
+      and far too little to fuel aerobic growth.  The derive script drops it, because
+      keeping it would force us to assert a 0.48 mM dissolved-O2 pool -- about twice
+      air saturation.  A model needing oxygen cannot grow on this medium.
     """
     return Diet.from_csv(_DIET_DIR / "western_gut.csv", name="western_gut")
 
