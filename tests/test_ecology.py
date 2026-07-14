@@ -166,11 +166,29 @@ def test_spores_survive_antibiotic_when_vegetative_die():
 
 
 @pytest.mark.filterwarnings("ignore:no species grew at any point:RuntimeWarning")
-def test_germination_is_gated_by_bile_acids():
-    """Seeded spores germinate when the germinant is present, but secondary bile
-    acids slow germination -- so more spores stay dormant and less vegetative
-    biomass appears.  Run without a growth substrate so vegetative biomass
-    reflects germination alone (no amplification by growth)."""
+def test_germination_is_gated_by_bile_acids_but_far_more_weakly_than_we_assumed():
+    """Seeded spores germinate on the germinant; secondary bile acids slow that down.
+
+    The mechanism is real.  **The magnitude is not what muODE used to claim**, and the
+    difference is the whole argument for muode.provenance.
+
+    This test used to assert a >2x effect and got ~26x, because ``ki_inhibitor`` was
+    0.02 mM -- a number nobody chose.  Deoxycholate actually delays C. difficile growth
+    at 0.24 mM and abolishes it at 1.2 mM (Usui 2020), so the half-inhibitory
+    concentration is ~0.5 mM: **25x less potent than we were assuming**.  At the 0.5 mM
+    used here the germination brake is a 1.9x effect, not a 26x one.
+
+    Same story for the germinant: ``km_germinant`` was 0.1 mM against a measured
+    taurocholate EC50 of 15.9 mM (Ramirez & Abel-Santos 2011), so spores germinated on
+    almost any trace.  Both errors pushed the same way -- toward a dramatic,
+    bile-driven colonisation resistance -- and correcting them shrinks the effect by
+    more than an order of magnitude.
+
+    Which is consistent with what the rCDI scenario turns out to do: strip the bile
+    layers out entirely and the FMT arm still clears the pathogen (see
+    test_provenance.py::test_the_fmt_result_does_NOT_come_from_the_bile_mechanism_it_advertises).
+    A brake this weak was never the thing stopping the pathogen.
+    """
     eng = DynamicFBA(t_end=24.0, dt=0.05)
 
     def run(extra):
@@ -182,12 +200,21 @@ def test_germination_is_gated_by_bile_acids():
         return eng.run(comm, Diet(concentrations=conc, name="bile"), _glucose_kin(), ecology=eco)
 
     permissive = run({})                 # germinant present, no inhibitor
-    inhibited = run({"dca_e": 0.5})      # secondary bile acid blocks germination
+    inhibited = run({"dca_e": 0.5})      # secondary bile acid at ~its measured IC50
 
-    # germinant present + no inhibitor -> spores germinate into vegetative cells
-    assert permissive.biomass["cdiff"].iloc[-1] > 2.0 * inhibited.biomass["cdiff"].iloc[-1]
-    # inhibitor keeps the spore reservoir dormant
-    assert inhibited.spores["cdiff"].iloc[-1] > 2.0 * permissive.spores["cdiff"].iloc[-1]
+    veg_ratio = permissive.biomass["cdiff"].iloc[-1] / inhibited.biomass["cdiff"].iloc[-1]
+
+    # The mechanism still points the right way -- but it is a brake, not a wall.
+    assert veg_ratio > 1.5, "secondary bile acids must still suppress germination"
+    assert veg_ratio < 5.0, (
+        f"germination inhibition is {veg_ratio:.1f}x. With the MEASURED ki (0.5 mM) at "
+        "0.5 mM DCA it should be ~1.9x. If it is back up around 26x, someone has "
+        "restored the invented ki of 0.02 mM -- which is 25x more potent than the "
+        "chemistry supports, and which is what made bile-acid colonisation resistance "
+        "look far stronger than it is."
+    )
+    # and the inhibitor still keeps more of the reservoir dormant
+    assert inhibited.spores["cdiff"].iloc[-1] > permissive.spores["cdiff"].iloc[-1]
 
 
 # ---------------------------------------------------------------------------

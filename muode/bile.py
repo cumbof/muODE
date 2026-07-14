@@ -35,12 +35,86 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, Mapping, Tuple
 
 from muode.ecology import EcologyLayer
+from muode.provenance import Evidence, Parameter, register
 
 #: default extracellular ids for the bile-acid pool
 TAUROCHOLATE = "tca_e"   # conjugated primary (germinant)
 CHOLATE = "ca_e"         # free primary
 DEOXYCHOLATE = "dca_e"   # secondary (inhibitor)
 LITHOCHOLATE = "lca_e"   # secondary (inhibitor; from chenodeoxycholate, modelled lumped)
+
+
+# ---------------------------------------------------------------------------
+# The parameters.  The MECHANISM above is real and cited.  These NUMBERS are not,
+# and the difference is the whole point of muode.provenance.
+#
+# There is no published Vmax for bile-salt hydrolase or for the bai operon expressed
+# per gram of community biomass in a gut.  The enzymes are characterised in vitro on
+# purified protein; what we need is a whole-community turnover rate, and nobody has
+# measured it.  So these are INVENTED -- not "roughly right", not "conservative":
+# nobody chose them.
+#
+# That is survivable ONLY if the conclusion does not depend on them, and that is a
+# question with an answer.  muode.provenance.sensitivity() sweeps a parameter across
+# the range you cannot rule out and reports whether the result moves.  Any claim that
+# rests on these rates must cite that sweep, or it is not a claim.
+# ---------------------------------------------------------------------------
+
+VMAX_BSH = register("bile", Parameter(
+    name="vmax_bsh",
+    value=5.0,
+    units="mmol/gDW/h",
+    evidence=Evidence.INVENTED,
+    why=(
+        "Community-level deconjugation rate by bile-salt hydrolase. NOBODY CHOSE THIS "
+        "NUMBER. BSH is well characterised in vitro on purified enzyme, but no one has "
+        "measured a per-gram-of-community turnover in a gut, which is what this layer "
+        "needs. Known qualitatively: BSH is COMMON (Heinken 2019 finds it in 204/693 "
+        "gut genomes, 29%), so deconjugation is fast relative to 7a-dehydroxylation -- "
+        "which is why vmax_bsh > vmax_bai. The ORDERING is defensible; the VALUES are not."
+    ),
+))
+
+VMAX_BAI = register("bile", Parameter(
+    name="vmax_bai",
+    value=1.0,
+    units="mmol/gDW/h",
+    evidence=Evidence.INVENTED,
+    why=(
+        "Community-level 7a-dehydroxylation rate (bai operon). NOBODY CHOSE THIS NUMBER. "
+        "Set 5x below vmax_bsh because the guild is RARE -- the bai operon appears in "
+        "only 7/693 gut genomes, ~1% (Heinken 2019) -- so the flux to secondary bile "
+        "acids is the bottleneck, which is the entire mechanism of colonisation "
+        "resistance. Again: the ordering is the claim, not the value."
+    ),
+))
+
+KM_BSH = register("bile", Parameter(
+    name="km_bsh", value=0.05, units="mM", evidence=Evidence.INVENTED,
+    why="Half-saturation for BSH on taurocholate at the community level. Not measured.",
+))
+
+KM_BAI = register("bile", Parameter(
+    name="km_bai", value=0.05, units="mM", evidence=Evidence.INVENTED,
+    why="Half-saturation for 7a-dehydroxylation on cholate at the community level. "
+        "Not measured.",
+))
+
+#: The one bile parameter that IS anchored -- see lifecycle.KI_INHIBITOR for the twin.
+KI_BILE = register("bile", Parameter(
+    name="ki",
+    value=0.5,
+    units="mM",
+    evidence=Evidence.DERIVED,
+    why=(
+        "Half-maximal inhibition of C. difficile vegetative growth by secondary bile "
+        "acids. Deoxycholate delays growth at 0.01% w/v (0.24 mM) and abolishes it at "
+        "0.05% (1.2 mM), so the IC50 lies between; 0.5 mM is the log midpoint. Was "
+        "0.02 mM -- 25x too potent, which made colonisation resistance look far more "
+        "robust than the chemistry supports."
+    ),
+    citation="Usui Y et al. Heliyon 6:e03717 (2020), doi:10.1016/j.heliyon.2020.e03717",
+))
 
 
 @dataclass
@@ -64,10 +138,10 @@ class BileAcidTransform(EcologyLayer):
     name: str = "bile_acid_transform"
     bsh_producers: set = field(default_factory=set)
     bai_producers: set = field(default_factory=set)
-    vmax_bsh: float = 5.0
-    km_bsh: float = 0.05
-    vmax_bai: float = 1.0
-    km_bai: float = 0.05
+    vmax_bsh: float = VMAX_BSH.value
+    km_bsh: float = KM_BSH.value
+    vmax_bai: float = VMAX_BAI.value
+    km_bai: float = KM_BAI.value
     tca: str = TAUROCHOLATE
     ca: str = CHOLATE
     dca: str = DEOXYCHOLATE
@@ -100,7 +174,7 @@ class BileAcidInhibition(EcologyLayer):
 
     name: str = "bile_acid_inhibition"
     targets: set = field(default_factory=set)
-    ki: float = 0.02
+    ki: float = KI_BILE.value
     secondary: Tuple[str, ...] = (DEOXYCHOLATE, LITHOCHOLATE)
 
     def growth_factor(self, organism_id, t, M, X) -> float:

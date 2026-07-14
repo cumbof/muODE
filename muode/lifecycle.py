@@ -35,6 +35,53 @@ from typing import Dict, Mapping, Tuple
 
 from muode.bile import DEOXYCHOLATE, LITHOCHOLATE, TAUROCHOLATE
 from muode.ecology import EcologyLayer
+from muode.provenance import Evidence, Parameter, register
+
+
+#: WHERE THESE NUMBERS COME FROM -- and what they used to be.
+#:
+#: km_germinant was **0.1 mM** and ki_inhibitor was **0.02 mM**.  Neither was measured;
+#: neither was cited; both were floats that made the scenario run.  And both are wrong
+#: against numbers that have been in the literature for over a decade -- wrong by 159x
+#: and ~25x respectively, and wrong in the SAME DIRECTION: spores germinating far too
+#: readily, secondary bile acids suppressing far too strongly.  That is the whole rCDI
+#: mechanism, biased toward the answer we were hoping to see.
+#:
+#: This is what muode.provenance exists to make impossible to do quietly.
+KM_GERMINANT = register("lifecycle", Parameter(
+    name="km_germinant",
+    value=15.9,
+    units="mM",
+    evidence=Evidence.MEASURED,
+    why=(
+        "Half-maximal germination of C. difficile spores by taurocholate. Measured "
+        "EC50 = 15.9 mM. NB this is taurocholate ALONE: the same work shows strong "
+        "synergy with glycine and Ca2+, which at physiological levels lowers the "
+        "effective threshold substantially, so 15.9 is an UPPER bound on the true in "
+        "vivo half-saturation and the model is correspondingly conservative about "
+        "germination. Bile reaches the caecum at ~2 mM. Was 0.1 mM -- 159x too low, "
+        "i.e. spores germinated on almost any trace of germinant."
+    ),
+    citation="Ramirez N, Abel-Santos E. J Bacteriol 193:531-539 (2011); "
+             "Shrestha & Sorg, mSphere 3:e00335-18 (2018) for the synergy",
+))
+
+KI_INHIBITOR = register("lifecycle", Parameter(
+    name="ki_inhibitor",
+    value=0.5,
+    units="mM",
+    evidence=Evidence.DERIVED,
+    why=(
+        "Half-maximal block of germination/growth by secondary bile acids. Derived "
+        "from a dose-response: deoxycholate delays C. difficile vegetative growth at "
+        "0.01% w/v (0.24 mM) and abolishes it completely at 0.05% (1.2 mM), so the "
+        "half-inhibitory concentration lies between them and 0.5 mM is the midpoint "
+        "on a log scale. Was 0.02 mM -- ~25x too potent, so a trace of DCA shut the "
+        "pathogen down and colonisation resistance looked far more robust than the "
+        "chemistry supports."
+    ),
+    citation="Usui Y et al. Heliyon 6:e03717 (2020), doi:10.1016/j.heliyon.2020.e03717",
+))
 
 
 @dataclass
@@ -69,9 +116,9 @@ class SporeForming(EcologyLayer):
     k_germination: float = 0.4
     k_spore_decay: float = 0.0
     germinant: str = TAUROCHOLATE
-    km_germinant: float = 0.1
+    km_germinant: float = KM_GERMINANT.value
     inhibitor: Tuple[str, ...] = (DEOXYCHOLATE, LITHOCHOLATE)
-    ki_inhibitor: float = 0.02
+    ki_inhibitor: float = KI_INHIBITOR.value
     _spores: Dict[str, float] = field(default_factory=dict, init=False, repr=False)
 
     def extra_metabolites(self) -> Tuple[str, ...]:
