@@ -14,7 +14,9 @@ __version__ = "0.1.0"
 
 from muode.antagonism import Bacteriocin
 from muode.antibiotic import Antibiotic
+from muode.annotate import call as call_traits, guilds, read_traits_tsv
 from muode.bile import BileAcidInhibition, BileAcidTransform
+from muode.markers import TRAITS, FunctionalTrait
 from muode.community import Community
 from muode.dfba import DynamicFBA, SimulationResult
 from muode.diet import Diet
@@ -46,6 +48,11 @@ __all__ = [
     "EcologyModel",
     "WeakAcidInhibition",
     "BileAcidTransform",
+    "FunctionalTrait",
+    "TRAITS",
+    "call_traits",
+    "guilds",
+    "read_traits_tsv",
     "BileAcidInhibition",
     "SporeForming",
     "Antibiotic",
