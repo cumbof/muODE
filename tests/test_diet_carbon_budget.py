@@ -124,25 +124,43 @@ def test_vitamins_are_bounded_by_intake_and_minerals_by_the_median(diet):
         assert diet.provenance(met) in ("supplement", "source_default")
 
 
-def test_fixing_the_vitamins_did_not_change_what_a_prototroph_predicts(diet):
-    """A 300x cut to the vitamin carbon must not move E. coli, and must not break it.
+def test_the_vitamin_carbon_was_pure_artefact(diet):
+    """The causal test: delete the vitamins entirely and a prototroph does not notice.
 
-    iJO1366 synthesises its own B vitamins, so `nutrient_sensitivity` calls every one
-    of these rows `unused` for it: the carbon they were donating was pure artefact,
-    and taking it away changes nothing it predicts.  (An auxotroph is a different
-    story, and *should* be -- it must now get its cobalamin by cross-feeding from a
-    producer, which is what actually happens in a colon.)
+    iJO1366 synthesises its own B vitamins.  So if the 18 mmol C/gDW/h those rows used
+    to donate had been doing any real work, removing them would show up in growth --
+    and it does not.  The carbon was artefact, and the medium is not quietly running on
+    it.  (An auxotroph is a different story, and *should* be: it must now get its
+    cobalamin by cross-feeding from a producer, which is what happens in a colon.)
+
+    Deliberately NOT a pin on an absolute growth rate.  Other rows in this medium move
+    that number for their own good reasons, and a test that conflates them would fail
+    for the wrong cause and get "fixed" by editing the constant.
     """
+    from muode.diet import Diet
     from muode.qc import nutrient_sensitivity
 
-    r = nutrient_sensitivity(cobra.io.load_model("iJO1366"), diet)
-    assert r["verdict"] == "ok"
-    assert r["growth"] == pytest.approx(0.0516, abs=5e-3), (
-        "E. coli's growth on western_gut should be untouched by the vitamin fix"
+    model = cobra.io.load_model("iJO1366")
+
+    with_vitamins = nutrient_sensitivity(model, diet)
+    assert with_vitamins["verdict"] == "ok"
+
+    without = Diet(
+        concentrations={m: c for m, c in diet.concentrations.items() if m not in DRI},
+        influx={m: v for m, v in diet.influx.items() if m not in DRI},
+        max_uptake={m: v for m, v in diet.max_uptake.items() if m not in DRI},
+        name="western_gut minus every vitamin",
     )
+    stripped = nutrient_sensitivity(model, without)
+    assert stripped["verdict"] == "ok", "a prototroph must not need the vitamin rows at all"
+    assert stripped["growth"] == pytest.approx(with_vitamins["growth"], rel=1e-3), (
+        "removing every vitamin changed growth -- so the medium IS running on their "
+        "carbon, and the bound on those rows is doing work it should not be doing"
+    )
+
     for met in ("adocbl_e", "btn_e", "thm_e", "fol_e"):
         ex = f"EX_{met}"
-        if ex in r["nutrients"]:
-            assert not r["nutrients"][ex]["limiting"], (
+        if ex in with_vitamins["nutrients"]:
+            assert not with_vitamins["nutrients"][ex]["limiting"], (
                 f"{met} is limiting growth -- a vitamin bound should never do that"
             )

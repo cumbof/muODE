@@ -50,7 +50,6 @@
 # value.  Now you can grep for that.
 metabolite,concentration,influx,max_uptake,source
 26dap__M_e,48,0.1,0.1,source_default
-2obut_e,48,0.1,0.1,source_default
 4abz_e,48,0.1,0.1,source_default
 4hbz_e,48,0.1,0.1,source_default
 acgam_e,48,0.1,0.1,source_default
@@ -71,7 +70,6 @@ ca2_e,48,0.1,0.1,source_default
 cellb_e,35.7566,0.074493,0.074493,intake
 cgly_e,48,0.1,0.1,source_default
 chol_e,5.27983,0.0109996,0.0109996,dri
-chor_e,48,0.1,0.1,source_default
 cit_e,48,0.1,0.1,source_default
 cl_e,48,0.1,0.1,source_default
 cobalt2_e,48,0.1,0.1,source_default
@@ -84,7 +82,6 @@ dcyt_e,48,0.1,0.1,source_default
 ddca_e,48,0.1,0.1,source_default
 dgsn_e,48,0.1,0.1,source_default
 drib_e,8.58158,0.0178783,0.0178783,intake
-fald_e,48,0.1,0.1,source_default
 fe2_e,48,0.1,0.1,source_default
 fe3_e,48,0.1,0.1,source_default
 fol_e,0.000906208,1.88793e-06,1.88793e-06,dri
@@ -104,13 +101,11 @@ gthox_e,48,0.1,0.1,source_default
 gthrd_e,48,0.1,0.1,source_default
 gua_e,48,0.1,0.1,source_default
 h2o_e,4800,10,10,intake
-h2s_e,48,0.1,0.1,source_default
 h_e,48,0.1,0.1,source_default
 hdca_e,19.0258,0.0396371,0.0396371,intake
 his__L_e,7.2,0.015,0.015,intake
 hxan_e,48,0.1,0.1,source_default
 ile__L_e,7.2,0.015,0.015,intake
-indole_e,48,0.1,0.1,source_default
 k_e,48,0.1,0.1,source_default
 lcts_e,3.57566,0.0074493,0.0074493,intake
 leu__L_e,7.2,0.015,0.015,intake
@@ -128,7 +123,7 @@ mobd_e,48,0.1,0.1,source_default
 nac_e,0.0649825,0.00013538,0.00013538,dri
 ncam_e,0.065504,0.000136467,0.000136467,dri
 nmn_e,48,0.1,0.1,source_default
-no2_e,48,0.1,0.1,source_default
+no2_e,0.0326016,6.792e-05,6.792e-05,dri
 ocdca_e,8.12558,0.0169283,0.0169283,intake
 ocdcea_e,32.7094,0.0681445,0.0681445,intake
 orn_e,48,0.1,0.1,source_default
@@ -187,3 +182,6 @@ h2_e,0.0,0.0,,product
 ch4_e,0.0,0.0,,product
 co2_e,0.0,0.0,,product
 nh4_e,0.0,0.0,,product
+indole_e,0.0,0.0,,product
+h2s_e,0.0,0.0,,product
+2obut_e,0.0,0.0,,product

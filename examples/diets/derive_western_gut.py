@@ -99,8 +99,12 @@ BIOMASS_G_PER_L = 20.0
 #: RELEASED, by urease (from the urea we now supply) or by amino-acid deamination,
 #: and is then cross-fed.  It also has to exist as a metabolite at all, or the
 #: organisms that deaminate have nowhere to put the ammonia they make.
+#:
+#: indole_e, h2s_e and 2obut_e are here for exactly the same reason, having arrived in
+#: the medium as *nutrients* at the source's fill value.  See MISLABELLED_AS_FOOD.
 PRODUCTS = ("ac_e", "but_e", "ppa_e", "lac__L_e", "lac__D_e", "succ_e", "for_e",
-            "etoh_e", "h2_e", "ch4_e", "co2_e", "nh4_e")
+            "etoh_e", "h2_e", "ch4_e", "co2_e", "nh4_e",
+            "indole_e", "h2s_e", "2obut_e")
 
 #: Dropped from the source table, with the reason.  Nothing is dropped silently.
 SKIPPED = {
@@ -111,6 +115,22 @@ SKIPPED = {
         "so dropping it changes no energetics.  Keeping it would, however, force us "
         "to assert a dissolved-O2 pool of 0.48 mM, which is about twice air "
         "saturation (~0.25 mM): an unphysical initial condition."
+    ),
+    "chor_e": (
+        "Chorismate is an INTRACELLULAR intermediate of the shikimate pathway -- the "
+        "branch point to the aromatic amino acids -- and it is chemically labile.  No "
+        "food delivers free chorismate to the colon, and no host tissue secretes it.  "
+        "The source table carries it at the fill value, which hands any model that can "
+        "import it a free pass around aromatic amino-acid biosynthesis.  A model that "
+        "genuinely cannot make chorismate is an aromatic auxotroph and should have to "
+        "get its Phe/Tyr/Trp from the medium, which supplies all three."
+    ),
+    "fald_e": (
+        "Formaldehyde is a TOXIN and a transient C1 intermediate, not a nutrient.  At "
+        "the fill value the medium was offering 0.1 mmol/gDW/h of reduced one-carbon "
+        "units to any methylotroph -- the same gift the 4.8 M methanol row was making "
+        "(see OVERRIDE), and no more real.  Cells detoxify formaldehyde; they are not "
+        "fed it."
     ),
 }
 
@@ -150,7 +170,10 @@ SUPPLEMENT = {
     "na1_e": "sodium: Na+-coupled transport, ubiquitous",
 }
 
-#: Vitamins and organic cofactors, bounded by **dietary reference intake**.
+#: Trace nutrients bounded by a **published daily human intake** rather than by the
+#: source table's fill value -- vitamins, organic cofactors, heme, and nitrite.  Where
+#: an IOM Dietary Reference Intake exists we use it; where it does not (heme, nitrite)
+#: we use a measured population intake and say which.
 #:
 #: THE SINGLE LARGEST ERROR THIS SCRIPT HAS SHIPPED.  Every one of these rows sat at
 #: 0.1 mmol/gDW/h -- ten of them inherited from the source table's fill value, and
@@ -217,7 +240,57 @@ DRI = {
     "adocbl_e":     (2.4e-6,    1579.58,  "adenosylcobalamin (B12), RDA 2.4 ug/d"),
     "chol_e":       (550e-3,     104.17,  "choline, AI 550 mg/d"),
     "pheme_e":      (21e-3,      616.50,  "heme: ~1.9 mg/d heme iron (10-15% of 10-20 mg/d)"),
+    "no2_e":        (1.5e-3,      46.01,  "nitrite: 1.2 mg/d normal diet, 2.6 high cured meat"),
 }
+
+#: Nitrite deserves its own note, because it was the worst *quantitative* offender in
+#: the medium and nothing about the row looked wrong.
+#:
+#: At the fill value it was `load_bearing` for iJO1366 and relaxing it 10x **doubled**
+#: growth (0.052 -> 0.101/h) -- the single most influential row in the file.  0.1
+#: mmol/gDW/h is 0.1 * 20 gDW/L * 24 h = 48 mmol/day, i.e. **2.2 grams of nitrite a
+#: day**.  Measured human intake is 1.2 mg/day on a normal diet and 2.6 mg/day on one
+#: heavy in cured meat -- so the medium was supplying roughly a thousand times the
+#: nitrite anyone eats, and handing the community a large, cheap nitrogen source on
+#: the strength of a fill value.
+#:
+#:   Bryan NS, van Grinsven H.  "The role of nitrate in human health."  *Adv Agron*
+#:   119:153-182 (2013); intakes as tabulated in ATSDR's nitrate/nitrite toxicological
+#:   profile and in Nutrition Today 55(5):246-253 (2020).
+#:
+#: Note it is bounded here as a *dietary* input only.  Nitrite is also a microbial
+#: product (nitrate reduction), and any organism that makes it may still secrete it.
+
+#: Metabolites the source table supplies that are NOT FOOD -- they are what the
+#: community MAKES.  Moved to PRODUCTS: they start at zero, uncapped, and must be
+#: produced by somebody before anybody can eat them.
+#:
+#: This is the acetate/lactate trap wearing a different hat.  Seeding the vessel with
+#: a fermentation product makes that product unpredictable-by-construction, and the
+#: same argument applies to any microbial catabolite:
+#:
+#: indole -- made by bacterial tryptophanase from tryptophan, which this medium
+#:   supplies (trp__L, 0.008 mmol/gDW/h).  It is *the* most abundant microbial
+#:   tryptophan catabolite in human faeces, 0.2-1 mM and up to 2.6 mM.  No food
+#:   delivers indole to the colon; bacteria make it there.  Supplying it at 0.1 both
+#:   invents a carbon/nitrogen source and destroys our ability to predict it.
+#:     Roager HM, Licht TR.  "Microbial tryptophan catabolites in health and disease."
+#:     *Nat Commun* 9:3294 (2018).  doi:10.1038/s41467-018-05470-4
+#:
+#: h2s -- made by cysteine degradation (cysteine desulfhydrase) and, secondarily, by
+#:   dissimilatory sulfate reduction.  Both substrates are in this medium (cys__L and
+#:   so4).  The capacity is not niche: cysteine-degrading bacteria are present in
+#:   **100% of 6,623 healthy metagenomes**.  H2S is a headline output of a gut
+#:   community -- it is implicated in colonocyte damage and IBD -- so a model that is
+#:   *given* it cannot say anything about it.
+#:     Braccia DJ, Jiang X, Pop M, Hall AB.  "The capacity to produce hydrogen sulfide
+#:     (H2S) via cysteine degradation is ubiquitous in the human gut microbiome."
+#:     *Front Microbiol* 12:705583 (2021).  doi:10.3389/fmicb.2021.705583
+#:
+#: 2obut -- 2-oxobutanoate, the deamination product of threonine and an intermediate
+#:   of methionine catabolism.  A microbial catabolite of amino acids this medium
+#:   already supplies, not something that arrives in food.
+MISLABELLED_AS_FOOD = ("indole_e", "h2s_e", "2obut_e")
 
 #: Nutrients ADDED with a bound DERIVED here, not taken from the source table.
 #: Each maps to (g/day, MW, why); the bound comes from :func:`flux_from_intake`.
@@ -497,6 +570,16 @@ def main() -> int:
                  "(bounded by intake).  SUPPLEMENT is for MINERALS -- catalytic, no C, "
                  "no N.  An organic cofactor belongs in DRI; that confusion is the bug "
                  "that made cobalamin the largest carbon source in the medium.")
+
+    stray = [m for m in MISLABELLED_AS_FOOD if m not in PRODUCTS]
+    if stray:
+        sys.exit(f"{stray}: named as mislabelled-as-food but not in PRODUCTS.  The whole "
+                 "point is that they start at 0 and must be MADE; leaving them out of "
+                 "PRODUCTS keeps them as dietary nutrients, which is the bug.")
+    absent = [m for m in MISLABELLED_AS_FOOD if m not in dict(raw)]
+    if absent:
+        sys.exit(f"{absent}: claimed to be supplied as food by the source table, but the "
+                 "source does not list them.  Drop them, or fix the claim.")
 
     unknown = [m for m in OVERRIDE if m not in dict(supplied)]
     if unknown:
