@@ -196,6 +196,41 @@ DERIVED_SUPPLEMENT = {
     "urea_e": (0.12, "host urea into the colon, ~3.5 g/day (23/89 MAGs have urease)"),
 }
 
+#: Source bounds we REPLACE.  metabolite -> (new bound, why).
+#:
+#: The script's standing rule is that we do not quietly improve someone else's
+#: medium, so an override has to be loud, justified here, and reported on stdout.
+#: Reproducing an artefact faithfully is only a virtue while the artefact is
+#: plausible; 4.8 M methanol is not.
+#:
+#: meoh_e -- the source marks methanol `dilution: 1.0` (free), giving it a bound of
+#: 10 mmol/gDW/h, the same as water and 100x the median.  Under this script's own
+#: pool formula that is a 4,800 mM initial concentration: ~15% methanol v/v, which
+#: would sterilise the vessel rather than feed it.  As a *bound* it is worse than
+#: cosmetic -- it hands any methylotrophic acetogen or methanogen an effectively
+#: unlimited reduced-C1 source, and lets it out-grow the community on a nutrient
+#: that is not really there.
+#:
+#: Colonic methanol is real but modest, and it comes from pectin demethylation
+#: rather than from food.  Western pectin intake is ~5 g/day at a typical degree of
+#: methylesterification of ~65%:
+#:
+#:      5 g/day / 176 g/mol (galacturonate residue) = 28.4 mmol GalA/day
+#:      x 0.65 methylated                           = 18.5 mmol MeOH/day
+#:      18.5 / 24 h / 20 gDW/L                      = 0.038 mmol/gDW/h
+#:
+#: which is ~1/3 of the median bound, not 100x it.  The 5 g/day and the 65% are the
+#: assumptions; both are ordinary values, neither is a measurement of a colon.
+#:
+#: NOT overridden, though it is the other >10x outlier: h2o_e stays at 10.  Water is
+#: the solvent and its uptake bound is uncontroversial.  Its *pool* (4,800 mM vs the
+#: real 55,500 mM) is understated by the same formula, which is worth knowing but has
+#: never bitten: biomass reactions are net water producers.
+OVERRIDE = {
+    "meoh_e": (0.038, "pectin demethylation, ~5 g/day pectin at ~65% methylation "
+                      "(source: 10 mmol/gDW/h = 4.8 M, which would sterilise the vessel)"),
+}
+
 #: The source table's own default bound, used for anything without a measured
 #: dietary flux.  We reuse it for SUPPLEMENT rather than inventing a new number.
 MEDIAN_BOUND = 0.1
@@ -203,6 +238,34 @@ MEDIAN_BOUND = 0.1
 #: Report any bound this many times off the median.  The published table is
 #: reproduced as-is; this makes its outliers loud instead of silent.
 OUTLIER_FACTOR = 10.0
+
+#: What the `source` column can say.  The point of the column is that these are NOT
+#: interchangeable, and until now the CSV could not tell them apart:
+#:
+#:   intake         a dietary flux from the published table.  Evidence.
+#:   source_default 0.1 in the published table -- which is ALSO its fill value for
+#:                  anything the intake data did not itemise.  56% of the bounded
+#:                  rows are this, and the two cases are INDISTINGUISHABLE from the
+#:                  artifact: we cannot tell a real 0.1 from a filled 0.1.  Read as
+#:                  "unknown", not as "measured".  It is why phenylalanine sits at
+#:                  0.1 while leucine, which the table did itemise, sits at 0.015 --
+#:                  a 6.7x difference with no dietary basis behind it.
+#:   supplement     added here at the median: trace minerals and vitamins, catalytic,
+#:                  carrying neither carbon nor nitrogen.  A modelling decision.
+#:   derived        added here with the arithmetic written out (xylan, urea).  A
+#:                  modelling decision carrying real carbon or nitrogen -- argue with
+#:                  these first.
+#:   override       in the published table, and we replaced the value (methanol).
+#:   product        must be PREDICTED: starts at 0, uncapped, no dietary ceiling.
+#:
+#: A result that turns on a `source_default` row is a result that turns on someone
+#: else's fill value.  Now you can grep for that.
+SOURCE_INTAKE = "intake"
+SOURCE_DEFAULT = "source_default"
+SOURCE_SUPPLEMENT = "supplement"
+SOURCE_DERIVED = "derived"
+SOURCE_OVERRIDE = "override"
+SOURCE_PRODUCT = "product"
 
 
 def fetch_medium() -> "list[tuple[str, float]]":
@@ -285,24 +348,53 @@ def main() -> int:
         "# Trace minerals and vitamins are ADDED (see SUPPLEMENT in the derive script):",
         "# the source is a dietary-intake table and itemises food, not the ubiquitous",
         "# trace nutrients.  These are a modelling addition, not a measurement.",
-        "metabolite,concentration,influx,max_uptake",
+        "#",
+        "# The `source` column says WHERE EACH NUMBER CAME FROM, because they are not",
+        "# equally trustworthy and the file used to hide that:",
+        "#   intake         a dietary flux from the published table.  Evidence.",
+        "#   source_default 0.1 in the table -- which is also its fill value for",
+        "#                  anything the intake data did not itemise.  The two are",
+        "#                  INDISTINGUISHABLE.  Read as 'unknown', not as 'measured'.",
+        "#   supplement     added here at the median: trace, catalytic, no C or N.",
+        "#   derived        added here, arithmetic in the script.  Carries C or N.",
+        "#   override       in the table, and we replaced it (methanol).",
+        "#   product        must be PREDICTED: starts at 0, uncapped.",
+        "# A result that turns on a source_default row turns on someone else's fill",
+        "# value.  Now you can grep for that.",
+        "metabolite,concentration,influx,max_uptake,source",
     ]
 
+    def row(met: str, bound: float, source: str) -> str:
+        return f"{met},{pool(bound):.6g},{bound:.6g},{bound:.6g},{source}"
+
     for met, flux in supplied:
-        lines.append(f"{met},{pool(flux):.6g},{flux:.6g},{flux:.6g}")
+        if met in OVERRIDE:
+            bound, _why = OVERRIDE[met]
+            limits[met] = bound
+            lines.append(row(met, bound, SOURCE_OVERRIDE))
+            continue
+        # We cannot tell a *measured* 0.1 from the source's *fill* 0.1.  Saying so is
+        # the entire point of the column; guessing would defeat it.
+        lines.append(row(met, flux,
+                         SOURCE_DEFAULT if flux == MEDIAN_BOUND else SOURCE_INTAKE))
     for met in sorted(SUPPLEMENT):
         if met in limits:                      # already in the source: leave it alone
             continue
         limits[met] = MEDIAN_BOUND
-        lines.append(f"{met},{pool(MEDIAN_BOUND):.6g},{MEDIAN_BOUND:.6g},{MEDIAN_BOUND:.6g}")
+        lines.append(row(met, MEDIAN_BOUND, SOURCE_SUPPLEMENT))
     for met, (bound, _why) in sorted(DERIVED_SUPPLEMENT.items()):
         if met in limits:
             sys.exit(f"{met}: now in the source table -- drop it from DERIVED_SUPPLEMENT "
                      "rather than overriding a published bound with a derived one")
         limits[met] = bound
-        lines.append(f"{met},{pool(bound):.6g},{bound:.6g},{bound:.6g}")
+        lines.append(row(met, bound, SOURCE_DERIVED))
     for met in PRODUCTS:
-        lines.append(f"{met},0.0,0.0,")
+        lines.append(f"{met},0.0,0.0,,{SOURCE_PRODUCT}")
+
+    unknown = [m for m in OVERRIDE if m not in dict(supplied)]
+    if unknown:
+        sys.exit(f"OVERRIDE names metabolites the source does not supply: {unknown} "
+                 "-- an override must override something; use DERIVED_SUPPLEMENT to add")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines) + "\n")
@@ -318,6 +410,32 @@ def main() -> int:
     print("  ADDED with a bound DERIVED in this script (carbon/nitrogen -- argue with these):")
     for met, (bound, why) in sorted(DERIVED_SUPPLEMENT.items()):
         print(f"    {met:10} {bound:<8g} {why}")
+    if OVERRIDE:
+        print("  OVERRIDDEN (the source's value replaced -- loudly, on purpose):")
+        for met, (bound, why) in sorted(OVERRIDE.items()):
+            was = dict(supplied)[met]
+            print(f"    {met:10} {was:g} -> {bound:g}   {why}")
+
+    # Provenance.  The headline number: how much of this medium is actually evidence?
+    tally: "dict[str, int]" = {}
+    for ln in lines:
+        if ln.startswith("#") or ln.startswith("metabolite,"):
+            continue
+        tally[ln.rsplit(",", 1)[1]] = tally.get(ln.rsplit(",", 1)[1], 0) + 1
+    total = sum(tally.values())
+    print("\n  provenance:")
+    for src in (SOURCE_INTAKE, SOURCE_DEFAULT, SOURCE_SUPPLEMENT, SOURCE_DERIVED,
+                SOURCE_OVERRIDE, SOURCE_PRODUCT):
+        n = tally.get(src, 0)
+        if n:
+            print(f"    {src:16} {n:>3}  ({100 * n / total:.0f}%)")
+    n_default = tally.get(SOURCE_DEFAULT, 0)
+    n_bounded = total - tally.get(SOURCE_PRODUCT, 0)
+    print(f"\n  {n_default} of the {n_bounded} bounded rows ({100 * n_default / n_bounded:.0f}%) "
+          f"sit at the source's fill value of {MEDIAN_BOUND:g}.")
+    print("  Those are not measurements.  A result that turns on one is a result that")
+    print("  turns on someone else's default -- e.g. phe__L at 0.1 against leu__L at")
+    print("  0.015, a 6.7x difference with no dietary basis.")
     seeded = [m for m, _ in raw if m in PRODUCTS]
     if seeded:
         print(f"  products the source SUPPLIES, forced to 0 and uncapped: {seeded}")

@@ -69,7 +69,20 @@ class Diet:
     concentrations: Dict[str, float] = field(default_factory=dict)
     influx: Dict[str, float] = field(default_factory=dict)
     max_uptake: Dict[str, float] = field(default_factory=dict)
+    source: Dict[str, str] = field(default_factory=dict)
     name: str = "custom"
+
+    def provenance(self, metabolite_id: str) -> Optional[str]:
+        """Where this row's number came from, or None if the diet does not say.
+
+        A bound is not evidence just because it is a number.  In ``western_gut``,
+        56% of the bounded rows sit at the source table's *fill* value of 0.1 --
+        indistinguishable, in the published artifact, from a real dietary flux of
+        0.1.  Those carry ``source_default``, and a conclusion that turns on one is
+        a conclusion that turns on someone else's default.  See
+        ``examples/diets/derive_western_gut.py``.
+        """
+        return self.source.get(metabolite_id)
 
     def metabolites(self) -> tuple[str, ...]:
         """Every metabolite the diet mentions, including influx-only ones.
@@ -99,7 +112,8 @@ class Diet:
         merged = dict(self.concentrations)
         for m, c in extra.items():
             merged.setdefault(m, c)
-        return Diet(merged, dict(self.influx), dict(self.max_uptake), self.name)
+        return Diet(merged, dict(self.influx), dict(self.max_uptake),
+                    dict(self.source), self.name)
 
     # -- IO -----------------------------------------------------------------
     @classmethod
@@ -121,6 +135,7 @@ class Diet:
         conc: Dict[str, float] = {}
         influx: Dict[str, float] = {}
         max_uptake: Dict[str, float] = {}
+        source: Dict[str, str] = {}
         with path.open(newline="") as fh:
             reader = csv.DictReader(_strip_comments(fh))
             fields = {f.lower(): f for f in (reader.fieldnames or [])}
@@ -128,6 +143,7 @@ class Diet:
             conc_col = fields.get("concentration") or fields.get("flux") or fields.get("amount")
             influx_col = fields.get("influx")
             uptake_col = fields.get("max_uptake") or fields.get("max_flux")
+            source_col = fields.get("source")
             if met_col is None or conc_col is None:
                 raise ValueError(
                     f"{path}: need 'metabolite' and 'concentration' columns, got {reader.fieldnames}"
@@ -141,18 +157,21 @@ class Diet:
                     influx[met] = float(row[influx_col])
                 if uptake_col and (row.get(uptake_col) or "").strip():
                     max_uptake[met] = float(row[uptake_col])
-        return cls(conc, influx, max_uptake, name or path.stem)
+                if source_col and (row.get(source_col) or "").strip():
+                    source[met] = row[source_col].strip()
+        return cls(conc, influx, max_uptake, source, name or path.stem)
 
     def to_csv(self, path: str | Path) -> None:
         import csv
 
         with Path(path).open("w", newline="") as fh:
             writer = csv.writer(fh)
-            writer.writerow(["metabolite", "concentration", "influx", "max_uptake"])
+            writer.writerow(["metabolite", "concentration", "influx", "max_uptake", "source"])
             for met, c in sorted(self.concentrations.items()):
                 limit = self.max_uptake.get(met)
                 writer.writerow([met, c, self.influx.get(met, 0.0),
-                                 "" if limit is None else limit])
+                                 "" if limit is None else limit,
+                                 self.source.get(met, "")])
 
 
 # ---------------------------------------------------------------------------
