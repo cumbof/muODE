@@ -27,7 +27,7 @@ is visible (and runnable) on any machine, with no GEMs or solver licence needed.
 | `fmt_resolution.py` | Same course **+ a Day-12 FMT** | Donor engraftment, bile ratio reverts, *C. difficile* driven to **extinction** |
 | `designed_consortium.py` | Naive bai-only core **vs.** a full 12-member consortium (into a depauperate lumen); plus the inferred cross-feeding network | Minimal core **fails**; rationally designed consortium **cures** |
 | `failed_fmt_autopsy.py` | A successful FMT vs. two failure modes | Donor **metabolic insufficiency** and **bacteriophage predation** each abort engraftment |
-| `common.py` | Thin adapter: re-exports the model from `muode.scenarios.rcdi` and adds the plotting style | *(imported by all scripts as `C`)* |
+| `common.py` | Thin adapter: re-exports the model from `designed.py` and adds the plotting style | *(imported by all scripts as `C`)* |
 | `run_all.py` | Regenerate every figure + CSV in one command | — |
 
 Each script writes a multi-panel PNG and the underlying CSV trajectories to
@@ -56,7 +56,7 @@ The engine is deterministic, so reruns reproduce identical figures and CSVs.
 
 ## The model in brief
 
-The model lives in the muODE package itself, at `muode/scenarios/rcdi.py`
+The model lives in this example directory, at `designed.py`
 (re-exported here through `common.py`); everything below is defined and
 commented there.
 
@@ -147,7 +147,7 @@ only if your assembled community actually carries the requisite functional
 structure (e.g. a `bai`+ effector fed by primary degraders) — the shipped
 `roles.tsv` deliberately lacks one, to show that you annotate by evidence.
 
-> Note on antibiotic breadth: `muode/scenarios/rcdi.py` models the vancomycin course as broadly
+> Note on antibiotic breadth: `designed.py` models the vancomycin course as broadly
 > suppressive of the resident bacterial community (consistent with the profound,
 > broad microbiome collapse reported clinically during vancomycin treatment of
 > CDI), which is what leaves the depauperate post-antibiotic lumen the pathogen

@@ -27,7 +27,6 @@ from muode.lifecycle import SporeForming
 from muode.oxygen import OxygenSensitivity
 from muode.ph import WeakAcidInhibition
 from muode.phage import PhageInfection
-from muode.scenarios import cdi_scenario, phage_predation_scenario
 from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
 from muode.traits import Domain, MicrobeTraits, OxygenTolerance, reconstruction_route
@@ -63,8 +62,6 @@ __all__ = [
     "MicrobeTraits",
     "OxygenTolerance",
     "reconstruction_route",
-    "cdi_scenario",
-    "phage_predation_scenario",
     "LinprogOrganism",
     "OrganismModel",
     "OrganismSolution",

@@ -157,9 +157,14 @@ def test_the_fmt_result_does_NOT_come_from_the_bile_mechanism_it_advertises():
     from muode.dfba import DynamicFBA
     from muode.ecology import EcologyModel
     from muode.inject import Injection
+    import sys
+    from pathlib import Path
+
     from muode.lifecycle import SporeForming
     from muode.ph import WeakAcidInhibition
-    from muode.scenarios.cdi import (
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "fmt_cdiff"))
+    from scenario import (  # noqa: E402
         BAI,
         CDIFF,
         COMPETITOR,

@@ -7,9 +7,17 @@ spore reservoir germinates and the infection recurs; with an FMT the restored
 community keeps the spores dormant and clears the pathogen.
 """
 
+import sys
+from pathlib import Path
+
 import pytest
 
-from muode.scenarios import BAI, CDIFF, COMPETITOR, cdi_scenario
+# The CDI/FMT scenario is an EXAMPLE, not part of the package -- a specific community on
+# a specific diet is a study, not a tool.  Tests reach it the same way the diet and
+# benchmark tests reach their example code: by putting the example dir on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "fmt_cdiff"))
+
+from scenario import BAI, CDIFF, COMPETITOR, cdi_scenario  # noqa: E402
 
 
 @pytest.fixture(scope="module")

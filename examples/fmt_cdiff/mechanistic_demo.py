@@ -26,7 +26,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from muode.scenarios import BAI, CDIFF, COMPETITOR, cdi_scenario
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from scenario import BAI, CDIFF, COMPETITOR, cdi_scenario  # noqa: E402
 
 
 def _summary(tag: str, result) -> None:

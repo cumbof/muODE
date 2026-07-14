@@ -3,26 +3,31 @@ common.py -- Presentation helpers + a single import surface for the scenario
              scripts in this folder.
 
 The *model* (guild registry, gut medium, ecology stack, timeline and the
-``run_scenario`` driver) now lives in the muODE package itself, at
-:mod:`muode.scenarios.rcdi`, so this example and the library share one source of
-truth. This module simply re-exports that model and adds the plotting style used
-by the four scenario scripts (``antibiotic_relapse.py``, ``fmt_resolution.py``,
-``designed_consortium.py``, ``failed_fmt_autopsy.py``), which import everything
-they need from here as ``import common as C``.
+``run_scenario`` driver) lives alongside these scripts, in ``designed.py`` one
+directory up -- it is an example, not part of the muODE package.  This module
+re-exports that model and adds the plotting style used by the four scenario scripts
+(``antibiotic_relapse.py``, ``fmt_resolution.py``, ``designed_consortium.py``,
+``failed_fmt_autopsy.py``), which import everything they need from here as
+``import common as C``.
 
 To inspect or tune the model -- guilds, yields, medium, ecology constants,
-timeline -- edit ``muode/scenarios/rcdi.py``.
+timeline -- edit ``designed.py``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-# Re-export the whole scenario model (metabolite ids, guild registry, medium,
-# kinetics, ecology builder, timeline constants, run_scenario, bile/drug series
-# helpers, biomass_sum) so the scripts can reach it as C.<name>.
-from muode.scenarios.rcdi import *          # noqa: F401,F403  (model + scenario API)
-from muode.scenarios.rcdi import ANTIBIOTIC_DAYS
+# The scenario model lives in ``designed.py`` one directory up (it is an example, not
+# part of the muODE package).  Put that directory on the path and re-export the whole
+# API (metabolite ids, guild registry, medium, kinetics, ecology builder, timeline
+# constants, run_scenario, bile/drug series helpers, biomass_sum) as C.<name>.
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+from designed import *          # noqa: E402,F401,F403  (model + scenario API)
+from designed import ANTIBIOTIC_DAYS  # noqa: E402
 
 
 # ===========================================================================

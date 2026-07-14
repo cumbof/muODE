@@ -165,9 +165,10 @@ also written by `to_csv`:
 
 ## A complete worked example
 
-`muode.scenarios.cdi_scenario(fmt=…)` composes **all** of the above into the
-recurrent-*C. difficile* / FMT story on dependency-light toy models (runs
-anywhere). The only difference between the two arms is a timed donor
+The CDI/FMT example — `cdi_scenario(fmt=…)` in `examples/fmt_cdiff/scenario.py` —
+composes **all** of the above into the recurrent-*C. difficile* / FMT story on
+dependency-light toy models (runs anywhere). It is an example rather than part of the
+package: a specific community on a specific diet is a study, not a tool. The only difference between the two arms is a timed donor
 [injection](injection.md); the recurrence-vs-clearance outcome is emergent:
 
 ```bash
@@ -176,7 +177,7 @@ python examples/fmt_cdiff/mechanistic_demo.py
 
 For a richer, guild-structured version of the same story — a defined 12-member
 community driving antibiotic relapse, FMT rescue, designed-consortium and
-failed-transplant scenarios — see `muode.scenarios.rcdi` and the worked analysis
+failed-transplant scenarios — see `examples/fmt_cdiff/designed.py` and the worked analysis
 in `examples/fmt_cdiff/dynamics/`.
 
 The genome-scale version is the rest of `examples/fmt_cdiff/`.

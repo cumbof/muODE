@@ -8,7 +8,7 @@ WHAT THIS IS
 =============================================================================
 The scenario scripts in this folder (antibiotic_relapse.py, fmt_resolution.py,
 designed_consortium.py, failed_fmt_autopsy.py) run on a *defined synthetic*
-community of toy metabolic models (muode.scenarios.rcdi). That community is
+community of toy metabolic models (designed.py). That community is
 hard-wired: each member's functional role (pathogen / bai effector / degrader /
 spore-former / drug-susceptible) is baked into a GuildSpec registry.
 
@@ -21,7 +21,7 @@ This adapter replaces that hard-wired toy community with THREE real-data inputs:
   3. a ROLE table (roles.tsv, below) that maps each MAG id to the functional
      flags the ecology layers key on.
 
-It then builds the *identical* ecology stack that muode.scenarios.rcdi uses
+It then builds the *identical* ecology stack that designed.py uses
 (WeakAcidInhibition + BileAcidTransform + BileAcidInhibition + SporeForming +
 Antibiotic, plus an optional PhageInfection), and runs the same DynamicFBA
 engine. The layers themselves are organism-agnostic -- they operate on sets of
@@ -89,7 +89,11 @@ from muode.phage import PhageInfection
 
 # Reuse the *timeline* and the bile-acid pool ids from the published model so the
 # real-data run and the toy example share one source of truth for those.
-from muode.scenarios.rcdi import (
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+from designed import (  # noqa: E402
     T_END, DT, FMT_DAY, DILUTION,
     TCA, CA, DCA, LCA, SECONDARY_BILE,
 )
@@ -192,7 +196,7 @@ def read_roles(path: str | Path) -> Roles:
 # ===========================================================================
 # 2. MEDIUM + KINETICS  (over YOUR GEMs' exchange namespace)
 # ===========================================================================
-# This mirrors muode.scenarios.rcdi.gut_medium(), but the ids are the CONFIG ids
+# This mirrors designed.py.gut_medium(), but the ids are the CONFIG ids
 # above -- so edit CONFIG, not this, to match your GEMs. Concentrations are
 # mmol/L; influx is mmol/L/day (open-system renewal). Bile acids (TCA/CA) are
 # seeded here even though no GEM consumes them: they feed the ecology bile pool.
@@ -227,7 +231,7 @@ def cdi_kinetics() -> KineticParameters:
 # ===========================================================================
 # 3. THE ECOLOGY STACK  (built from the ROLE table, not a GuildSpec registry)
 # ===========================================================================
-# Parameter values are copied from muode.scenarios.rcdi.build_ecology so the
+# Parameter values are copied from designed.py.build_ecology so the
 # real-data run behaves like the published example. The ONLY change is that the
 # bai / bsh / spore-former / susceptible sets come from your roles table,
 # intersected with the members actually present in the community.

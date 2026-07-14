@@ -284,7 +284,7 @@ It runs two arms that differ only by the transplant, driving the whole
 
 Typical output: *C. difficile* final burden ≈ **6.3 gDW/L (recurrence)** vs
 **≈ 0 (FMT)** — purely emergent from the layered mechanisms. The genome-scale
-parameters live in `muode/scenarios.py`; the run writes `biomass.csv`,
+parameters live in `examples/fmt_cdiff/scenario.py`; the run writes `biomass.csv`,
 `metabolites.csv`, `spores.csv`, `environment.csv` (pH, germination signal, drug
 concentration) and figures for each arm.
 

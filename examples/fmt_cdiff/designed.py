@@ -1,13 +1,14 @@
 """Rich, guild-structured recurrent-CDI / FMT scenario builder.
 
-The companion to :mod:`muode.scenarios.cdi` (the minimal 3-member mechanistic
+The companion to ``scenario.py`` in this directory (the minimal 3-member mechanistic
 sketch). This module defines a **defined 12-guild gut community** together with
 the full composable ecology stack used to study recurrent *Clostridioides
 difficile* infection (rCDI) and its resolution: antibiotic-driven collapse and
 spore-driven relapse, FMT rescue, rational design of a defined therapeutic
 consortium, and the mechanistic bottlenecks of failed transplants.
 
-Like the rest of :mod:`muode.scenarios`, every member is a dependency-light
+This is an EXAMPLE, not part of the muODE package: a specific 12-member community on
+a specific gut medium is a study, not a tool.  Every member is a dependency-light
 :class:`~muode.organism.LinprogOrganism`, so the whole study runs on any machine
 with only numpy/scipy -- no GEMs, no solver licence. Swap the members for
 ``CobraOrganism`` GEMs reconstructed from real MAGs (see ``examples/fmt_cdiff``)

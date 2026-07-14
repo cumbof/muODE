@@ -6,9 +6,9 @@ muODE has two halves that do not currently touch.  Reconstruction turns genomes
 into GEMs; the ecology layers (:mod:`muode.bile`, :mod:`muode.lifecycle`,
 :mod:`muode.antagonism`, :mod:`muode.antibiotic`, :mod:`muode.phage`) turn
 *guild membership* into dynamics.  Nothing turns genomes into guild membership.
-So every ecology layer is hand-populated in the designed scenarios
-(``muode.scenarios.cdi`` sets ``bai=True`` on a species by hand) and is silently
-**empty** on a real MAG run.  This module is the missing bridge.
+So every ecology layer is hand-populated in the designed scenarios (the CDI/FMT
+example in ``examples/fmt_cdiff`` sets ``bai=True`` on a species by hand) and is
+silently **empty** on a real MAG run.  This module is the missing bridge.
 
 The rule for what belongs here
 ------------------------------

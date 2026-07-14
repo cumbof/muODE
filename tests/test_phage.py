@@ -1,5 +1,8 @@
 """Bacteriophage predation as a coupled infection ODE."""
 
+import sys
+from pathlib import Path
+
 import pytest
 
 from muode.community import Community
@@ -9,7 +12,12 @@ from muode.ecology import EcologyModel
 from muode.kinetics import KineticParameters
 from muode.organism import LinprogOrganism
 from muode.phage import PhageInfection
-from muode.scenarios import COMMENSAL, PATHOGEN, phage_predation_scenario
+
+# PhageInfection (above) is the reusable mechanism and lives in the package; the phage
+# *therapy scenario* is an example, reached via sys.path like the other example tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "phage_therapy"))
+
+from phage_scenario import COMMENSAL, PATHOGEN, phage_predation_scenario  # noqa: E402
 
 
 def _grower(id, yld=0.2):
