@@ -92,8 +92,15 @@ BIOMASS_G_PER_L = 20.0
 #:
 #: The dietary contribution of SCFAs is small compared with microbial production,
 #: so dropping it costs little; assuming it would cost the experiment.
+#: nh4_e is here rather than in the medium ON PURPOSE.  Every one of the 89 MAGs
+#: carries EX_nh4_e, so supplying it would give all of them free nitrogen and let
+#: each bypass proteolysis -- the community's whole nitrogen economy would collapse
+#: into "everyone eats ammonium".  As a product it starts at zero and must be
+#: RELEASED, by urease (from the urea we now supply) or by amino-acid deamination,
+#: and is then cross-fed.  It also has to exist as a metabolite at all, or the
+#: organisms that deaminate have nowhere to put the ammonia they make.
 PRODUCTS = ("ac_e", "but_e", "ppa_e", "lac__L_e", "lac__D_e", "succ_e", "for_e",
-            "etoh_e", "h2_e", "ch4_e", "co2_e")
+            "etoh_e", "h2_e", "ch4_e", "co2_e", "nh4_e")
 
 #: Dropped from the source table, with the reason.  Nothing is dropped silently.
 SKIPPED = {
@@ -123,9 +130,8 @@ SKIPPED = {
 #: model failing for want of biotin would be a medium artefact misread as biology.
 #:
 #: Deliberately NOT added: glucose (absorbed in the small intestine -- adding it
-#: would smuggle the small intestine into the colon) and ammonium (in a community
-#: it arises from amino-acid deamination; supplying it free would let every model
-#: bypass proteolysis).
+#: would smuggle the small intestine into the colon) and ammonium (see NOTE below;
+#: it is a PRODUCT here, not a nutrient).
 SUPPLEMENT = {
     # trace minerals -- catalytic, not stoichiometric; no carbon, no nitrogen
     "ni2_e": "nickel: urease / [NiFe]-hydrogenase cofactor (iJO1366 CANNOT grow without it)",
@@ -142,6 +148,52 @@ SUPPLEMENT = {
     "pydxn_e": "pyridoxine (B6)",
     "fol_e": "folate (B9)",
     "adocbl_e": "adenosylcobalamin (B12) -- many gut anaerobes cannot make it",
+}
+
+#: Nutrients ADDED with a bound DERIVED here, not taken from the source table.
+#: Each maps to (bound in mmol/gDW/h, why).  Unlike SUPPLEMENT -- which is trace
+#: catalytic stuff parked at the median -- these carry real carbon or nitrogen, so
+#: the arithmetic that produced the number is spelled out and can be argued with.
+#:
+#: The conversion throughout is the script's own:
+#:      mmol/gDW/h = (g/day / MW) / RESIDENCE_H / BIOMASS_G_PER_L
+#: i.e. a daily dietary mass, spread over the residence time, divided among the
+#: microbial biomass of one litre of colonic content.
+#:
+#: xylan -- `check_medium_namespace.py` found EX_xylan4_e in 40 of the 89 MAGs of
+#: the SRR13844389 run and EX_xylan8_e in 6, while the medium supplied NO xylan at
+#: all: 45% of the community carried an annotated, carved, permanently unusable
+#: capability.  Arabinoxylan is the major cereal fibre of a western diet and is
+#: indigestible by the host, so essentially all of it reaches the colon.  We take
+#: 4 g/day, and split it 50/50 BY MASS across BiGG's two chain lengths, which are a
+#: coarse discretisation of a continuous degree-of-polymerisation distribution:
+#:
+#:      anhydroxylose unit  = 132.1 g/mol  -> xylan4 = 528.5, xylan8 = 1057 g/mol
+#:      2 g/day as xylan4   = 2/528.5/24/20 = 0.0079 mmol/gDW/h
+#:      2 g/day as xylan8   = 2/1057 /24/20 = 0.0039 mmol/gDW/h
+#:      total xylose flux   = 4(0.0079) + 8(0.0039) = 0.063 mmol xylose/gDW/h
+#:
+#: which sits alongside starch1200's 1e-4 * 1200 = 0.12 mmol glucose/gDW/h -- the
+#: same order, as it should be.  The 4 g/day and the 50/50 split are the two
+#: assumptions; neither is a measurement.
+#:
+#: urea -- host urea diffuses into the colon continuously and is hydrolysed by
+#: bacterial urease; 23 of the 89 MAGs carry EX_urea_e.  Roughly 15-30% of the
+#: ~12 g/day human urea turnover is degraded in the gut (Macfarlane & Cummings,
+#: Proc Nutr Soc 1984), so ~3.5 g/day:
+#:
+#:      3.5 g/day / 60.06 g/mol / 24 h / 20 gDW/L = 0.12 mmol/gDW/h
+#:
+#: This is the *honest* form of the ammonium question.  Supplying nh4_e directly
+#: would hand free nitrogen to all 89 models and let every one of them bypass
+#: proteolysis.  Urea supplies the same host-derived nitrogen, but gates it behind
+#: urease -- a real, gene-encoded capability that a quarter of the community has --
+#: and the ammonia released becomes a cross-fed public good rather than a gift.
+#: That is why nh4_e is in PRODUCTS: it must be *made* by somebody.
+DERIVED_SUPPLEMENT = {
+    "xylan4_e": (0.0079, "arabinoxylan, DP4 fraction: 2 g/day (40/89 MAGs can eat it)"),
+    "xylan8_e": (0.0039, "arabinoxylan, DP8 fraction: 2 g/day (6/89 MAGs can eat it)"),
+    "urea_e": (0.12, "host urea into the colon, ~3.5 g/day (23/89 MAGs have urease)"),
 }
 
 #: The source table's own default bound, used for anything without a measured
@@ -243,6 +295,12 @@ def main() -> int:
             continue
         limits[met] = MEDIAN_BOUND
         lines.append(f"{met},{pool(MEDIAN_BOUND):.6g},{MEDIAN_BOUND:.6g},{MEDIAN_BOUND:.6g}")
+    for met, (bound, _why) in sorted(DERIVED_SUPPLEMENT.items()):
+        if met in limits:
+            sys.exit(f"{met}: now in the source table -- drop it from DERIVED_SUPPLEMENT "
+                     "rather than overriding a published bound with a derived one")
+        limits[met] = bound
+        lines.append(f"{met},{pool(bound):.6g},{bound:.6g},{bound:.6g}")
     for met in PRODUCTS:
         lines.append(f"{met},0.0,0.0,")
 
@@ -254,9 +312,12 @@ def main() -> int:
     added = [m for m in sorted(SUPPLEMENT) if m not in dict(supplied)]
     print(f"wrote {OUT}")
     print(f"  {len(supplied)} from the published table + {len(added)} supplemented "
-          f"+ {len(PRODUCTS)} product sinks")
+          f"+ {len(DERIVED_SUPPLEMENT)} derived + {len(PRODUCTS)} product sinks")
     if added:
-        print(f"  ADDED (not in the source; a modelling decision): {added}")
+        print(f"  ADDED at the median bound (trace/catalytic): {added}")
+    print("  ADDED with a bound DERIVED in this script (carbon/nitrogen -- argue with these):")
+    for met, (bound, why) in sorted(DERIVED_SUPPLEMENT.items()):
+        print(f"    {met:10} {bound:<8g} {why}")
     seeded = [m for m, _ in raw if m in PRODUCTS]
     if seeded:
         print(f"  products the source SUPPLIES, forced to 0 and uncapped: {seeded}")
