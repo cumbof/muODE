@@ -107,16 +107,20 @@ def test_a_dead_model_is_refused_rather_than_mischaracterised():
     assert r["nutrients"] == {}
 
 
-def test_the_minerals_in_western_gut_are_not_load_bearing():
+@pytest.mark.slow
+def test_the_minerals_in_western_gut_are_not_load_bearing(probe_sensitivity):
     """The design assumption behind leaving the mineral rows at the fill value.
 
     If a metal ever came back `load_bearing`, the medium would be deciding growth
     with someone else's default -- and that row would need a real number urgently.
     This is the guard that would catch it.
+
+    On the probe diet, because iJO1366 cannot live on the real western_gut (see
+    conftest -- that is a finding, not a workaround).  The mineral question is about
+    saturation, not about carbon, so the scaffold does not distort it.
     """
-    model = cobra.io.load_model("iJO1366")
-    r = nutrient_sensitivity(model, load_diet("western_gut"))
-    assert r["verdict"] == "ok", "iJO1366 must grow on western_gut for this to mean anything"
+    r = probe_sensitivity
+    assert r["verdict"] == "ok", "the probe model must grow for this to mean anything"
 
     minerals = ["EX_zn2_e", "EX_cu2_e", "EX_mn2_e", "EX_ca2_e", "EX_mg2_e",
                 "EX_k_e", "EX_cl_e", "EX_cobalt2_e", "EX_mobd_e"]

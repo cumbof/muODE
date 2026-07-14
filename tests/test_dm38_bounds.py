@@ -37,8 +37,8 @@ IJO_NEEDS = ("co2_e", "fe3_e", "sel_e", "tungs_e")
 
 
 @pytest.fixture(scope="module")
-def model():
-    return cobra.io.load_model("iJO1366")
+def model(ijo):
+    return ijo
 
 
 @pytest.fixture(scope="module")
@@ -61,6 +61,7 @@ def test_dm38_carries_no_dietary_ceiling():
     assert not load_diet("dm38").max_uptake
 
 
+@pytest.mark.slow
 def test_the_default_vmax_really_does_produce_an_impossible_organism(model, dm38_for_ijo):
     """The exposure is real: DM38 + the uniform default Vmax is above the QC ceiling.
 
@@ -76,6 +77,7 @@ def test_the_default_vmax_really_does_produce_an_impossible_organism(model, dm38
     )
 
 
+@pytest.mark.slow
 def test_vmax_is_identifiable_on_dm38_which_is_why_the_diet_must_not_cap_uptake(
     model, dm38_for_ijo
 ):
@@ -95,6 +97,7 @@ def test_vmax_is_identifiable_on_dm38_which_is_why_the_diet_must_not_cap_uptake(
     assert growth[-1] > 10 * growth[0]
 
 
+@pytest.mark.slow
 def test_a_dietary_ceiling_would_make_vmax_unidentifiable(model, dm38_for_ijo):
     """The concrete reason DM38 must not get max_uptake.
 
@@ -114,6 +117,7 @@ def test_a_dietary_ceiling_would_make_vmax_unidentifiable(model, dm38_for_ijo):
     )
 
 
+@pytest.mark.slow
 def test_dm38_supplies_ferrous_iron_only_and_iJO1366_starves_on_it(model, dm38_for_ijo):
     """DM38 has fe2_e and no fe3_e, and iJO1366 needs *cytoplasmic* Fe(III).
 

@@ -63,6 +63,18 @@ muode = ["data/diets/*.csv"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    # Tests that integrate a dFBA simulation over many timesteps, or sweep a
+    # genome-scale model across a whole medium.  Seconds each, not milliseconds.
+    #
+    #   pytest -m "not slow"   -- the fast suite; what CI should run on every push
+    #   pytest                 -- everything
+    #
+    # Mark a test `slow` only if it is slow for a REASON that the test needs.  If it is
+    # slow because it recomputes something another test already computed, the fix is a
+    # session-scoped fixture (see tests/conftest.py), not this marker.
+    "slow: integrates a simulation or sweeps a genome-scale model; excluded by -m 'not slow'",
+]
 
 [tool.ruff]
 line-length = 100

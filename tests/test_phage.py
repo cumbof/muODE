@@ -87,6 +87,7 @@ def test_phage_layer_runs_in_engine_and_records():
     assert res.environment["phage[vir]"].max() > 0.5
 
 
+@pytest.mark.slow
 def test_phage_therapy_scenario_controls_bloom():
     no = phage_predation_scenario(therapy=False)
     yes = phage_predation_scenario(therapy=True)

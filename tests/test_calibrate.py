@@ -46,6 +46,7 @@ def predict_dm38():
 
 # --- the real thing: a batch endpoint does not identify a rate -----------------
 
+@pytest.mark.slow
 def test_endpoint_data_bounds_vmax_but_does_not_identify_it(predict_dm38):
     """The finding, on the real DM38 medium and a real BiGG model.
 
@@ -69,6 +70,7 @@ def test_endpoint_data_bounds_vmax_but_does_not_identify_it(predict_dm38):
     assert max(on_plateau) - min(on_plateau) < 0.10 * max(on_plateau)
 
 
+@pytest.mark.slow
 def test_a_starved_model_is_reported_as_dead_not_as_a_bad_fit(predict_dm38):
     """No growth at any Vmax indicts the model or the medium -- never the kinetics."""
     ident, _ = fit_vmax(

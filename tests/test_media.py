@@ -29,14 +29,14 @@ def core():
 
 
 @pytest.fixture(scope="module")
-def genome_scale():
-    """iJO1366 -- ships with cobra, so no network.  ~2600 reactions, 324 exchanges.
+def genome_scale(ijo):
+    """iJO1366, from the session fixture -- loaded once for the whole suite.
 
     Needed because E. coli core's 20 exchanges physically *cannot* import enough
     nutrients to expose a diet's uptake bounds.  The 6.5/h growth rates in the real
     89-MAG run were invisible to every core-based test for exactly this reason.
     """
-    return cobra.io.load_model("iJO1366")
+    return ijo
 
 
 # --- Diet -> CarveMe media db ---------------------------------------------
@@ -91,20 +91,54 @@ def test_diet_medium_closes_every_exchange_the_diet_does_not_name(core):
     assert set(medium) == {ex.id for ex in core.exchanges}
 
 
-def test_real_diet_grows_a_genome_scale_model_anaerobically(genome_scale):
-    """The western_gut medium must feed a well-formed BiGG model -- at a real rate.
+@pytest.mark.slow
+def test_the_colonic_medium_feeds_a_gut_anaerobe_and_starves_the_organisms_that_are_not_one(bigg):
+    """The medium must be lean, but it must not be too lean for a GUT organism.
 
-    It takes a *genome-scale* model to test this honestly.  The medium supplies its
-    carbon as polysaccharides and a long tail of minor nutrients, each with a small
-    dietary flux bound; only a model with the transporters to reach many of them at
-    once can gather enough carbon to pay ATP maintenance and still grow.  That is
-    the situation a real CarveMe MAG is in.
+    This test used to run on iJO1366 and assert that a *genome-scale* E. coli could
+    gather enough from the medium's long tail of minor nutrients to grow.  It could --
+    and the tail was phantom.  Nine nucleoside rows were sitting at the source table's
+    fill value of 0.1, feeding it roughly 9 mmol C/gDW/h of RNA that nobody eats.  Bound
+    them by real dietary nucleic acid and iJO1366 cannot pay its ATP maintenance at all.
+
+    Which raises the only question that matters: is the honest medium too poor for
+    *everything*, or just for E. coli?  So ask a real gut anaerobe.
+
+        iCN900  (Clostridioides difficile 630, a gut anaerobe)   0.0036/h
+        iJO1366 (Escherichia coli K-12)                          0
+        iYO844  (Bacillus subtilis -- a soil organism)           0
+
+    The colonic medium feeds the colonic organism.  E. coli ferments sugar, and a
+    colon's sugar is locked inside fibre polymers it has no enzymes to open; in a real
+    gut it is a cross-feeder, living on what the primary degraders release.  That is
+    exactly what test_e_coli_core_cannot_grow_on_the_colonic_medium (below) has always
+    said -- and the genome-scale model turns out to be in the same position, which we
+    could not see while the fill value was feeding it.
+
+    HONEST CAVEAT, because it weakens the comparison: iCN900 carries no ATP maintenance
+    demand (ATPM = 0) while iJO1366 demands 3.15, so this is not a clean
+    metabolism-only contrast.  What it does establish -- which is what the test is for
+    -- is that the medium is not too lean to support growth at all.
     """
     from muode.qc import MAX_PLAUSIBLE_GROWTH
 
-    mu = growth_on_diet(genome_scale, load_preset("western_gut"))
-    assert mu > 1e-3, "a genome-scale model must grow on the colonic medium"
+    anaerobe = bigg("iCN900")           # NB: downloaded from BiGG -- hence `slow`
+    mu = growth_on_diet(anaerobe, load_preset("western_gut"))
+    assert mu > 1e-3, "a gut anaerobe must be able to grow on a colonic medium"
     assert mu < MAX_PLAUSIBLE_GROWTH, "...but at a rate an organism could actually manage"
+
+
+@pytest.mark.slow
+def test_a_genome_scale_e_coli_also_starves_on_the_colonic_medium(genome_scale):
+    """The other half of the pair, pinned so nobody quietly re-feeds it.
+
+    If this starts failing -- if iJO1366 grows on western_gut again -- then carbon has
+    been put back into the medium that is not in a colon.  Check what, before believing
+    any downstream result.
+    """
+    assert growth_on_diet(genome_scale, load_preset("western_gut")) == pytest.approx(
+        0.0, abs=1e-6
+    )
 
 
 def test_e_coli_core_cannot_grow_on_the_colonic_medium(core):

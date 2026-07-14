@@ -42,7 +42,7 @@ def diet():
     return load_diet("western_gut")
 
 
-@pytest.mark.parametrize("met", ["indole_e", "h2s_e", "2obut_e"])
+@pytest.mark.parametrize("met", MISLABELLED_AS_FOOD)
 def test_a_microbial_catabolite_must_be_predicted_not_supplied(diet, met):
     """Starts at zero, no uptake ceiling: somebody has to MAKE it before anybody eats it.
 
@@ -93,15 +93,19 @@ def test_nitrite_is_bounded_by_what_people_eat(diet):
     assert grams_per_day < 0.005, f"the medium supplies {grams_per_day:.3g} g/day of nitrite"
 
 
-def test_nitrite_no_longer_dominates_the_prediction(diet):
+@pytest.mark.slow
+def test_nitrite_no_longer_dominates_the_prediction(probe_sensitivity):
     """It was `load_bearing` and relaxing it 10x DOUBLED growth (0.052 -> 0.101/h).
 
     At a real dietary bound iJO1366 does not bother with it at all.  That is the whole
     argument for `nutrient_sensitivity` in one row: the number was carrying the
     prediction, and nobody had chosen it.
+
+    On the probe diet, because E. coli cannot live on the real western_gut once the
+    phantom carbon is gone (conftest explains why that is the right outcome).
     """
-    r = nutrient_sensitivity(cobra.io.load_model("iJO1366"), diet)
-    assert r["verdict"] == "ok", "dropping the non-foods must not kill the model"
+    r = probe_sensitivity
+    assert r["verdict"] == "ok"
     assert not r["nutrients"]["EX_no2_e"]["limiting"], (
         "nitrite is limiting growth again -- check its bound before trusting any result"
     )

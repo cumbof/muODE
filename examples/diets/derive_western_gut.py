@@ -73,6 +73,55 @@ RESIDENCE_H = 24.0
 #: Microbial density in the colon (gDW/L).  ~10^11 cells/mL at ~10^-12 gDW/cell.
 BIOMASS_G_PER_L = 20.0
 
+#: Metabolites the source table supplies that are NOT FOOD -- they are what the
+#: community MAKES.  Moved to PRODUCTS: they start at zero, uncapped, and must be
+#: produced by somebody before anybody can eat them.
+#:
+#: This is the acetate/lactate trap wearing a different hat.  Seeding the vessel with
+#: a fermentation product makes that product unpredictable-by-construction, and the
+#: same argument applies to any microbial catabolite:
+#:
+#: indole -- made by bacterial tryptophanase from tryptophan, which this medium
+#:   supplies (trp__L, 0.008 mmol/gDW/h).  It is *the* most abundant microbial
+#:   tryptophan catabolite in human faeces, 0.2-1 mM and up to 2.6 mM.  No food
+#:   delivers indole to the colon; bacteria make it there.  Supplying it at 0.1 both
+#:   invents a carbon/nitrogen source and destroys our ability to predict it.
+#:     Roager HM, Licht TR.  "Microbial tryptophan catabolites in health and disease."
+#:     *Nat Commun* 9:3294 (2018).  doi:10.1038/s41467-018-05470-4
+#:
+#: h2s -- made by cysteine degradation (cysteine desulfhydrase) and, secondarily, by
+#:   dissimilatory sulfate reduction.  Both substrates are in this medium (cys__L and
+#:   so4).  The capacity is not niche: cysteine-degrading bacteria are present in
+#:   **100% of 6,623 healthy metagenomes**.  H2S is a headline output of a gut
+#:   community -- it is implicated in colonocyte damage and IBD -- so a model that is
+#:   *given* it cannot say anything about it.
+#:     Braccia DJ, Jiang X, Pop M, Hall AB.  "The capacity to produce hydrogen sulfide
+#:     (H2S) via cysteine degradation is ubiquitous in the human gut microbiome."
+#:     *Front Microbiol* 12:705583 (2021).  doi:10.3389/fmicb.2021.705583
+#:
+#: 2obut -- 2-oxobutanoate, the deamination product of threonine and an intermediate
+#:   of methionine catabolism.  A microbial catabolite of amino acids this medium
+#:   already supplies, not something that arrives in food.
+#:
+#: the FREE NUCLEOBASES (ade, gua, csn, ura, hxan, xan) -- luminal digestion of dietary
+#:   nucleic acid delivers NUCLEOSIDES; the free bases are what microbial nucleoside
+#:   phosphorylases cleave off them in the colon.  Hypoxanthine and xanthine are not
+#:   even that: they are purine *catabolites*, downstream of the bases.  The medium
+#:   supplies the nucleosides (see DERIVED_SUPPLEMENT) and the community makes the
+#:   bases from them -- which is the actual biology, and cross-fed rather than granted.
+#:
+#: acmana / gam -- N-acetylmannosamine and glucosamine.  Neither is food.  ManNAc is
+#:   the product of sialic acid lyase acting on Neu5Ac (NanA: Neu5Ac -> ManNAc +
+#:   pyruvate), and free glucosamine comes from deacetylating GlcNAc.  Both are made in
+#:   the colon by the mucolytic bacteria that break down the mucin this medium now
+#:   supplies properly -- and the sialic-acid cross-feeding they underpin is one of the
+#:   best-documented interactions in the gut.  Handing them out as nutrients erases it.
+MISLABELLED_AS_FOOD = (
+    "indole_e", "h2s_e", "2obut_e",
+    "ade_e", "gua_e", "csn_e", "ura_e", "hxan_e", "xan_e",
+    "acmana_e", "gam_e",
+)
+
 #: Fermentation products.  These ALWAYS start at zero concentration with **no**
 #: uptake cap, overriding the source table where it supplies them (it gives
 #: acetate, formate and H2 a dietary flux of 0.1 mmol/gDW/h).  Two reasons, both
@@ -103,8 +152,7 @@ BIOMASS_G_PER_L = 20.0
 #: indole_e, h2s_e and 2obut_e are here for exactly the same reason, having arrived in
 #: the medium as *nutrients* at the source's fill value.  See MISLABELLED_AS_FOOD.
 PRODUCTS = ("ac_e", "but_e", "ppa_e", "lac__L_e", "lac__D_e", "succ_e", "for_e",
-            "etoh_e", "h2_e", "ch4_e", "co2_e", "nh4_e",
-            "indole_e", "h2s_e", "2obut_e")
+            "etoh_e", "h2_e", "ch4_e", "co2_e", "nh4_e") + MISLABELLED_AS_FOOD
 
 #: Dropped from the source table, with the reason.  Nothing is dropped silently.
 SKIPPED = {
@@ -261,37 +309,6 @@ DRI = {
 #: Note it is bounded here as a *dietary* input only.  Nitrite is also a microbial
 #: product (nitrate reduction), and any organism that makes it may still secrete it.
 
-#: Metabolites the source table supplies that are NOT FOOD -- they are what the
-#: community MAKES.  Moved to PRODUCTS: they start at zero, uncapped, and must be
-#: produced by somebody before anybody can eat them.
-#:
-#: This is the acetate/lactate trap wearing a different hat.  Seeding the vessel with
-#: a fermentation product makes that product unpredictable-by-construction, and the
-#: same argument applies to any microbial catabolite:
-#:
-#: indole -- made by bacterial tryptophanase from tryptophan, which this medium
-#:   supplies (trp__L, 0.008 mmol/gDW/h).  It is *the* most abundant microbial
-#:   tryptophan catabolite in human faeces, 0.2-1 mM and up to 2.6 mM.  No food
-#:   delivers indole to the colon; bacteria make it there.  Supplying it at 0.1 both
-#:   invents a carbon/nitrogen source and destroys our ability to predict it.
-#:     Roager HM, Licht TR.  "Microbial tryptophan catabolites in health and disease."
-#:     *Nat Commun* 9:3294 (2018).  doi:10.1038/s41467-018-05470-4
-#:
-#: h2s -- made by cysteine degradation (cysteine desulfhydrase) and, secondarily, by
-#:   dissimilatory sulfate reduction.  Both substrates are in this medium (cys__L and
-#:   so4).  The capacity is not niche: cysteine-degrading bacteria are present in
-#:   **100% of 6,623 healthy metagenomes**.  H2S is a headline output of a gut
-#:   community -- it is implicated in colonocyte damage and IBD -- so a model that is
-#:   *given* it cannot say anything about it.
-#:     Braccia DJ, Jiang X, Pop M, Hall AB.  "The capacity to produce hydrogen sulfide
-#:     (H2S) via cysteine degradation is ubiquitous in the human gut microbiome."
-#:     *Front Microbiol* 12:705583 (2021).  doi:10.3389/fmicb.2021.705583
-#:
-#: 2obut -- 2-oxobutanoate, the deamination product of threonine and an intermediate
-#:   of methionine catabolism.  A microbial catabolite of amino acids this medium
-#:   already supplies, not something that arrives in food.
-MISLABELLED_AS_FOOD = ("indole_e", "h2s_e", "2obut_e")
-
 #: Nutrients ADDED with a bound DERIVED here, not taken from the source table.
 #: Each maps to (g/day, MW, why); the bound comes from :func:`flux_from_intake`.
 #: Unlike SUPPLEMENT -- which is trace catalytic stuff parked at the median -- these
@@ -324,11 +341,70 @@ MISLABELLED_AS_FOOD = ("indole_e", "h2s_e", "2obut_e")
 #: urease -- a real, gene-encoded capability that a quarter of the community has --
 #: and the ammonia released becomes a cross-fed public good rather than a gift.
 #: That is why nh4_e is in PRODUCTS: it must be *made* by somebody.
+#: NUCLEIC ACID -- 15 rows at the fill value, and the largest remaining carbon leak.
+#:
+#: The medium carried nine nucleosides, five free bases and AMP, every one of them at
+#: 0.1 mmol/gDW/h.  A nucleoside is a ~10-carbon molecule, so those rows were together
+#: donating on the order of 13 mmol C/gDW/h -- and after the vitamin fix they were the
+#: biggest carbon source left in the file.  `nutrient_sensitivity` ranked cytidine,
+#: guanosine, uridine and adenosine immediately behind trehalose among the rows most
+#: able to move iJO1366's growth.  The medium was, in effect, feeding the community a
+#: diet of RNA.
+#:
+#: Humans eat 0.1-1 g/day of nucleic acid, "typically less than 1 g/day".  Take 0.5.
+#:
+#:   Dietary nucleic acid is digested by luminal nucleases to nucleotides and then to
+#:   NUCLEOSIDES, and the bases and pentoses are absorbed in the small intestine.  As
+#:   with the vitamins we charge the colon the whole intake without deducting that
+#:   absorption -- generous on purpose, and flagged rather than fudged.
+#:
+#: The split is by mass, and it is an assumption:
+#:   * 80% RNA / 20% DNA -- cellular RNA outweighs DNA several-fold;
+#:   * spread evenly across the ribo- and deoxyribonucleosides the medium carries.
+#:
+#: The FREE BASES are handled differently and it matters.  Adenine, guanine, cytosine,
+#: uracil, hypoxanthine and xanthine are not what luminal digestion delivers -- they
+#: are what microbial nucleoside phosphorylases release from nucleosides, and
+#: hypoxanthine and xanthine are unambiguously purine *catabolites*.  They belong in
+#: PRODUCTS: made in the colon, cross-fed, and predicted rather than supplied.
+#:
+#: MUCIN -- the host's own contribution, and a real one.  2-3 g/day of mucin enters the
+#: large bowel; MUC2 is ~80% O-linked glycan by weight, built from GalNAc, Gal, GlcNAc,
+#: fucose and sialic acid.  This is the substrate that mucolytic specialists
+#: (*Akkermansia*, many *Bacteroides*) actually live on, and its amino sugars were
+#: sitting at the fill value like everything else.
+#:
+#:   2.5 g/day mucin x 80% glycan = 2 g/day of glycan reaching the colon.
+#:   Mean monosaccharide residue ~200 g/mol => ~10 mmol/day of residues.
+#:   Taken at ~25 mol% GlcNAc and ~8 mol% sialic acid (the composition is variable and
+#:   the percentages are the assumption): 2.5 and 0.8 mmol/day respectively.
+#:
+#: We deliberately do NOT add the mucin-derived galactose and fucose on top of the
+#: source's dietary gal/fuc rows: those are real intake figures and this script does
+#: not overwrite evidence.  The medium therefore UNDER-counts mucin sugar, which is the
+#: safe direction to be wrong in.
 DERIVED_SUPPLEMENT = {
     # metabolite:  (g/day,  MW g/mol,  why)
     "xylan4_e":    (2.0,     528.5,  "arabinoxylan, DP4 fraction (40/89 MAGs can eat it)"),
     "xylan8_e":    (2.0,    1057.0,  "arabinoxylan, DP8 fraction (6/89 MAGs can eat it)"),
     "urea_e":      (3.5,      60.06, "host urea into the colon (23/89 MAGs have urease)"),
+
+    # RNA: 0.5 g/day nucleic acid x 80% RNA, split by mass over 5 species = 0.08 g/day
+    "adn_e":       (0.08,    267.24, "adenosine, from ~0.5 g/day dietary nucleic acid"),
+    "gsn_e":       (0.08,    283.24, "guanosine, from dietary RNA"),
+    "cytd_e":      (0.08,    243.22, "cytidine, from dietary RNA"),
+    "uri_e":       (0.08,    244.20, "uridine, from dietary RNA"),
+    "amp_e":       (0.08,    347.22, "AMP: a nucleotide, the stage before the nucleoside"),
+
+    # DNA: 0.5 g/day x 20% DNA, split by mass over 4 species = 0.025 g/day
+    "dad_2_e":     (0.025,   251.24, "deoxyadenosine, from dietary DNA"),
+    "dgsn_e":      (0.025,   267.24, "deoxyguanosine, from dietary DNA"),
+    "dcyt_e":      (0.025,   227.22, "deoxycytidine, from dietary DNA"),
+    "thymd_e":     (0.025,   242.23, "thymidine, from dietary DNA"),
+
+    # host mucin glycan: 2.5 g/day mucin, ~80% glycan, ~10 mmol/day of residues
+    "acgam_e":     (0.553,   221.21, "GlcNAc: ~25 mol% of mucin O-glycan (2.5 mmol/day)"),
+    "acnam_e":     (0.247,   309.27, "sialic acid: ~8 mol% of mucin O-glycan (0.8 mmol/day)"),
 }
 
 #: Source bounds we REPLACE.  metabolite -> (new bound, why).
@@ -525,16 +601,32 @@ def main() -> int:
     def row(met: str, bound: float, source: str) -> str:
         return f"{met},{pool(bound):.6g},{bound:.6g},{bound:.6g},{source}"
 
-    # Vitamins and cofactors are bounded by intake wherever they appear -- whether the
-    # source table listed them (at its fill value) or an earlier version of this script
-    # added them at the median.  Both were wrong for the same reason, so both are fixed
-    # in one place rather than split across OVERRIDE and SUPPLEMENT.
+    # Bounds we compute ourselves, keyed by the provenance tag they will carry.  Both
+    # kinds may either ADD a nutrient the source omits or REPLACE one of its fill
+    # values -- a fill value is an absence of data, and replacing it with a derivation
+    # is the entire point of this script.  Resolving them up front (rather than in the
+    # emit loop) is what lets one dict do both jobs.
     dri_bounds = {met: flux_from_intake(g, mw) for met, (g, mw, _why) in DRI.items()}
+    derived_bounds = {met: flux_from_intake(g, mw)
+                      for met, (g, mw, _why) in DERIVED_SUPPLEMENT.items()}
+    computed = {**{m: (b, SOURCE_DRI) for m, b in dri_bounds.items()},
+                **{m: (b, SOURCE_DERIVED) for m, b in derived_bounds.items()}}
+
+    # ...but neither may overwrite a REAL intake figure.  That would be replacing the
+    # source's evidence with our arithmetic, which is the one thing this script has
+    # always refused to do.  (OVERRIDE exists for that, and it is loud.)
+    clobbered = {m: f for m, f in supplied
+                 if m in computed and f != MEDIAN_BOUND and m not in OVERRIDE}
+    if clobbered:
+        sys.exit(f"{sorted(clobbered)}: the source gives these a real intake flux, not its "
+                 f"fill value of {MEDIAN_BOUND:g} ({clobbered}).  Deriving over them would "
+                 "overwrite evidence with arithmetic.  Use OVERRIDE if you truly mean to.")
 
     for met, flux in supplied:
-        if met in dri_bounds:
-            limits[met] = dri_bounds[met]
-            lines.append(row(met, dri_bounds[met], SOURCE_DRI))
+        if met in computed:
+            bound, tag = computed[met]
+            limits[met] = bound
+            lines.append(row(met, bound, tag))
             continue
         if met in OVERRIDE:
             bound, _why = OVERRIDE[met]
@@ -545,22 +637,17 @@ def main() -> int:
         # the entire point of the column; guessing would defeat it.
         lines.append(row(met, flux,
                          SOURCE_DEFAULT if flux == MEDIAN_BOUND else SOURCE_INTAKE))
-    for met in sorted(dri_bounds):
+    for met in sorted(computed):               # the ones the source did NOT list
         if met in limits:                      # already emitted above, from the source
             continue
-        limits[met] = dri_bounds[met]
-        lines.append(row(met, dri_bounds[met], SOURCE_DRI))
+        bound, tag = computed[met]
+        limits[met] = bound
+        lines.append(row(met, bound, tag))
     for met in sorted(SUPPLEMENT):
         if met in limits:                      # already in the source: leave it alone
             continue
         limits[met] = MEDIAN_BOUND
         lines.append(row(met, MEDIAN_BOUND, SOURCE_SUPPLEMENT))
-    for met, (g, mw, _why) in sorted(DERIVED_SUPPLEMENT.items()):
-        if met in limits:
-            sys.exit(f"{met}: now in the source table -- drop it from DERIVED_SUPPLEMENT "
-                     "rather than overriding a published bound with a derived one")
-        limits[met] = flux_from_intake(g, mw)
-        lines.append(row(met, limits[met], SOURCE_DERIVED))
     for met in PRODUCTS:
         lines.append(f"{met},0.0,0.0,,{SOURCE_PRODUCT}")
 

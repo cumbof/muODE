@@ -25,20 +25,17 @@ from muode.qc import (
 )
 
 
-@pytest.fixture(scope="module")
-def model():
-    return cobra.io.load_model("iJO1366")
-
-
-def test_a_model_that_grows_is_not_diagnosed(model):
-    rich = Diet(concentrations={m[len("EX_"):]: 10.0 for m in model.medium},
+@pytest.mark.slow
+def test_a_model_that_grows_is_not_diagnosed(ijo):
+    rich = Diet(concentrations={m[len("EX_"):]: 10.0 for m in ijo.medium},
                 name="its own medium")
-    assert diagnose_no_growth(model, rich)["verdict"] == "grows"
+    assert diagnose_no_growth(ijo, rich)["verdict"] == "grows"
 
 
-def test_dm38_is_diagnosed_as_a_medium_gap_and_names_the_iron(model):
+@pytest.mark.slow
+def test_dm38_is_diagnosed_as_a_medium_gap_and_names_the_iron(dm38_diagnosis):
     """The real case.  iJO1366 scores 0.0 on DM38 -- and that zero is not biology."""
-    d = diagnose_no_growth(model, load_diet("dm38"))
+    d = dm38_diagnosis
 
     assert d["verdict"] == "medium_gap", (
         "iJO1366 on DM38 is a medium artefact, not a finding about E. coli"
@@ -49,7 +46,8 @@ def test_dm38_is_diagnosed_as_a_medium_gap_and_names_the_iron(model):
     assert d["growth"] <= 1e-6 < d["growth_if_rescued"]
 
 
-def test_the_menu_exposes_the_artefact_route_instead_of_silently_picking_it(model):
+@pytest.mark.slow
+def test_the_menu_exposes_the_artefact_route_instead_of_silently_picking_it(dm38_diagnosis):
     """The reason ``rescued_by_any_of`` is a LIST and not a single minimal answer.
 
     iJO1366's only anaerobic route to cytoplasmic Fe(III) other than importing it is
@@ -62,15 +60,16 @@ def test_the_menu_exposes_the_artefact_route_instead_of_silently_picking_it(mode
     puts both on the table so a person can tell chemistry from damage.  The tool must
     not make that call, but it must not hide it either.
     """
-    d = diagnose_no_growth(model, load_diet("dm38"))
+    d = dm38_diagnosis
     assert {"EX_fe3_e", "EX_no_e"} <= set(d["rescued_by_any_of"]), (
         "both the honest fix and the artefact fix must be visible, not one of them"
     )
 
 
-def test_the_menu_is_short_enough_to_read(model):
+@pytest.mark.slow
+def test_the_menu_is_short_enough_to_read(dm38_diagnosis):
     """DM38 leaves dozens of iJO1366's exchanges closed; listing them all says nothing."""
-    d = diagnose_no_growth(model, load_diet("dm38"))
+    d = dm38_diagnosis
     assert 0 < len(d["rescued_by_any_of"]) < d["n_candidates"] / 4
 
 
@@ -114,7 +113,8 @@ def test_redundant_routes_do_not_make_the_gap_vanish():
     )
 
 
-def test_oxygen_is_never_proposed_as_a_rescue(model):
+@pytest.mark.slow
+def test_oxygen_is_never_proposed_as_a_rescue(dm38_diagnosis):
     """A diagnosis may complete an environment.  It may not overturn one.
 
     Oxygen rescues almost any GEM, so if it were a candidate it would be the answer
@@ -123,7 +123,7 @@ def test_oxygen_is_never_proposed_as_a_rescue(model):
     the environment, and the diagnosis has to respect it.
     """
     assert "o2_e" in FORBIDDEN_RESCUES
-    d = diagnose_no_growth(model, load_diet("dm38"))
+    d = dm38_diagnosis
     assert "EX_o2_e" not in d["rescued_by_any_of"]
 
 
@@ -142,16 +142,18 @@ def test_a_model_that_cannot_grow_on_anything_exonerates_the_medium():
     assert d["rescued_by_any_of"] == [] and d["rescued_by_all_of"] == []
 
 
-def test_the_pipeline_surfaces_the_verdict_without_being_asked(model):
+@pytest.mark.slow
+def test_the_pipeline_surfaces_the_verdict_without_being_asked(ijo):
     """sanity_check_model diagnoses a zero automatically when it is given the diet.
 
     If this has to be remembered, it will not be remembered.
     """
-    report = sanity_check_model(model, growth_rate=0.0, diet=load_diet("dm38"))
+    report = sanity_check_model(ijo, growth_rate=0.0, diet=load_diet("dm38"))
     assert report["no_growth"]["verdict"] == "medium_gap"
     assert "EX_fe3_e" in report["no_growth"]["rescued_by_any_of"]
 
 
-def test_a_growing_model_is_not_diagnosed_by_the_pipeline(model):
-    report = sanity_check_model(model, growth_rate=0.5, diet=load_diet("dm38"))
+@pytest.mark.slow
+def test_a_growing_model_is_not_diagnosed_by_the_pipeline(ijo):
+    report = sanity_check_model(ijo, growth_rate=0.5, diet=load_diet("dm38"))
     assert "no_growth" not in report

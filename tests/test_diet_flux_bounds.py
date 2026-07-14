@@ -21,11 +21,25 @@ from muode.qc import MAX_PLAUSIBLE_GROWTH
 
 
 def test_the_published_diet_carries_flux_bounds():
+    """The median used to be 0.1 -- the source table's *fill value* -- and is now 0.018.
+
+    That drop is the medium audit, not a regression.  0.1 was the number the source
+    used for every row its intake data did not itemise, and 56% of the file sat on it.
+    Bounding those rows by what people actually eat (vitamins by DRI, nucleosides by
+    dietary nucleic acid, nitrite by measured intake) pulled the median down to the
+    scale of the medium's *real* foods -- sucrose is 0.0074, xylose 0.018.
+
+    The assertion that matters has not changed: the bounds are far below the uniform
+    Vmax of 10 that this file exists to have replaced.
+    """
     d = load_diet("western_gut")
     assert d.max_uptake, "western_gut must carry dietary flux bounds"
     bounds = sorted(d.max_uptake.values())
     median = bounds[len(bounds) // 2]
-    assert median == pytest.approx(0.1), "the published median bound is 0.1 mmol/gDW/h"
+    assert median == pytest.approx(0.018, rel=0.2), (
+        f"median bound is {median:g}; it should sit with the medium's real foods "
+        "(sucrose 0.0074, xylose 0.018), not on the source's 0.1 fill value"
+    )
     assert median * 50 < 10.0, "...which is far below muODE's old uniform Vmax of 10"
 
 
@@ -86,6 +100,7 @@ def test_with_metabolites_does_not_drop_the_bounds():
     assert "but_e" in extended.concentrations
 
 
+@pytest.mark.slow
 def test_the_bounds_keep_a_genome_scale_model_inside_biology():
     """The whole point, measured end to end on a real genome-scale GEM.
 
@@ -97,14 +112,18 @@ def test_the_bounds_keep_a_genome_scale_model_inside_biology():
     kin = KineticParameters()
     base = load_diet("western_gut")
 
-    # supplement what iJO1366 needs and a colonic medium lacks (a sugar it can eat,
-    # an N source, its trace ions), each at the medium's own MEDIAN bound.
-    missing = ["glc__D_e", "nh4_e", "na1_e", "ni2_e", "sel_e", "slnt_e", "tungs_e",
-               "cbl1_e", "co2_e"]
+    # Supplement what iJO1366 needs and a colonic medium lacks: a sugar it can actually
+    # ferment, an N source, its trace ions.  The sugar is load-bearing here -- E. coli
+    # cannot live on western_gut at all now that the phantom nucleoside carbon is gone
+    # (see tests/conftest.py), because a colon's sugar is locked in fibre polymers it
+    # has no enzymes for.  1.0 mmol/gDW/h of glucose clears its maintenance demand; the
+    # rest ride at the medium's own median.
+    missing = ["nh4_e", "na1_e", "ni2_e", "sel_e", "slnt_e", "tungs_e", "cbl1_e", "co2_e"]
     conc = dict(base.concentrations)
     lim = dict(base.max_uptake)
     for met in missing:
         conc[met], lim[met] = 48.0, 0.1
+    conc["glc__D_e"], lim["glc__D_e"] = 480.0, 1.0
 
     capped = Diet(concentrations=conc, max_uptake=lim, name="published-bounds")
     uncapped = Diet(concentrations=conc, name="uniform-Vmax-10")   # the old behaviour

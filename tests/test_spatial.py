@@ -48,6 +48,7 @@ def test_colony_grows_and_depletes_local_nutrient():
     assert glc[0, 4] < glc[0, 0]                          # glucose drawn down at the colony
 
 
+@pytest.mark.slow
 def test_spatial_cross_feeding_gradient():
     comm = Community([build_glucose_specialist(), build_acetate_specialist()])
     diet = Diet({"glc_e": 20.0, "ac_e": 0.0}, name="glc")

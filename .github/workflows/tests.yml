@@ -1,0 +1,53 @@
+name: tests
+
+# Two tiers, because they cost very different amounts of cloud time.
+#
+#   push / PR  ->  the FAST suite (224 tests, ~1m40s).  No network, no genome-scale
+#                  sweeps.  This is the gate.
+#   nightly    ->  EVERYTHING (249 tests, ~5-7 min), including the tests that download
+#                  BiGG models and sweep a genome-scale GEM across a whole medium.
+#
+# The split is `-m "not slow"`; see pyproject.toml for what earns the marker and
+# tests/conftest.py for the session-scoped fixtures that stop the same genome-scale
+# FBA being recomputed once per test.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 3 * * *"          # nightly, 03:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    name: fast suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev,cobra]"
+      - run: pytest -m "not slow" -p no:warnings
+
+  full:
+    name: full suite (incl. genome-scale + BiGG downloads)
+    # Only on the nightly schedule or when asked: these tests hit the BiGG API, so
+    # running them on every push is both slow and a flakiness risk we do not need on
+    # the critical path.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev,cobra]"
+      - run: pytest -p no:warnings

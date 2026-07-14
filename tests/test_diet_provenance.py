@@ -38,13 +38,30 @@ def test_the_fill_value_is_not_dressed_up_as_dietary_intake(western):
 def test_most_of_this_medium_is_not_a_measurement_and_says_so(western):
     """Guards the honesty of the headline, in both directions.
 
-    If someone later relabels the defaults as `intake`, this fails.  If someone
-    fixes them with real intake data, this also fails -- and that is a good failure,
-    which should be celebrated by updating the number here.
+    If someone later relabels the defaults as `intake`, this fails.  If someone fixes
+    them with real intake data, this also fails -- and that is a good failure, which
+    should be celebrated by updating the number here.
+
+    **It has now been celebrated once: 71/126 (56%) -> 35/113 (31%).**  The 36 rows that
+    moved did so with a source and an arithmetic:
+
+      * 13 vitamins and cofactors, bounded by Dietary Reference Intake (IOM 1998).
+        Cobalamin at the fill value was the largest CARBON source in the medium.
+      * 11 nucleosides and mucin amino sugars, bounded by dietary nucleic acid
+        (0.1-1 g/day) and by the 2-3 g/day of mucin entering the large bowel.
+      * 11 rows that are not food at all -- indole, H2S, the free nucleobases -- moved
+        to PRODUCTS, plus chorismate and formaldehyde dropped outright.
+      * nitrite, which the fill value supplied at 2.2 g/day against a real intake of
+        1.2 mg/day, and which was the single most influential row in the file.
+
+    What is LEFT is the honest remainder: amino acids, polyamines, glutathione, some
+    organic acids, and the mineral rows (whose fill value is provably harmless -- see
+    tests/test_nutrient_sensitivity.py).  Lowering this ceiling further needs a real
+    ileal amino-acid table, which is a literature job and not a code one.
     """
     bounded = [m for m in western.metabolites() if western.uptake_limit(m) is not None]
     defaults = [m for m in bounded if western.provenance(m) == "source_default"]
-    assert 0.4 < len(defaults) / len(bounded) < 0.7, (
+    assert 0.2 < len(defaults) / len(bounded) < 0.4, (
         f"{len(defaults)}/{len(bounded)} rows are the source's default; if that "
         "changed, say so here rather than moving the goalposts"
     )
