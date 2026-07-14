@@ -248,6 +248,27 @@ def _dm38() -> Diet:
     Anaerobic batch culture: no oxygen, and no influx of anything.  Note that it
     supplies 28.3 mM L-lactate, so lactate is a substrate here as well as a
     fermentation product.
+
+    **It carries no ``max_uptake``, deliberately.**  :func:`_western_gut` needs a
+    dietary flux ceiling because it is a flow system and the dietary flux is the
+    measured quantity.  DM38 is the opposite case: a sealed vessel whose
+    *concentrations* are the measurement.  25 mM glucose really is available, so a
+    ceiling would be invented rather than measured -- and because uptake is
+    ``min(Michaelis-Menten, max_uptake)``, a ceiling would clamp uptake below Vmax,
+    flatten growth-vs-Vmax and make Vmax **unidentifiable**.  DM38 is the medium the
+    Clark benchmark exists to *calibrate Vmax against*, so that would break the
+    experiment in order to tidy the medium.  ``tests/test_dm38_bounds.py``
+    demonstrates the flattening rather than asserting it.
+
+    Two things to know before trusting a number computed on this medium:
+
+    * **The default Vmax is too permissive here.**  Uniform ``DEFAULT_VMAX = 10``
+      lets iJO1366 reach ~2.9/h on DM38, above ``muode.qc.MAX_PLAUSIBLE_GROWTH``.
+      The remedy is a *calibrated* Vmax
+      (``examples/benchmarks/clark2021/fit_kinetics.py``), not a dietary bound.
+    * **Iron is Fe(II) only.**  Correct for a reducing anaerobic medium, but a GEM
+      whose biomass demands ``fe3_e`` cannot grow on DM38 at all -- iJO1366 cannot,
+      at any Vmax.  A zero from such a model is a medium artefact, not biology.
     """
     return Diet.from_csv(_DIET_DIR / "dm38.csv", name="DM38")
 

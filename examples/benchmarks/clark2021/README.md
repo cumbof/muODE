@@ -72,7 +72,7 @@ exception — FP, below.
 
 **Tier 3 — assembly.** Up to 23 strains: composition and butyrate.
 
-## Three traps, each with a test
+## Four traps, each with a test
 
 **Lactate is a medium component.** DM38 supplies **28.3 mM sodium lactate**, so
 lactate is a substrate as well as a product. Measured endpoint lactate averages
@@ -94,6 +94,24 @@ Related: FP A2-165 has since been **reclassified** as *Faecalibacterium duncania
 A2-165. Searching NCBI under the name in the 2021 paper returns the species
 reference (M21/2) — a different strain, with different metabolism. `fetch_genomes.py`
 carries a taxon override so it resolves the strain that was actually grown.
+
+**DM38 supplies ferrous iron only, and a GEM that wants ferric iron dies on it.**
+The medium has `fe2_e` and no `fe3_e`. That is chemically *correct* — Fe(III) is not
+stable in a reducing anaerobic medium — so it is not a derivation error. But any
+model whose biomass reaction demands `fe3_e` **cannot grow on DM38 at all, at any
+Vmax**: iJO1366 does not. A zero from such a model is a medium artefact wearing the
+costume of a biological result, and it would be scored as a failed prediction.
+
+Check before believing any zero:
+
+```bash
+grep -l "EX_fe3_e" <models>/*.xml | wc -l    # how many strain models want Fe(III)?
+```
+
+If that number is not zero, decide *explicitly* whether to supply `fe3_e` (departing
+from the published medium, and say so) or to exclude those strains the way
+`non_growers()` excludes FP. Do not let it stay silent. Pinned in
+`tests/test_dm38_bounds.py`.
 
 ## Kinetics: the endpoint bounds Vmax, it does not identify it
 
