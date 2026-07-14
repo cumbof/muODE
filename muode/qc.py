@@ -350,6 +350,104 @@ def diagnose_no_growth(
     return report
 
 
+#: Scale a bound by this much, up and down, to ask whether its VALUE matters.
+SENSITIVITY_FACTOR = 10.0
+
+#: A relative change in growth this large or larger counts as "the bound moved it".
+#: Below it, the number could be anything and the prediction would not notice.
+SENSITIVITY_TOL = 0.01
+
+
+def nutrient_sensitivity(
+    model,
+    diet,
+    kinetics=None,
+    factor: float = SENSITIVITY_FACTOR,
+    tol: float = SENSITIVITY_TOL,
+) -> dict:
+    """Which of a diet's numbers is this model's growth actually sensitive to?
+
+    A medium is a long list of numbers of wildly unequal importance, and nothing in
+    the file says which is which.  `western_gut` has 126 bounded rows, 71 of them
+    sitting at the *fill value* of the table they came from -- someone else's default,
+    not a measurement.  Chasing 71 literature values would be weeks of work, and most
+    of it wasted: **nothing grows on zinc.**  A cell needs it, but it needs a trace,
+    and whether the bound says 0.1 or 0.001 cannot change any prediction.
+
+    So compute which ones matter rather than arguing about it.  For each supplied
+    nutrient, two questions, each one FBA:
+
+    * **essential** -- close it, does growth stop?  (Is the nutrient needed at all?)
+    * **limiting** -- multiply its bound by ``factor``, does growth rise?  (Does the
+      *value of the number* matter, or is the cell already saturated?)
+
+    They are independent, and the cross of them is the whole point:
+
+    ``load_bearing``
+        Limiting.  Growth tracks this bound, so the number IS the prediction.  These
+        are the rows that must be defensible, and there are far fewer of them than 71.
+    ``essential_trace``
+        Essential but NOT limiting: the cell must have it and is already saturated.
+        The bound is slack, so its exact value is irrelevant -- this is where zinc,
+        and most of the mineral rows, should land.  A fill value here is harmless,
+        and now that is a measured statement rather than a hopeful one.
+    ``unused``
+        Neither.  This model cannot or will not use the nutrient; the row does
+        nothing for it.  (Across a community, a row unused by *every* model is dead
+        weight -- or a capability nobody has, which is itself worth knowing.)
+
+    Like :func:`diagnose_no_growth`, this exists because the answer depends entirely
+    on which genomes you feed in.  It cannot be a fact anyone remembers; it has to be
+    recomputed for the models in hand.
+
+    ``uptake_at_optimum`` is reported alongside: a flux pinned AT the bound is the
+    mechanism behind a ``load_bearing`` verdict, and a flux far below it is the
+    mechanism behind a slack one.
+    """
+    from muode.media import diet_medium
+
+    exchanges = {r.id for r in model.exchanges}
+    supplied = diet_medium(model, diet, kinetics)
+    base = {k: v for k, v in supplied.items() if k in exchanges and v > 0}
+
+    with model:
+        model.medium = base
+        sol = model.optimize()
+        growth = float(sol.objective_value or 0.0)
+        uptake = {ex: abs(float(sol.fluxes.get(ex, 0.0))) for ex in base}
+
+    if growth <= NO_GROWTH_TOL:
+        # Sensitivity of a dead model is meaningless: every nutrient looks irrelevant
+        # because nothing depends on anything.  diagnose_no_growth is the right tool.
+        return {"verdict": "no_growth", "growth": growth, "nutrients": {}}
+
+    nutrients: Dict[str, dict] = {}
+    for ex in sorted(base):
+        with model:
+            model.medium = {**base, ex: 0.0}
+            off = float(model.slim_optimize() or 0.0)
+        with model:
+            model.medium = {**base, ex: base[ex] * factor}
+            up = float(model.slim_optimize() or 0.0)
+
+        essential = off <= NO_GROWTH_TOL
+        limiting = (up - growth) / growth >= tol
+        nutrients[ex] = {
+            "bound": base[ex],
+            "uptake_at_optimum": uptake.get(ex, 0.0),
+            "growth_without": off,
+            "growth_if_relaxed": up,
+            "essential": essential,
+            "limiting": limiting,
+            "verdict": ("load_bearing" if limiting
+                        else "essential_trace" if essential
+                        else "unused"),
+        }
+
+    return {"verdict": "ok", "growth": growth, "nutrients": nutrients,
+            "factor": factor, "tol": tol}
+
+
 def _has_energy_generating_cycle(model) -> bool:
     """True if the model can make ATP with every nutrient uptake switched off."""
     try:
