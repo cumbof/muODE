@@ -31,7 +31,8 @@ from muode.qc import MAX_PLAUSIBLE_GROWTH
 
 #: DM38 lacks these three, and iJO1366 (E. coli -- NOT one of Clark's 25 strains)
 #: needs them.  Supplied here only so a real GEM grows at all and the Vmax effect is
-#: visible.  fe3_e is the load-bearing one; see the last test.
+#: visible.  Iron is the load-bearing one AMONG THESE FOUR -- not the only possible
+#: rescue; see tests/test_no_growth_diagnosis.py.
 IJO_NEEDS = ("co2_e", "fe3_e", "sel_e", "tungs_e")
 
 
@@ -113,13 +114,20 @@ def test_a_dietary_ceiling_would_make_vmax_unidentifiable(model, dm38_for_ijo):
     )
 
 
-def test_dm38_supplies_ferrous_iron_only_and_that_is_load_bearing(model, dm38_for_ijo):
-    """DM38 has fe2_e and no fe3_e, and iJO1366 cannot grow without Fe(III).
+def test_dm38_supplies_ferrous_iron_only_and_iJO1366_starves_on_it(model, dm38_for_ijo):
+    """DM38 has fe2_e and no fe3_e, and iJO1366 needs *cytoplasmic* Fe(III).
 
-    Chemically this is right -- Fe(III) is not stable in a reducing anaerobic medium
-    -- so it is not a derivation error.  But it is a trap: any GEM whose biomass
-    demands fe3_e is silently DEAD on DM38, scoring a zero that has nothing to do
-    with biology.  Check the Clark strain models for EX_fe3_e before trusting a zero.
+    Chemically the medium is right -- Fe(III) is not stable in a reducing anaerobic
+    broth -- so this is not a derivation error.  It is a trap: the model is dead on
+    arrival and its zero says nothing about E. coli.
+
+    Note the careful claim.  Ferric iron is load-bearing *among the four nutrients
+    supplied here*, which is what this test checks.  It is NOT the only thing that
+    would rescue the model: nitric oxide does too, via FESD2s, by wrecking the cell's
+    own Fe-S clusters to liberate iron.  Naming one nutrient as "the" cause is exactly
+    the mistake muode.qc.diagnose_no_growth exists to prevent -- see
+    tests/test_no_growth_diagnosis.py, which enumerates the whole equivalence class
+    instead of picking a favourite.
     """
     dm38 = load_diet("dm38")
     assert dm38.initial_concentration("fe2_e") > 0
@@ -127,6 +135,7 @@ def test_dm38_supplies_ferrous_iron_only_and_that_is_load_bearing(model, dm38_fo
 
     without_fe3 = {m: c for m, c in dm38_for_ijo.items() if m != "fe3_e"}
     assert _growth(model, without_fe3, DEFAULT_VMAX) < 1e-6, (
-        "if iJO1366 now grows without fe3_e, the Fe(III) trap is gone -- good, but "
-        "this test documented a real failure mode and should not just be deleted"
+        "among co2/sel/tungs, iron is the one that matters; if this now grows, the "
+        "trap has changed shape and the diagnosis in test_no_growth_diagnosis.py "
+        "should be re-read rather than this test deleted"
     )

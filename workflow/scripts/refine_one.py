@@ -43,7 +43,10 @@ def main() -> None:
     # judge plausibility on the medium we actually simulate, not on the model's
     # open bounds -- with every exchange open any GEM grows absurdly fast, so the
     # open-bounds rate carries no information about whether the run is sane.
-    qc = sanity_check_model(model, growth_rate=gap.get("growth_on_diet"))
+    # Passing the diet lets QC diagnose a ZERO as well as judge a large one: if this
+    # model cannot grow, is that the genome, or a nutrient the medium never supplied?
+    # Which nutrient depends on the genomes, so it is asked every run, not remembered.
+    qc = sanity_check_model(model, growth_rate=gap.get("growth_on_diet"), diet=diet)
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     cobra.io.write_sbml_model(model, args.output)

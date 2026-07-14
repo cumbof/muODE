@@ -95,23 +95,36 @@ A2-165. Searching NCBI under the name in the 2021 paper returns the species
 reference (M21/2) — a different strain, with different metabolism. `fetch_genomes.py`
 carries a taxon override so it resolves the strain that was actually grown.
 
-**DM38 supplies ferrous iron only, and a GEM that wants ferric iron dies on it.**
-The medium has `fe2_e` and no `fe3_e`. That is chemically *correct* — Fe(III) is not
-stable in a reducing anaerobic medium — so it is not a derivation error. But any
-model whose biomass reaction demands `fe3_e` **cannot grow on DM38 at all, at any
-Vmax**: iJO1366 does not. A zero from such a model is a medium artefact wearing the
-costume of a biological result, and it would be scored as a failed prediction.
+**A zero can be the medium, not the organism — and muODE now says which.** DM38
+supplies ferrous iron only (`fe2_e`, no `fe3_e`). That is chemically *correct* — Fe(III)
+is not stable in a reducing anaerobic broth — but iJO1366 needs *cytoplasmic* Fe(III)
+and, with no oxygen to run `FEROpp`, has no route to it. It scores **0.0 on DM38 at
+any Vmax**, and that zero says nothing whatsoever about *E. coli*.
 
-Check before believing any zero:
+Do **not** go looking for `fe3_e` specifically. Which nutrient goes missing depends
+entirely on which genomes you feed in, so it is not a fact anyone can remember to
+check — it has to be computed every run. `muode.qc.diagnose_no_growth` does that, and
+`refine` calls it automatically for any model that fails to grow. Two new columns in
+`reconstruction_summary.tsv`:
 
-```bash
-grep -l "EX_fe3_e" <models>/*.xml | wc -l    # how many strain models want Fe(III)?
-```
+| column | meaning |
+|---|---|
+| `no_growth_verdict` | `medium_gap` (the medium starved it — **not** a result) or `model_cannot_grow` (broken reconstruction; the medium is exonerated) |
+| `no_growth_fixed_by_any_of` | every metabolite that **alone** restores growth |
 
-If that number is not zero, decide *explicitly* whether to supply `fe3_e` (departing
-from the published medium, and say so) or to exclude those strains the way
-`non_growers()` excludes FP. Do not let it stay silent. Pinned in
-`tests/test_dm38_bounds.py`.
+On iJO1366/DM38 that menu contains **both** `EX_fe3_e` and `EX_no_e` — and the second
+one is why it is a menu. iJO1366's only anaerobic route to cytoplasmic Fe(III) besides
+importing it is `FESD2s` (`4fe4s_c + no_c → 3fe4s_c + fe3_c`), in which nitric oxide
+**destroys the cell's own iron–sulfur clusters** to liberate iron. FBA will happily use
+it. A diagnosis that shrinks to a single minimal answer picks between the honest fix and
+the damage reaction on iteration order — ours picked NO. Enumerating the whole
+equivalence class puts both on the table and lets a human tell chemistry from artefact.
+The tool cannot make that judgement; it can refuse to hide it.
+
+When a `medium_gap` appears, decide **explicitly**: supply the metabolite (a departure
+from the published medium — say so in the methods) or exclude the strain the way
+`non_growers()` excludes FP. Never let it be scored as a failed prediction. Pinned in
+`tests/test_dm38_bounds.py` and `tests/test_no_growth_diagnosis.py`.
 
 ## Kinetics: the endpoint bounds Vmax, it does not identify it
 
