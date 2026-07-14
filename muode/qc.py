@@ -19,20 +19,26 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from muode.environment import HUMAN_GUT, Environment
 from muode.external import require, run
 
 
-#: Growth rates above this (1/h) are not biology, they are a modelling artefact.
+#: The growth ceiling and the forbidden rescues USED to live here, as two bare
+#: constants.  Both were statements about a human colon, and neither said so::
 #:
-#: Gut anaerobes run 0.1-0.5/h; the fastest organism ever measured (*Vibrio
-#: natriegens*, rich aerobic medium) tops out near 4/h, and no gut commensal comes
-#: close.  A GEM reporting more than this on a defined medium is being handed more
-#: nutrient than a cell can physically consume -- typically because every exchange
-#: in a large diet is opened at the same uniform Vmax, so the model eats 80+ carbon
-#: sources at once.  The number is a *ceiling on the absurd*, deliberately well
-#: above any real gut organism: tripping it means the medium is wrong, not that the
-#: species is unusually fast.
-MAX_PLAUSIBLE_GROWTH = 1.5
+#:     MAX_PLAUSIBLE_GROWTH = 1.5              # "gut anaerobes run 0.1-0.5/h"
+#:     FORBIDDEN_RESCUES = frozenset({"o2_e"}) # "this environment is anaerobic"
+#:
+#: muODE takes arbitrary genomes, so it must take arbitrary environments.  On a soil or
+#: marine or skin sample those two lines are silently wrong: a real fast aerobe gets
+#: flagged as an artefact, and an oxic medium that genuinely forgot oxygen can never be
+#: told what it is missing.  They now live on :class:`muode.environment.Environment`,
+#: which is a thing you can pass, print and cite.
+#:
+#: Kept as a module alias because the default has not changed -- the gut is still the
+#: default -- and because half the test suite names it.  It is the human gut's number,
+#: and now it says so.
+MAX_PLAUSIBLE_GROWTH = HUMAN_GUT.max_plausible_growth
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +160,7 @@ def sanity_check_model(
     growth_rate: Optional[float] = None,
     diet=None,
     kinetics=None,
+    environment: Environment = HUMAN_GUT,
 ) -> dict:
     """Fast structural sanity checks on a GEM.
 
@@ -205,13 +212,18 @@ def sanity_check_model(
     # only be the medium handing out more nutrient than a cell can consume.
     if growth_rate is not None:
         report["growth_rate"] = float(growth_rate)
-        report["implausible_growth"] = bool(growth_rate > MAX_PLAUSIBLE_GROWTH)
+        report["implausible_growth"] = bool(
+            growth_rate > environment.max_plausible_growth
+        )
+        report["environment"] = environment.name
 
     # A model that does not grow owes us a reason.  Without this, "0.0" in the
     # results table means either "this organism cannot do it" or "we forgot to feed
     # it", and the two are indistinguishable.
     if diet is not None and (growth_rate is None or growth_rate <= NO_GROWTH_TOL):
-        report["no_growth"] = diagnose_no_growth(model, diet, kinetics)
+        report["no_growth"] = diagnose_no_growth(
+            model, diet, kinetics, environment=environment
+        )
 
     report["passed"] = not report["energy_generating_cycle"] and not report.get(
         "implausible_growth", False
@@ -219,15 +231,12 @@ def sanity_check_model(
     return report
 
 
-#: Never proposed as a rescue, even when it would restore growth.
-#:
-#: A diagnosis is allowed to say "your medium is missing a nutrient".  It is NOT
-#: allowed to say "your anaerobic medium should be aerobic" -- that overturns the
-#: environment's premise rather than completing it, and oxygen will "rescue" almost
-#: any GEM, so it would drown every real finding.  If a diet omits o2_e that is a
-#: statement about the environment, and the diagnosis must respect it.  A diet that
-#: DOES supply oxygen never reaches this: it is not a missing exchange.
-FORBIDDEN_RESCUES = frozenset({"o2_e"})
+#: A module alias for the human gut's forbidden rescues, kept because the default has
+#: not changed and the test suite names it.  The set itself now belongs to the
+#: :class:`~muode.environment.Environment`, because what a diagnosis may propose depends
+#: on where you are: forbidding oxygen is right in a colon and WRONG in a soil sample,
+#: where an oxic medium that omits o2_e is simply a medium with a hole in it.
+FORBIDDEN_RESCUES = HUMAN_GUT.forbidden_rescues
 
 #: Growth below this is "does not grow" for diagnostic purposes.
 NO_GROWTH_TOL = 1e-6
@@ -237,7 +246,7 @@ def diagnose_no_growth(
     model,
     diet,
     kinetics=None,
-    forbid: frozenset = FORBIDDEN_RESCUES,
+    environment: Environment = HUMAN_GUT,
     rescue_bound: float = 10.0,
 ) -> dict:
     """Why does this model not grow on this diet -- biology, or a hole in the medium?
@@ -297,8 +306,11 @@ def diagnose_no_growth(
         return {"verdict": "grows", "growth": growth,
                 "rescued_by_any_of": [], "rescued_by_all_of": []}
 
-    # Everything this model could eat that the diet does not offer -- minus anything
-    # we refuse to propose (see FORBIDDEN_RESCUES).
+    # Everything this model could eat that the diet does not offer -- minus anything the
+    # ENVIRONMENT refuses to propose.  A diagnosis may complete an environment; it may
+    # not overturn one.  In a colon that means never proposing oxygen; in a soil sample
+    # it means nothing is off the table, because oxygen is supposed to be there.
+    forbid = environment.forbidden_rescues
     open_now = {k for k, v in supplied.items() if v > 0}
     candidates = sorted(
         ex for ex in exchanges

@@ -16,6 +16,7 @@ from pathlib import Path
 import cobra
 
 from muode.diet import load_diet
+from muode.environment import load_environment
 from muode.gapfill import ensure_biomass
 from muode.qc import sanity_check_model
 
@@ -27,6 +28,10 @@ def main() -> None:
     p.add_argument("--universal", help="universal model (SBML) for LP gap-filling")
     p.add_argument("--diet", help="diet preset name or CSV: judge growth on the "
                                   "simulation medium instead of the model's open one")
+    p.add_argument("--environment", default="human_gut",
+                   help="which kind of place this is: human_gut | generic_anaerobic | "
+                        "generic_aerobic.  Sets the implausible-growth ceiling and "
+                        "whether a no-growth diagnosis may propose oxygen.")
     p.add_argument("--qc-json", help="path to write the QC report")
     p.add_argument("--kinetics-json", help="path to write predicted kinetics")
     p.add_argument("--predict-kinetics", action="store_true",
@@ -46,7 +51,8 @@ def main() -> None:
     # Passing the diet lets QC diagnose a ZERO as well as judge a large one: if this
     # model cannot grow, is that the genome, or a nutrient the medium never supplied?
     # Which nutrient depends on the genomes, so it is asked every run, not remembered.
-    qc = sanity_check_model(model, growth_rate=gap.get("growth_on_diet"), diet=diet)
+    qc = sanity_check_model(model, growth_rate=gap.get("growth_on_diet"), diet=diet,
+                            environment=load_environment(args.environment))
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     cobra.io.write_sbml_model(model, args.output)

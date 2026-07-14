@@ -42,6 +42,15 @@ class PipelineConfig:
     default_vmax: float = 10.0
     default_km: float = 0.01
 
+    # --- environment -------------------------------------------------------
+    # WHAT KIND OF PLACE IS THIS?  The `diet` is the environment's chemistry -- what
+    # is there and how much.  `environment` is everything else: how fast anything
+    # could plausibly grow here, and whether a no-growth diagnosis is allowed to
+    # propose oxygen.  Both used to be bare constants in qc.py that silently assumed a
+    # human colon for every sample muODE ever ran.  See muode/environment.py; muODE
+    # ships only the environments it can justify with a citation.
+    environment: str = "human_gut"   # human_gut | generic_anaerobic | generic_aerobic
+
     # --- simulation (Phase 4) ---------------------------------------------
     diet: str = "western_gut"        # preset name OR path to a diet CSV
     total_biomass: float = 0.01
