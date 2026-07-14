@@ -39,8 +39,11 @@
 #   source_default 0.1 in the table -- which is also its fill value for
 #                  anything the intake data did not itemise.  The two are
 #                  INDISTINGUISHABLE.  Read as 'unknown', not as 'measured'.
-#   supplement     added here at the median: trace, catalytic, no C or N.
+#   supplement     added here at the median: trace MINERALS, catalytic, no C or N.
 #   derived        added here, arithmetic in the script.  Carries C or N.
+#   dri            a vitamin/cofactor, bounded by its dietary reference intake
+#                  (IOM 1998).  These used to sit at 0.1 -- which made cobalamin
+#                  the largest CARBON source in the medium.  See DRI in the script.
 #   override       in the table, and we replaced it (methanol).
 #   product        must be PREDICTED: starts at 0, uncapped.
 # A result that turns on a source_default row turns on someone else's fill
@@ -67,7 +70,7 @@ asp__L_e,10.8,0.0225,0.0225,intake
 ca2_e,48,0.1,0.1,source_default
 cellb_e,35.7566,0.074493,0.074493,intake
 cgly_e,48,0.1,0.1,source_default
-chol_e,48,0.1,0.1,source_default
+chol_e,5.27983,0.0109996,0.0109996,dri
 chor_e,48,0.1,0.1,source_default
 cit_e,48,0.1,0.1,source_default
 cl_e,48,0.1,0.1,source_default
@@ -84,7 +87,7 @@ drib_e,8.58158,0.0178783,0.0178783,intake
 fald_e,48,0.1,0.1,source_default
 fe2_e,48,0.1,0.1,source_default
 fe3_e,48,0.1,0.1,source_default
-fol_e,48,0.1,0.1,source_default
+fol_e,0.000906208,1.88793e-06,1.88793e-06,dri
 fru_e,7.15133,0.0148986,0.0148986,intake
 fuc__L_e,7.15133,0.0148986,0.0148986,intake
 fum_e,48,0.1,0.1,source_default
@@ -122,8 +125,8 @@ mg2_e,48,0.1,0.1,source_default
 mn2_e,48,0.1,0.1,source_default
 mnl_e,7.15133,0.0148986,0.0148986,intake
 mobd_e,48,0.1,0.1,source_default
-nac_e,48,0.1,0.1,source_default
-ncam_e,48,0.1,0.1,source_default
+nac_e,0.0649825,0.00013538,0.00013538,dri
+ncam_e,0.065504,0.000136467,0.000136467,dri
 nmn_e,48,0.1,0.1,source_default
 no2_e,48,0.1,0.1,source_default
 ocdca_e,8.12558,0.0169283,0.0169283,intake
@@ -131,25 +134,25 @@ ocdcea_e,32.7094,0.0681445,0.0681445,intake
 orn_e,48,0.1,0.1,source_default
 oxa_e,21.4539,0.0446957,0.0446957,intake
 phe__L_e,48,0.1,0.1,source_default
-pheme_e,48,0.1,0.1,source_default
+pheme_e,0.0340633,7.09651e-05,7.09651e-05,dri
 pi_e,48,0.1,0.1,source_default
-pnto__R_e,48,0.1,0.1,source_default
+pnto__R_e,0.0228071,4.75148e-05,4.75148e-05,dri
 pro__L_e,8.64,0.018,0.018,intake
 ptrc_e,48,0.1,0.1,source_default
 pullulan1200_e,0.048,0.0001,0.0001,intake
-pydam_e,48,0.1,0.1,source_default
-pydx_e,48,0.1,0.1,source_default
-pydxn_e,48,0.1,0.1,source_default
+pydam_e,0.00257447,5.36348e-06,5.36348e-06,dri
+pydx_e,0.00259033,5.39653e-06,5.39653e-06,dri
+pydxn_e,0.0025594,5.33209e-06,5.33209e-06,dri
 raffin_e,2.25693,0.00470194,0.00470194,intake
 rib__D_e,8.58158,0.0178783,0.0178783,intake
-ribflv_e,48,0.1,0.1,source_default
+ribflv_e,0.00345414,7.19612e-06,7.19612e-06,dri
 rmn_e,7.15133,0.0148986,0.0148986,intake
 ser__L_e,48,0.1,0.1,source_default
 so4_e,48,0.1,0.1,source_default
 spmd_e,48,0.1,0.1,source_default
 starch1200_e,0.048,0.0001,0.0001,intake
 sucr_e,3.57566,0.0074493,0.0074493,intake
-thm_e,48,0.1,0.1,source_default
+thm_e,0.00452216,9.42116e-06,9.42116e-06,dri
 thr__L_e,10.8,0.0225,0.0225,intake
 thymd_e,48,0.1,0.1,source_default
 tre_e,35.7566,0.074493,0.074493,intake
@@ -162,16 +165,16 @@ val__L_e,8.64,0.018,0.018,intake
 xan_e,48,0.1,0.1,source_default
 xyl__D_e,8.58158,0.0178783,0.0178783,intake
 zn2_e,48,0.1,0.1,source_default
-adocbl_e,48,0.1,0.1,supplement
-btn_e,48,0.1,0.1,supplement
+adocbl_e,1.51939e-06,3.1654e-09,3.1654e-09,dri
+btn_e,0.000122795,2.55823e-07,2.55823e-07,dri
 na1_e,48,0.1,0.1,supplement
 ni2_e,48,0.1,0.1,supplement
 sel_e,48,0.1,0.1,supplement
 slnt_e,48,0.1,0.1,supplement
 tungs_e,48,0.1,0.1,supplement
-urea_e,57.6,0.12,0.12,derived
-xylan4_e,3.792,0.0079,0.0079,derived
-xylan8_e,1.872,0.0039,0.0039,derived
+urea_e,58.2751,0.121406,0.121406,derived
+xylan4_e,3.7843,0.00788395,0.00788395,derived
+xylan8_e,1.89215,0.00394197,0.00394197,derived
 ac_e,0.0,0.0,,product
 but_e,0.0,0.0,,product
 ppa_e,0.0,0.0,,product

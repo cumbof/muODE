@@ -114,24 +114,33 @@ SKIPPED = {
     ),
 }
 
-#: Trace minerals and vitamins ADDED to the source table (bound = MEDIAN_BOUND).
+#: Trace MINERALS added to the source table (bound = MEDIAN_BOUND).
 #:
 #: These are not in the published medium and are not a measurement -- they are an
 #: explicit modelling addition, listed here so a reviewer can delete them and see
 #: what changes.  The justification: the source is a *dietary intake* table, and it
-#: itemises food, not the trace minerals and vitamins that are ubiquitous in the
-#: colon (from bile, host secretion, sloughed epithelium, and microbial synthesis).
-#: Their absence is an artefact of what the table was for, not a claim that the gut
-#: lacks nickel.
+#: itemises food, not the trace minerals that are ubiquitous in the colon (from
+#: bile, host secretion, sloughed epithelium, and microbial synthesis).  Their
+#: absence is an artefact of what the table was for, not a claim that the gut lacks
+#: nickel.
 #:
 #: Empirically, iJO1366 needs exactly ONE of these to grow on the medium at all --
-#: nickel, a urease/hydrogenase cofactor -- and then reaches 0.052/h.  The rest are
-#: included because real gut anaerobes are frequently vitamin auxotrophs, and a
-#: model failing for want of biotin would be a medium artefact misread as biology.
+#: nickel, a urease/hydrogenase cofactor -- and then reaches 0.052/h.
+#:
+#: **Parking these at the median is defensible, and that is now a measured claim
+#: rather than a hopeful one.**  `muode.qc.nutrient_sensitivity` classifies every
+#: mineral row as `essential_trace` for iJO1366 on this medium: the cell needs them,
+#: is saturated far below the bound, and 10x more buys exactly zero extra growth.
+#: A fill value cannot move a prediction it does not touch.  (Pinned in
+#: tests/test_nutrient_sensitivity.py, which fails if a mineral ever turns limiting.)
+#:
+#: THE VITAMINS USED TO BE IN THIS DICT, AND THAT WAS A BUG -- see DRI below.  The
+#: sentence "catalytic, carrying neither carbon nor nitrogen" is true of zinc and
+#: false of cobalamin, which is C72H100CoN18O17P.
 #:
 #: Deliberately NOT added: glucose (absorbed in the small intestine -- adding it
-#: would smuggle the small intestine into the colon) and ammonium (see NOTE below;
-#: it is a PRODUCT here, not a nutrient).
+#: would smuggle the small intestine into the colon) and ammonium (see PRODUCTS;
+#: it is a product here, not a nutrient).
 SUPPLEMENT = {
     # trace minerals -- catalytic, not stoichiometric; no carbon, no nitrogen
     "ni2_e": "nickel: urease / [NiFe]-hydrogenase cofactor (iJO1366 CANNOT grow without it)",
@@ -139,26 +148,81 @@ SUPPLEMENT = {
     "slnt_e": "selenite",
     "tungs_e": "tungstate: tungsten-dependent formate dehydrogenases in anaerobes",
     "na1_e": "sodium: Na+-coupled transport, ubiquitous",
-    # vitamins / cofactor precursors -- gut anaerobes are commonly auxotrophic
-    "btn_e": "biotin (B7)",
-    "thm_e": "thiamine (B1)",
-    "ribflv_e": "riboflavin (B2)",
-    "pnto__R_e": "pantothenate (B5)",
-    "nac_e": "nicotinate (B3)",
-    "pydxn_e": "pyridoxine (B6)",
-    "fol_e": "folate (B9)",
-    "adocbl_e": "adenosylcobalamin (B12) -- many gut anaerobes cannot make it",
+}
+
+#: Vitamins and organic cofactors, bounded by **dietary reference intake**.
+#:
+#: THE SINGLE LARGEST ERROR THIS SCRIPT HAS SHIPPED.  Every one of these rows sat at
+#: 0.1 mmol/gDW/h -- ten of them inherited from the source table's fill value, and
+#: two (biotin, adenosylcobalamin) put there by an earlier version of this script,
+#: under a comment asserting they were "catalytic, carrying neither carbon nor
+#: nitrogen".  They are not.  Cobalamin is C72H100CoN18O17P, and at a bound of 0.1 it
+#: was contributing **7.2 mmol C/gDW/h -- the largest single carbon source in the
+#: entire medium**, ahead of every actual food in it.  The twelve rows below together
+#: supplied 18 of the medium's 51.8 mmol C/gDW/h: 35% of the carbon, from vitamins.
+#:
+#: A vitamin is a *catalytic* nutrient: micrograms to milligrams per day, against
+#: grams per day of food.  Bounding it like a food is not conservative, it is a gift.
+#: Any model that can catabolise cobalamin -- and FBA will, given the chance -- gets a
+#: carbon source that outweighs the starch.
+#:
+#: So each is bounded by its adult Dietary Reference Intake, through this script's own
+#: intake->flux conversion:
+#:
+#:   Institute of Medicine (US) Standing Committee on the Scientific Evaluation of
+#:   Dietary Reference Intakes.  *Dietary Reference Intakes for Thiamin, Riboflavin,
+#:   Niacin, Vitamin B6, Folate, Vitamin B12, Pantothenic Acid, Biotin, and Choline.*
+#:   National Academies Press, 1998.  https://www.ncbi.nlm.nih.gov/books/NBK114316/
+#:
+#: **This is a deliberately GENEROUS bound, and it matters that you know why.**  It
+#: charges the colon the entire daily intake, as though none of it were absorbed --
+#: and dietary B vitamins are in fact absorbed in the *small* intestine, so the true
+#: dietary flux into the colon is a fraction of these numbers.  We do not know that
+#: fraction (nobody seems to have measured it), so we take the whole intake and are
+#: honest that it is an over-estimate rather than inventing an absorption coefficient.
+#:
+#: The real colonic supply of B vitamins is not dietary at all: it is **synthesised by
+#: the community**, and 40-65% of gut genomes carry the pathway for any given one
+#: (Magnusdottir S, Ravcheev D, de Crecy-Lagard V, Thiele I.  "Systematic genome
+#: assessment of B-vitamin biosynthesis suggests co-operation among gut microbes."
+#: *Front Genet* 6:148, 2015.  doi:10.3389/fgene.2015.00148).  muODE gets that for
+#: free and should: the producers make it, the auxotrophs cross-feed on it, and it is
+#: a public good the simulation PREDICTS rather than a gift the medium hands out.
+#: Bounding the dietary row at the intake is what makes that prediction possible.
+#:
+#: Two rows need a split, and the split is an assumption, not a measurement:
+#:   niacin  -- the RDA (16 mg/d) is in *niacin equivalents*, and the medium carries
+#:              both nicotinate and nicotinamide.  Charging each the full 16 mg would
+#:              double-count, so it is halved across them.
+#:   B6      -- one RDA (1.3 mg/d), three vitamers in the medium (pyridoxine,
+#:              pyridoxal, pyridoxamine).  Split three ways.
+#:
+#: heme is not a DRI vitamin but belongs here for the same reason: it is a large
+#: organic molecule (C34, 3.4 mmol C/gDW/h at the fill value -- the 2nd biggest carbon
+#: source in the medium) present in the diet at *milligram* scale.  Total dietary iron
+#: is 10-20 mg/d and heme iron is 10-15% of it, so ~1.9 mg/d of heme iron == 0.034
+#: mmol/d of heme (one Fe per macrocycle).  Real, and 1,400x smaller than the fill.
+DRI = {
+    # metabolite:   (g/day,     MW g/mol,  what)
+    "thm_e":        (1.2e-3,     265.36,  "thiamine (B1), RDA 1.2 mg/d"),
+    "ribflv_e":     (1.3e-3,     376.36,  "riboflavin (B2), RDA 1.3 mg/d"),
+    "nac_e":        (8.0e-3,     123.11,  "nicotinate, 1/2 of the 16 mg/d niacin RDA"),
+    "ncam_e":       (8.0e-3,     122.13,  "nicotinamide, 1/2 of the 16 mg/d niacin RDA"),
+    "pnto__R_e":    (5.0e-3,     219.23,  "pantothenate (B5), AI 5 mg/d"),
+    "btn_e":        (30e-6,      244.31,  "biotin (B7), AI 30 ug/d"),
+    "pydxn_e":      (0.433e-3,   169.18,  "pyridoxine, 1/3 of the 1.3 mg/d B6 RDA"),
+    "pydx_e":       (0.433e-3,   167.16,  "pyridoxal, 1/3 of the 1.3 mg/d B6 RDA"),
+    "pydam_e":      (0.433e-3,   168.19,  "pyridoxamine, 1/3 of the 1.3 mg/d B6 RDA"),
+    "fol_e":        (400e-6,     441.40,  "folate (B9), RDA 400 ug/d"),
+    "adocbl_e":     (2.4e-6,    1579.58,  "adenosylcobalamin (B12), RDA 2.4 ug/d"),
+    "chol_e":       (550e-3,     104.17,  "choline, AI 550 mg/d"),
+    "pheme_e":      (21e-3,      616.50,  "heme: ~1.9 mg/d heme iron (10-15% of 10-20 mg/d)"),
 }
 
 #: Nutrients ADDED with a bound DERIVED here, not taken from the source table.
-#: Each maps to (bound in mmol/gDW/h, why).  Unlike SUPPLEMENT -- which is trace
-#: catalytic stuff parked at the median -- these carry real carbon or nitrogen, so
-#: the arithmetic that produced the number is spelled out and can be argued with.
-#:
-#: The conversion throughout is the script's own:
-#:      mmol/gDW/h = (g/day / MW) / RESIDENCE_H / BIOMASS_G_PER_L
-#: i.e. a daily dietary mass, spread over the residence time, divided among the
-#: microbial biomass of one litre of colonic content.
+#: Each maps to (g/day, MW, why); the bound comes from :func:`flux_from_intake`.
+#: Unlike SUPPLEMENT -- which is trace catalytic stuff parked at the median -- these
+#: carry real carbon or nitrogen, so the inputs are spelled out and can be argued with.
 #:
 #: xylan -- `check_medium_namespace.py` found EX_xylan4_e in 40 of the 89 MAGs of
 #: the SRR13844389 run and EX_xylan8_e in 6, while the medium supplied NO xylan at
@@ -169,8 +233,7 @@ SUPPLEMENT = {
 #: coarse discretisation of a continuous degree-of-polymerisation distribution:
 #:
 #:      anhydroxylose unit  = 132.1 g/mol  -> xylan4 = 528.5, xylan8 = 1057 g/mol
-#:      2 g/day as xylan4   = 2/528.5/24/20 = 0.0079 mmol/gDW/h
-#:      2 g/day as xylan8   = 2/1057 /24/20 = 0.0039 mmol/gDW/h
+#:      2 g/day as xylan4 -> 0.0079 mmol/gDW/h;  2 g/day as xylan8 -> 0.0039
 #:      total xylose flux   = 4(0.0079) + 8(0.0039) = 0.063 mmol xylose/gDW/h
 #:
 #: which sits alongside starch1200's 1e-4 * 1200 = 0.12 mmol glucose/gDW/h -- the
@@ -180,9 +243,7 @@ SUPPLEMENT = {
 #: urea -- host urea diffuses into the colon continuously and is hydrolysed by
 #: bacterial urease; 23 of the 89 MAGs carry EX_urea_e.  Roughly 15-30% of the
 #: ~12 g/day human urea turnover is degraded in the gut (Macfarlane & Cummings,
-#: Proc Nutr Soc 1984), so ~3.5 g/day:
-#:
-#:      3.5 g/day / 60.06 g/mol / 24 h / 20 gDW/L = 0.12 mmol/gDW/h
+#: Proc Nutr Soc 1984), so ~3.5 g/day.
 #:
 #: This is the *honest* form of the ammonium question.  Supplying nh4_e directly
 #: would hand free nitrogen to all 89 models and let every one of them bypass
@@ -191,9 +252,10 @@ SUPPLEMENT = {
 #: and the ammonia released becomes a cross-fed public good rather than a gift.
 #: That is why nh4_e is in PRODUCTS: it must be *made* by somebody.
 DERIVED_SUPPLEMENT = {
-    "xylan4_e": (0.0079, "arabinoxylan, DP4 fraction: 2 g/day (40/89 MAGs can eat it)"),
-    "xylan8_e": (0.0039, "arabinoxylan, DP8 fraction: 2 g/day (6/89 MAGs can eat it)"),
-    "urea_e": (0.12, "host urea into the colon, ~3.5 g/day (23/89 MAGs have urease)"),
+    # metabolite:  (g/day,  MW g/mol,  why)
+    "xylan4_e":    (2.0,     528.5,  "arabinoxylan, DP4 fraction (40/89 MAGs can eat it)"),
+    "xylan8_e":    (2.0,    1057.0,  "arabinoxylan, DP8 fraction (6/89 MAGs can eat it)"),
+    "urea_e":      (3.5,      60.06, "host urea into the colon (23/89 MAGs have urease)"),
 }
 
 #: Source bounds we REPLACE.  metabolite -> (new bound, why).
@@ -264,8 +326,28 @@ SOURCE_INTAKE = "intake"
 SOURCE_DEFAULT = "source_default"
 SOURCE_SUPPLEMENT = "supplement"
 SOURCE_DERIVED = "derived"
+SOURCE_DRI = "dri"
 SOURCE_OVERRIDE = "override"
 SOURCE_PRODUCT = "product"
+
+
+def flux_from_intake(g_per_day: float, mw: float) -> float:
+    """A daily dietary mass (g/day) as an uptake bound (mmol/gDW/h).
+
+    Spread the day's intake over the colonic residence time and divide it among the
+    microbial biomass of one litre of colonic content::
+
+        mmol/gDW/h = 1000 * (g/day / MW) / RESIDENCE_H / BIOMASS_G_PER_L
+
+    **The 1000 is load-bearing and used to be missing from this file's comments.**
+    ``g / (g/mol)`` is *moles*, not millimoles, so the conversion written in the old
+    docstring was short by three orders of magnitude.  The published numbers were
+    right (they were computed with the factor) but the formula next to them was not,
+    and the first person to derive a new row from that formula got a bound 1000x too
+    small.  That person was the author of this function.  Hence a function: one place
+    to be wrong, and a test that pins it.
+    """
+    return 1000.0 * (g_per_day / mw) / RESIDENCE_H / BIOMASS_G_PER_L
 
 
 def fetch_medium() -> "list[tuple[str, float]]":
@@ -355,8 +437,11 @@ def main() -> int:
         "#   source_default 0.1 in the table -- which is also its fill value for",
         "#                  anything the intake data did not itemise.  The two are",
         "#                  INDISTINGUISHABLE.  Read as 'unknown', not as 'measured'.",
-        "#   supplement     added here at the median: trace, catalytic, no C or N.",
+        "#   supplement     added here at the median: trace MINERALS, catalytic, no C or N.",
         "#   derived        added here, arithmetic in the script.  Carries C or N.",
+        "#   dri            a vitamin/cofactor, bounded by its dietary reference intake",
+        "#                  (IOM 1998).  These used to sit at 0.1 -- which made cobalamin",
+        "#                  the largest CARBON source in the medium.  See DRI in the script.",
         "#   override       in the table, and we replaced it (methanol).",
         "#   product        must be PREDICTED: starts at 0, uncapped.",
         "# A result that turns on a source_default row turns on someone else's fill",
@@ -367,7 +452,17 @@ def main() -> int:
     def row(met: str, bound: float, source: str) -> str:
         return f"{met},{pool(bound):.6g},{bound:.6g},{bound:.6g},{source}"
 
+    # Vitamins and cofactors are bounded by intake wherever they appear -- whether the
+    # source table listed them (at its fill value) or an earlier version of this script
+    # added them at the median.  Both were wrong for the same reason, so both are fixed
+    # in one place rather than split across OVERRIDE and SUPPLEMENT.
+    dri_bounds = {met: flux_from_intake(g, mw) for met, (g, mw, _why) in DRI.items()}
+
     for met, flux in supplied:
+        if met in dri_bounds:
+            limits[met] = dri_bounds[met]
+            lines.append(row(met, dri_bounds[met], SOURCE_DRI))
+            continue
         if met in OVERRIDE:
             bound, _why = OVERRIDE[met]
             limits[met] = bound
@@ -377,19 +472,31 @@ def main() -> int:
         # the entire point of the column; guessing would defeat it.
         lines.append(row(met, flux,
                          SOURCE_DEFAULT if flux == MEDIAN_BOUND else SOURCE_INTAKE))
+    for met in sorted(dri_bounds):
+        if met in limits:                      # already emitted above, from the source
+            continue
+        limits[met] = dri_bounds[met]
+        lines.append(row(met, dri_bounds[met], SOURCE_DRI))
     for met in sorted(SUPPLEMENT):
         if met in limits:                      # already in the source: leave it alone
             continue
         limits[met] = MEDIAN_BOUND
         lines.append(row(met, MEDIAN_BOUND, SOURCE_SUPPLEMENT))
-    for met, (bound, _why) in sorted(DERIVED_SUPPLEMENT.items()):
+    for met, (g, mw, _why) in sorted(DERIVED_SUPPLEMENT.items()):
         if met in limits:
             sys.exit(f"{met}: now in the source table -- drop it from DERIVED_SUPPLEMENT "
                      "rather than overriding a published bound with a derived one")
-        limits[met] = bound
-        lines.append(row(met, bound, SOURCE_DERIVED))
+        limits[met] = flux_from_intake(g, mw)
+        lines.append(row(met, limits[met], SOURCE_DERIVED))
     for met in PRODUCTS:
         lines.append(f"{met},0.0,0.0,,{SOURCE_PRODUCT}")
+
+    overlap = set(SUPPLEMENT) & set(DRI)
+    if overlap:
+        sys.exit(f"{sorted(overlap)}: in SUPPLEMENT (parked at the median) AND in DRI "
+                 "(bounded by intake).  SUPPLEMENT is for MINERALS -- catalytic, no C, "
+                 "no N.  An organic cofactor belongs in DRI; that confusion is the bug "
+                 "that made cobalamin the largest carbon source in the medium.")
 
     unknown = [m for m in OVERRIDE if m not in dict(supplied)]
     if unknown:
@@ -406,15 +513,24 @@ def main() -> int:
     print(f"  {len(supplied)} from the published table + {len(added)} supplemented "
           f"+ {len(DERIVED_SUPPLEMENT)} derived + {len(PRODUCTS)} product sinks")
     if added:
-        print(f"  ADDED at the median bound (trace/catalytic): {added}")
+        print(f"  ADDED at the median bound (trace minerals -- catalytic, no C, no N): {added}")
     print("  ADDED with a bound DERIVED in this script (carbon/nitrogen -- argue with these):")
-    for met, (bound, why) in sorted(DERIVED_SUPPLEMENT.items()):
-        print(f"    {met:10} {bound:<8g} {why}")
+    for met, (g, mw, why) in sorted(DERIVED_SUPPLEMENT.items()):
+        print(f"    {met:10} {flux_from_intake(g, mw):<9.3g} {g:g} g/day  {why}")
     if OVERRIDE:
         print("  OVERRIDDEN (the source's value replaced -- loudly, on purpose):")
         for met, (bound, why) in sorted(OVERRIDE.items()):
             was = dict(supplied)[met]
             print(f"    {met:10} {was:g} -> {bound:g}   {why}")
+
+    # Vitamins.  These were the largest error in the medium, so they get the loudest
+    # report: a vitamin at a food's bound is not a conservative choice, it is a gift.
+    print("\n  VITAMINS/COFACTORS bounded by dietary reference intake (IOM 1998):")
+    src_now = dict(supplied)
+    for met, (g, mw, why) in sorted(DRI.items(), key=lambda kv: -flux_from_intake(*kv[1][:2])):
+        b = flux_from_intake(g, mw)
+        was = src_now.get(met, MEDIAN_BOUND)   # the source's fill, or ours
+        print(f"    {met:10} {was:g} -> {b:<10.3g} ({was / b:>9,.0f}x less)  {why}")
 
     # Provenance.  The headline number: how much of this medium is actually evidence?
     tally: "dict[str, int]" = {}
@@ -425,7 +541,7 @@ def main() -> int:
     total = sum(tally.values())
     print("\n  provenance:")
     for src in (SOURCE_INTAKE, SOURCE_DEFAULT, SOURCE_SUPPLEMENT, SOURCE_DERIVED,
-                SOURCE_OVERRIDE, SOURCE_PRODUCT):
+                SOURCE_DRI, SOURCE_OVERRIDE, SOURCE_PRODUCT):
         n = tally.get(src, 0)
         if n:
             print(f"    {src:16} {n:>3}  ({100 * n / total:.0f}%)")
