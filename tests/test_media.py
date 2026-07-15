@@ -14,7 +14,6 @@ import pytest
 from muode.diet import Diet, load_diet, load_preset
 from muode.gapfill import ensure_biomass, grows
 from muode.media import (
-    FERMENTATION_PRODUCTS,
     diet_medium,
     growth_on_diet,
     supplied_metabolites,
@@ -76,24 +75,6 @@ def test_mediadb_of_the_real_diet_is_carveme_shaped(tmp_path):
     assert all(not r[2].endswith("_e") for r in rows)      # no compartment suffix
     assert "fru" in {r[2] for r in rows}
     assert "o2" not in {r[2] for r in rows}                # the gut medium is anaerobic
-
-
-def test_extra_compounds_add_secretable_products_the_diet_carries_at_zero(tmp_path):
-    # A fermentation product is made, not fed: at 0 with no influx it is not
-    # supplied, so by default it is absent (the cross-feeding contract above).
-    diet = Diet(concentrations={"glc__D_e": 10.0, "but_e": 0.0}, name="t")
-    default = write_carveme_mediadb(diet, tmp_path / "a.tsv")
-    assert "but" not in {ln.split("\t")[2] for ln in default.read_text().splitlines()[1:]}
-
-    # Naming it in extra_compounds adds it so CarveMe builds the export exchange,
-    # even though the diet still feeds none of it.
-    path = write_carveme_mediadb(diet, tmp_path / "b.tsv",
-                                 extra_compounds=FERMENTATION_PRODUCTS)
-    compounds = [ln.split("\t")[2] for ln in path.read_text().splitlines()[1:]]
-    assert "but" in compounds and "ac" in compounds and "ppa" in compounds
-    # glucose is both fed and (trivially) not a product: it must appear once, not twice
-    assert compounds.count("glc__D") == 1
-    assert len(compounds) == len(set(compounds))            # no duplicate rows
 
 
 # --- Diet -> cobra medium --------------------------------------------------

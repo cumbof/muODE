@@ -25,32 +25,9 @@ you gap-fill on and the medium you simulate on can drift apart, they will.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Optional
 
 from muode.diet import Diet
-
-
-# Canonical fermentation products of a gut anaerobe community, as extracellular
-# BiGG ids.  These belong in a CarveMe media-db even though the *diet* carries
-# them at zero (they are made, not fed): CarveMe gap-fills for GROWTH, not for
-# secretion, so a genome that encodes acetate/butyrate synthesis (``ac_c``/
-# ``but_c`` present, with their pathways) is still carved with **no exchange** to
-# export them unless the product is in the medium it gap-fills on.  Listing them
-# creates the transporter+exchange, so the model can secrete what it makes -- and
-# so acetate cross-feeding (acetate -> butyrate, the route Roseburia and
-# F. prausnitzii actually use) can emerge in the shared pool.  The colonic lumen
-# does contain these acids (tens of mM), so their presence in the medium is real,
-# not a convenience.
-FERMENTATION_PRODUCTS = (
-    "ac_e",        # acetate
-    "ppa_e",       # propionate
-    "but_e",       # butyrate
-    "for_e",       # formate
-    "lac__L_e",    # L-lactate
-    "lac__D_e",    # D-lactate
-    "succ_e",      # succinate
-    "etoh_e",      # ethanol
-)
 
 
 def supplied_metabolites(diet: Diet) -> Dict[str, float]:
@@ -72,29 +49,19 @@ def to_compound(metabolite_id: str) -> str:
     return metabolite_id[:-2] if metabolite_id.endswith("_e") else metabolite_id
 
 
-def write_carveme_mediadb(diet: Diet, path: str | Path, medium: Optional[str] = None,
-                          extra_compounds: Iterable[str] = ()) -> Path:
+def write_carveme_mediadb(diet: Diet, path: str | Path, medium: Optional[str] = None) -> Path:
     """Write ``diet`` as a CarveMe media-db TSV and return the path.
 
     CarveMe reads this with ``--mediadb`` and gap-fills on the named medium with
     ``-g``; it expects one row per compound, keyed by medium, with compound ids in
     the BiGG namespace *without* a compartment suffix.
-
-    ``extra_compounds`` (extracellular ids, e.g. :data:`FERMENTATION_PRODUCTS`)
-    are added to the medium on top of what the diet *supplies*.  A diet carries
-    fermentation products at zero (they are made, not fed), so they are not in
-    ``supplied_metabolites`` and CarveMe would carve no exchange to secrete them;
-    naming them here makes CarveMe build the transporter+exchange.  De-duplicated
-    against the supplied set so a compound that is both fed and listed appears once.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     name = medium or diet.name
-    compounds = {to_compound(m) for m in supplied_metabolites(diet)}
-    compounds |= {to_compound(m) for m in extra_compounds}
     lines = ["medium\tdescription\tcompound"]
-    for compound in sorted(compounds):
-        lines.append(f"{name}\t{name} (muODE diet)\t{compound}")
+    for met in sorted(supplied_metabolites(diet)):
+        lines.append(f"{name}\t{name} (muODE diet)\t{to_compound(met)}")
     path.write_text("\n".join(lines) + "\n")
     return path
 
