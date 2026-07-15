@@ -1,0 +1,4 @@
+# carve_donors.sh scratch: raw genomes + uncompressed SBML. Regenerable; never commit.
+work/
+*.xml
+!*.xml.gz
