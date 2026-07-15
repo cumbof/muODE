@@ -55,29 +55,38 @@ MEMBERS=(
   "GCA_004295125.1|C_scindens_ATCC35704|Clostridium scindens ATCC 35704|bai+ 7alpha-dehydroxylase: cholate -> deoxycholate (the secondary-bile-acid effector)"
   "GCF_000011065.1|B_thetaiotaomicron_VPI5482|Bacteroides thetaiotaomicron VPI-5482|generalist carbohydrate degrader: broad carbon competition, reshapes the nutrient pool"
   "GCA_900537995.1|R_intestinalis_L182|Roseburia intestinalis L1-82|butyrate producer: the SCFA/acidification arm of colonization resistance"
-  # Optional cross-check member -- uncomment to also carve F. prausnitzii A2-165,
-  # which has an independently PUBLISHED GEM (Heinken 2014, PMC4108055) to
-  # compare this carve against.  Not load-bearing for the outcome.
-  # "GCA_002734145.1|F_prausnitzii_A2165|Faecalibacterium prausnitzii A2-165|butyrate producer + published-GEM cross-check"
+  # F. prausnitzii A2-165 has an independently PUBLISHED GEM (Heinken 2014,
+  # PMC4108055), so this carve can be cross-checked against the literature.
+  # Not load-bearing for the outcome -- carried for validation.
+  "GCA_002734145.1|F_prausnitzii_A2165|Faecalibacterium prausnitzii A2-165|butyrate producer + published-GEM cross-check"
 )
 
 # --- 1. render the CURRENT western_gut diet as a CarveMe media-db -------------
-echo "==> writing media-db from the current western_gut diet"
+# Fermentation products (acetate/butyrate/propionate/...) are added on top of the
+# fed diet: the diet carries them at zero (they are made, not fed), so without
+# this CarveMe -- which gap-fills for growth, not secretion -- would carve no
+# exchange to export them, and the SCFA/acidification arm could not emerge from
+# stoichiometry.  See muode.media.FERMENTATION_PRODUCTS for the rationale.
+echo "==> writing media-db from the current western_gut diet (+ fermentation products)"
 cd "${REPO}"
 python - "${MEDIADB}" "${MEDIUM}" <<'PY'
 import sys
 from muode.diet import load_diet
-from muode.media import write_carveme_mediadb
+from muode.media import write_carveme_mediadb, FERMENTATION_PRODUCTS
 path, medium = sys.argv[1], sys.argv[2]
-write_carveme_mediadb(load_diet(medium), path, medium=medium)
-print(f"    {path}")
+write_carveme_mediadb(load_diet(medium), path, medium=medium,
+                      extra_compounds=FERMENTATION_PRODUCTS)
+print(f"    {path}  (+{len(FERMENTATION_PRODUCTS)} fermentation products)")
 PY
 MEDIADB_ROWS=$(($(wc -l < "${MEDIADB}") - 1))          # minus header
 MEDIADB_SHA=$(sha256sum "${MEDIADB}" | cut -d' ' -f1)
 echo "    ${MEDIADB_ROWS} compounds, sha256 ${MEDIADB_SHA:0:12}..."
 
 # --- version stamps ----------------------------------------------------------
-CARVE_VERSION="$(carve --version 2>&1 | head -1 || echo 'unknown')"
+# CarveMe has no `--version` flag; ask the package metadata instead.
+CARVE_VERSION="$(python -c 'import importlib.metadata as m; print(m.version("carveme"))' 2>/dev/null \
+             || pip show carveme 2>/dev/null | awk -F': ' '/^Version:/{print $2}' \
+             || echo 'unknown')"
 DATASETS_VERSION="$(datasets --version 2>&1 | head -1 || echo 'unknown')"
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -101,6 +110,13 @@ STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "> at carve time, so these GEMs are gap-filled against the western_gut"
   echo "> that was in the tree on the date above.  If western_gut changes, the"
   echo "> models must be re-carved (the sha256 above will no longer match)."
+  echo ">"
+  echo "> The medium also lists \`muode.media.FERMENTATION_PRODUCTS\` (acetate,"
+  echo "> butyrate, propionate, formate, lactate, succinate, ethanol) on top of"
+  echo "> the fed diet.  These are made, not fed, but CarveMe gap-fills for growth"
+  echo "> not secretion, so without them the carved GEMs encode SCFA synthesis yet"
+  echo "> carry no exchange to export it.  Listing them builds the transporter, so"
+  echo "> the SCFA/acidification arm comes from stoichiometry rather than a dial."
   echo
   echo "## Members"
   echo
