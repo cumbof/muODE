@@ -66,6 +66,127 @@ def write_carveme_mediadb(diet: Diet, path: str | Path, medium: Optional[str] = 
     return path
 
 
+# ---------------------------------------------------------------------------
+# BiGG diet -> ModelSEED (gapseq) diet
+# ---------------------------------------------------------------------------
+#
+# muODE is BiGG-native: diets, kinetics and markers all key on BiGG ids like
+# ``glc__D_e``.  A gapseq community is ModelSEED-native (``cpd00027_e0``), and it
+# is internally consistent -- its members cross-feed with no id translation at
+# all.  The *only* BiGG<->ModelSEED boundary is the diet.  So we translate the
+# diet across once, rather than harmonising every model's ~160 exchanges.
+#
+# The map is built from the models' OWN ``bigg.metabolite`` annotations, not from
+# memory -- but that alone is wrong for three kinds of metabolite, so a small
+# hand-verified layer sits on top.  Every id in it was read out of a gapseq model
+# BY METABOLITE NAME (never guessed):
+#
+#   * SCFAs the community secretes (butyrate, propionate) carry NO
+#     ``bigg.metabolite`` annotation, so the auto-map cannot see them at all --
+#     yet they are the acidification arm of colonisation resistance and must be
+#     tracked pools.
+#   * gapseq names ammonia "NH3" and annotates it ``nh3``; the diet's nitrogen row
+#     is ``nh4``, so the auto-map never connects them.
+#   * lactose appears as two ModelSEED compounds (``cpd00208`` LACT and
+#     ``cpd01354`` beta-Lactose) *both* annotated ``lcts``; the auto-map would
+#     flag it ambiguous.  beta-Lactose is the transported form.
+_CURATED_BIGG_TO_MODELSEED = {
+    "but": "cpd00211",    # Butyrate-e0       -- secreted; no bigg.metabolite annotation
+    "ppa": "cpd00141",    # Propionate-e0     -- secreted; no bigg.metabolite annotation
+    "nh4": "cpd00013",    # NH3-e0            -- gapseq annotates ammonia as nh3, not nh4
+    "lcts": "cpd01354",   # beta-Lactose-e0   -- also cpd00208; this is the transported form
+    "ni2": "cpd00244",    # Ni2+-e0           -- trace metal; no bigg.metabolite annotation
+    "fuc__L": "cpd00751",  # L-Fucose-e0      -- colonic sugar; no bigg.metabolite annotation
+}
+
+
+def build_bigg_to_modelseed(
+    models, curated: Optional[Dict[str, str]] = None
+) -> tuple[Dict[str, str], Dict[str, list]]:
+    """Build a ``{bigg_base: modelseed_cpd}`` map from gapseq models' exchange annotations.
+
+    Reads every single-metabolite exchange in ``models`` and, where its metabolite
+    carries a ``bigg.metabolite`` annotation, records ``bigg -> cpd`` (the compound
+    id with the compartment stripped, e.g. ``cpd00027_e0`` -> ``cpd00027``).  The
+    hand-verified ``curated`` pins win over -- and silence the ambiguity of -- the
+    annotation-derived entries.
+
+    Returns ``(mapping, report)``.  ``report["ambiguous"]`` lists every BiGG id that
+    the models annotate onto more than one compound and that no curated pin
+    resolves: those are deliberately left OUT of ``mapping`` rather than guessed.
+    """
+    curated = dict(_CURATED_BIGG_TO_MODELSEED if curated is None else curated)
+    candidates: Dict[str, set] = {}
+    for model in models:
+        for ex in model.exchanges:
+            if len(ex.metabolites) != 1:
+                continue
+            met = next(iter(ex.metabolites))
+            bigg = (met.annotation or {}).get("bigg.metabolite")
+            # gapseq annotates some compounds with SEVERAL BiGG synonyms, e.g.
+            # Zn2+ is ["HC02172", "zn2"].  Record the compound under EVERY synonym,
+            # not just the first -- else the diet's own id (zn2) silently misses,
+            # and an essential trace metal drops out of the medium.
+            biggs = bigg if isinstance(bigg, list) else [bigg]
+            cpd = met.id.rsplit("_", 1)[0]
+            for b in biggs:
+                if b:
+                    candidates.setdefault(b, set()).add(cpd)
+
+    mapping: Dict[str, str] = {}
+    ambiguous: Dict[str, list] = {}
+    for bigg, cpds in candidates.items():
+        if bigg in curated:
+            continue                       # curated wins, added below
+        if len(cpds) == 1:
+            mapping[bigg] = next(iter(cpds))
+        else:
+            ambiguous[bigg] = sorted(cpds)  # do not pick; report it
+    mapping.update(curated)
+    return mapping, {"ambiguous": ambiguous}
+
+
+def translate_diet_to_modelseed(
+    diet: Diet, mapping: Dict[str, str], compartment: str = "_e0"
+) -> tuple[Diet, list]:
+    """Translate a BiGG-namespace ``diet`` into ModelSEED ids a gapseq community eats.
+
+    Every metabolite's concentration, influx, ``max_uptake`` and provenance are
+    carried over verbatim onto its ModelSEED id (``glc__D_e`` -> ``cpd00027_e0``);
+    only the id changes.  A row whose BiGG base has no entry in ``mapping`` is
+    dropped and returned in ``unresolved`` -- so the loss is reported, never silent.
+    (A diet that does not name a metabolite gives it uptake bound 0, so a dropped
+    *fermentation product* still starts at 0 exactly as it did; a dropped *nutrient*
+    is a real gap in the medium, which is why the caller is handed the list.)
+
+    Returns ``(translated_diet, unresolved)``.
+    """
+    conc: Dict[str, float] = {}
+    influx: Dict[str, float] = {}
+    max_uptake: Dict[str, float] = {}
+    source: Dict[str, str] = {}
+    unresolved: list = []
+    for mid in diet.metabolites():
+        cpd = mapping.get(to_compound(mid))
+        if cpd is None:
+            unresolved.append(to_compound(mid))
+            continue
+        new = f"{cpd}{compartment}"
+        conc[new] = diet.initial_concentration(mid)
+        if diet.influx_rate(mid):
+            influx[new] = diet.influx_rate(mid)
+        limit = diet.uptake_limit(mid)
+        if limit is not None:
+            max_uptake[new] = limit
+        prov = diet.provenance(mid)
+        if prov:
+            source[new] = prov
+    return (
+        Diet(conc, influx, max_uptake, source, name=f"{diet.name}_modelseed"),
+        sorted(unresolved),
+    )
+
+
 def diet_medium(model, diet: Diet, kinetics=None) -> Dict[str, float]:
     """The uptake bounds the dFBA engine imposes on ``model`` at t=0, as a cobra medium.
 

@@ -14,10 +14,12 @@ import pytest
 from muode.diet import Diet, load_diet, load_preset
 from muode.gapfill import ensure_biomass, grows
 from muode.media import (
+    build_bigg_to_modelseed,
     diet_medium,
     growth_on_diet,
     supplied_metabolites,
     to_compound,
+    translate_diet_to_modelseed,
     write_carveme_mediadb,
 )
 
@@ -201,6 +203,116 @@ def test_ensure_biomass_without_a_diet_is_unchanged(core):
     report = ensure_biomass(core)
     assert report["grows_now"] is True
     assert "growth_on_diet" not in report
+
+
+# --- BiGG diet -> ModelSEED (gapseq) diet ----------------------------------
+
+def _seed_model(name, exchanges):
+    """A stand-in gapseq model: ModelSEED exchange metabolites, some bigg-annotated.
+
+    ``exchanges`` is an iterable of ``(cpd_full_id, met_name, bigg_or_None)``.  This
+    is exactly the shape ``build_bigg_to_modelseed`` reads -- single-metabolite
+    exchanges whose metabolite may or may not carry a ``bigg.metabolite`` annotation
+    -- so it exercises the map builder without the multi-hundred-KB real GEMs.
+    """
+    model = cobra.Model(name)
+    for cpd, met_name, bigg in exchanges:
+        met = cobra.Metabolite(cpd, name=met_name, compartment="e0")
+        if bigg is not None:
+            met.annotation["bigg.metabolite"] = bigg
+        model.add_metabolites([met])
+        ex = cobra.Reaction(f"EX_{cpd}")
+        ex.add_metabolites({met: -1})
+        model.add_reactions([ex])
+    return model
+
+
+def test_build_map_resolves_unique_annotations_and_flags_ambiguity():
+    # glc__D annotated on one compound -> resolved; lcts annotated on TWO -> the
+    # auto-map must not pick one, but the curated pin (cpd01354) resolves it.
+    model = _seed_model("m", [
+        ("cpd00027_e0", "D-Glucose-e0", "glc__D"),
+        ("cpd00208_e0", "LACT-e0", "lcts"),
+        ("cpd01354_e0", "beta-Lactose-e0", "lcts"),
+        ("cpd00211_e0", "Butyrate-e0", None),   # secreted SCFA, no bigg annotation
+    ])
+    mapping, report = build_bigg_to_modelseed([model])
+
+    # map values are bare cpd bases; the compartment is appended at translate time
+    assert mapping["glc__D"] == "cpd00027"
+    # butyrate carries no annotation, so ONLY the curated pin can supply it
+    assert mapping["but"] == "cpd00211"
+    # lcts is annotated on two compounds; the curated pin decides, and it is no
+    # longer reported as an unresolved ambiguity
+    assert mapping["lcts"] == "cpd01354"
+    assert "lcts" not in report["ambiguous"]
+
+
+def test_build_map_records_every_bigg_synonym_of_a_compound():
+    """A compound annotated with several BiGG ids must map under all of them.
+
+    gapseq annotates Zn2+ as ``["HC02172", "zn2"]``.  The diet's zinc row is
+    ``zn2``; if only the first synonym were kept, zinc -- an essential trace metal
+    -- would silently drop out of the translated medium and every model would
+    starve on it.  This is the bug that made the first translation grow at 0/h.
+    """
+    model = _seed_model("m", [("cpd00034_e0", "Zn2+-e0", ["HC02172", "zn2"])])
+    mapping, _ = build_bigg_to_modelseed([model])
+
+    assert mapping["zn2"] == "cpd00034"
+    assert mapping["HC02172"] == "cpd00034"
+
+
+def test_build_map_reports_ambiguity_the_curated_layer_does_not_resolve():
+    # two compounds share a bigg id that has NO curated pin: refuse to guess.
+    model = _seed_model("m", [
+        ("cpd00100_e0", "Thing-A-e0", "xyz"),
+        ("cpd00200_e0", "Thing-B-e0", "xyz"),
+    ])
+    mapping, report = build_bigg_to_modelseed([model])
+
+    assert "xyz" not in mapping                       # left out, not guessed
+    assert report["ambiguous"]["xyz"] == ["cpd00100", "cpd00200"]
+
+
+def test_build_map_unions_across_models():
+    # a compound only one member carries still lands in the shared map.
+    a = _seed_model("a", [("cpd00027_e0", "D-Glucose-e0", "glc__D")])
+    b = _seed_model("b", [("cpd00036_e0", "Succinate-e0", "succ")])
+    mapping, _ = build_bigg_to_modelseed([a, b])
+
+    assert mapping["glc__D"] == "cpd00027"
+    assert mapping["succ"] == "cpd00036"
+
+
+def test_translate_carries_every_column_onto_the_modelseed_id():
+    diet = Diet(
+        concentrations={"glc__D_e": 10.0, "but_e": 0.0},
+        influx={"glc__D_e": 1.0},
+        max_uptake={"glc__D_e": 0.1},
+        source={"glc__D_e": "intake"},
+        name="t",
+    )
+    mapping = {"glc__D": "cpd00027", "but": "cpd00211"}
+    seed, unresolved = translate_diet_to_modelseed(diet, mapping)
+
+    assert seed.name == "t_modelseed"
+    assert seed.initial_concentration("cpd00027_e0") == 10.0
+    assert seed.influx_rate("cpd00027_e0") == 1.0
+    assert seed.uptake_limit("cpd00027_e0") == 0.1
+    assert seed.provenance("cpd00027_e0") == "intake"
+    # the product row is carried at 0 so it stays a tracked pool for cross-feeding
+    assert seed.initial_concentration("cpd00211_e0") == 0.0
+    assert unresolved == []
+
+
+def test_translate_reports_unresolved_rows_rather_than_dropping_them_silently():
+    diet = Diet(concentrations={"glc__D_e": 10.0, "mystery_e": 5.0}, name="t")
+    seed, unresolved = translate_diet_to_modelseed(diet, {"glc__D": "cpd00027"})
+
+    assert "cpd00027_e0" in seed.concentrations
+    assert unresolved == ["mystery"]                  # handed back, not swallowed
+    assert not any(m.startswith("mystery") for m in seed.concentrations)
 
 
 # --- diet resolution -------------------------------------------------------
