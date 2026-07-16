@@ -50,9 +50,8 @@ ARMS = [
     ("fmt_competition", "+ FMT, competition only", "#4a3aa7"),
 ]
 
-#: run.py's clearance rule, imported rather than restated so the figure's threshold line
-#: and the summary's verdict cannot drift apart.
-from run import CLEARED_BELOW  # noqa: E402
+#: Imported rather than restated so the figures and the summary cannot drift apart.
+from run import CLEARED_BELOW, rebound_rate  # noqa: E402
 
 SURFACE = "#fcfcfb"
 INK = "#0b0b0b"
@@ -95,7 +94,12 @@ def plot_decomposition(summary: dict, out: Path) -> Path:
     spo = [x.get("pathogen_final_spores", 0.0) for x in a]
     vals = [v + s for v, s in zip(veg, spo)]
     labels = [label for _, label, _ in arms]
-    verdicts = ["CLEARED" if x["cleared"] else "PERSISTS" for x in a]
+    # Annotate with the spore FRACTION, not the CLEARED verdict: the verdict is a
+    # threshold crossed with a horizon (see run.CLEARED_BELOW), whereas "how much of
+    # what is left is dormant" is the thing the reader has to know -- an arm that is
+    # 78% spores has not cured anything, it has filled the recurrence reservoir.
+    verdicts = [f"({100*s/(v+s):.0f}% spores)" if (v + s) > 0 else ""
+                for v, s in zip(veg, spo)]
 
     # Height tracks the arm count so seven arms are not crammed into a five-arm figure.
     fig, ax = plt.subplots(figsize=(8.6, 1.4 + 0.52 * len(arms)), facecolor=SURFACE)
@@ -118,7 +122,7 @@ def plot_decomposition(summary: dict, out: Path) -> Path:
     for i, (v, verdict) in enumerate(zip(vals, verdicts)):
         # Start the label past the threshold line for bars shorter than it, so the
         # text never sits on top of the rule it is being compared against.
-        ax.annotate(f"{v:.3f}  {verdict}", xy=(max(v, CLEARED_BELOW), i), xytext=(6, 0),
+        ax.annotate(f"{v:.3f}  {verdict}", xy=(v, i), xytext=(6, 0),
                     textcoords="offset points", va="center", fontsize=9, color=INK)
 
     ax.set_yticks(list(y))
@@ -127,7 +131,7 @@ def plot_decomposition(summary: dict, out: Path) -> Path:
     ax.set_xlim(0, span * 1.42)
     ax.set_xlabel("C. difficile biomass at t_end (gDW/L), vegetative + spores",
                   color=INK_MUTED, fontsize=9)
-    ax.set_title("Which arm of colonization resistance clears the pathogen?",
+    ax.set_title("How much pathogen is left — and is it awake or dormant?",
                  color=INK, fontsize=12, loc="left", pad=12)
     ax.grid(axis="x", color="#ecebe6", linewidth=1)
     ax.set_axisbelow(True)
@@ -186,6 +190,66 @@ def plot_trajectories(results: Path, summary: dict, out: Path) -> Path | None:
     return path
 
 
+def plot_rebound(results: Path, summary: dict, out: Path) -> Path | None:
+    """Net growth rate at t_end, per arm -- THE outcome.
+
+    Free of the clearance threshold and of the horizon, both of which decide the
+    `cleared` verdict without reference to the biology.  The zero line is the whole
+    figure: left of it the community excludes the pathogen, right of it the arm only
+    delays recurrence.  An arm can sit at a flattering final biomass and still be on
+    the wrong side of this line.
+    """
+    rows = []
+    for key, label, colour in ARMS:
+        lam = (summary["arms"].get(key) or {}).get("rebound_rate")
+        if lam is None:                       # recompute for runs predating the metric
+            csv = results / f"{key}_biomass.csv"
+            if not csv.exists():
+                continue
+            df = pd.read_csv(csv, index_col=0)
+            if gs.PATHOGEN not in df.columns:
+                continue
+            lam = rebound_rate(df[gs.PATHOGEN])
+        rows.append((label, float(lam), colour))
+    if not rows:
+        return None
+
+    fig, ax = plt.subplots(figsize=(8.6, 1.4 + 0.52 * len(rows)), facecolor=SURFACE)
+    y = range(len(rows))
+    ax.barh(list(y), [r[1] for r in rows], height=0.62,
+            color=[r[2] for r in rows], edgecolor=SURFACE, linewidth=2)
+    ax.axvline(0, color=INK, linewidth=1.4, zorder=3)
+    for i, (_, lam, _) in enumerate(rows):
+        ax.annotate(f"{lam:+.4f}/h", xy=(lam, i),
+                    xytext=(6 if lam >= 0 else -6, 0), textcoords="offset points",
+                    va="center", ha="left" if lam >= 0 else "right",
+                    fontsize=9, color=INK)
+
+    ax.set_yticks(list(y))
+    ax.set_yticklabels([r[0] for r in rows])
+    ax.invert_yaxis()
+    lo = min(0.0, min(r[1] for r in rows))
+    hi = max(0.0, max(r[1] for r in rows))
+    pad = 0.42 * max(abs(lo), abs(hi), 1e-6)
+    ax.set_xlim(lo - pad, hi + pad)
+    ax.set_xlabel("net growth rate of C. difficile at t_end (1/h)",
+                  color=INK_MUTED, fontsize=9)
+    ax.set_title("Is the pathogen excluded, or only delayed?", color=INK, fontsize=12,
+                 loc="left", pad=12)
+    ax.text(0, 1.01, "  <- excluded (washout)   |   growing ->",
+            transform=ax.get_xaxis_transform(), color=INK_MUTED, fontsize=8,
+            ha="center", va="bottom")
+    ax.grid(axis="x", color="#ecebe6", linewidth=1)
+    ax.set_axisbelow(True)
+    _style(ax)
+
+    fig.tight_layout()
+    path = out / "rebound_rate.png"
+    fig.savefig(path, dpi=200, facecolor=SURFACE)
+    plt.close(fig)
+    return path
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -205,7 +269,9 @@ def main() -> int:
     out = Path(args.outdir)
     out.mkdir(parents=True, exist_ok=True)
 
-    for p in (plot_decomposition(summary, out), plot_trajectories(results, summary, out)):
+    for p in (plot_rebound(results, summary, out),
+              plot_decomposition(summary, out),
+              plot_trajectories(results, summary, out)):
         if p is not None:
             print(f"wrote {p}")
     return 0

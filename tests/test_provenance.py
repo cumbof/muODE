@@ -172,3 +172,40 @@ def test_the_bile_decomposition_is_now_a_genome_scale_STUDY_not_a_toy_unit_test(
     assert fmt_run.ARMS["untreated"] == (False, "abx")
     assert "abx_only" in fmt_run.ARMS
     assert "untreated" in fmt_run.CORE_ARMS
+
+
+def test_the_outcome_measure_is_free_of_the_horizon_and_the_threshold():
+    """lambda, not `cleared`, is the result -- and it must be arithmetically right.
+
+    `cleared` is an invented threshold crossed with a finite horizon, which is a verdict
+    about when we stopped looking: in the first working run every treated arm read
+    CLEARED while the pathogen was growing exponentially at t_end, and at the measured
+    rates those same arms cross the threshold at t~194 h and t~436 h.  Same run, same
+    biology, opposite verdicts, chosen by the horizon.
+
+    lambda = dln(X)/dt has neither dial in it: <0 is washout (the community excludes the
+    pathogen), >0 means the arm only delays recurrence.  Here it is checked against a
+    curve whose growth rate is known exactly.
+    """
+    import sys
+    from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
+    import pytest
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "fmt_cdiff"))
+    import run as fmt_run  # noqa: E402
+
+    t = np.arange(0.0, 120.05, 0.05)
+    for lam in (+0.0111, -0.02, 0.0):
+        series = pd.Series(0.05 * np.exp(lam * t), index=t)
+        assert fmt_run.rebound_rate(series) == pytest.approx(lam, abs=1e-6)
+
+    # and it reads the END of the run, not the whole of it: an arm that is knocked down
+    # and then rebounds must report the REBOUND, not the average of crash and recovery
+    crash_then_grow = pd.Series(
+        np.where(t < 16, 0.05 * np.exp(-0.3 * t) + 3e-4, 3e-4 * np.exp(0.0115 * (t - 16))),
+        index=t,
+    )
+    assert fmt_run.rebound_rate(crash_then_grow) == pytest.approx(0.0115, abs=1e-4)

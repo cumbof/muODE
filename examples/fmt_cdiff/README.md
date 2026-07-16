@@ -149,28 +149,59 @@ active:
 > colonization resistance needs an arm where nothing is done at all.
 
 `run.py` refuses to start if the pathogen GEM is not ready, writes `<arm>_biomass.csv`
-/ `<arm>_metabolites.csv` / `<arm>_spores.csv` and `summary.json`, and prints a
-`MECHANISM DECOMPOSITION` table of final pathogen biomass per arm.
+/ `<arm>_metabolites.csv` / `<arm>_spores.csv` and `summary.json`, and prints the
+`MECHANISM DECOMPOSITION` table.
+
+### The outcome measure is λ, not "cleared"
+
+`rebound_rate` — the net specific growth rate of the pathogen over the last 30h,
+`λ = dln(X)/dt` — is the result:
+
+| λ | meaning |
+|---|---|
+| **< 0** | the community **excludes** the pathogen: it washes out. Colonization resistance. |
+| **≈ 0** | held at a steady state |
+| **> 0** | still growing at `t_end` — the arm **delays** recurrence, it does not prevent it |
+
+`cleared` is kept as a coarse flag but is **deliberately demoted**: it is an invented
+threshold (0.1) crossed with a finite horizon, so it reports *when we stopped looking*.
+In the first working run every treated arm read `CLEARED` while the pathogen was growing
+exponentially; at the measured rates those arms cross 0.1 at t≈194h and t≈436h. Same
+run, same biology, opposite verdicts — chosen by the horizon. λ has neither dial in it.
 
 **Clearance counts spores.** `pathogen_final` is vegetative **+** spore biomass, because
 sporulation is not clearance — it is exactly how *C. difficile* survives a drug course
-and comes back. A metric that reads only the vegetative pool scores dormancy as a cure
-and gets rCDI precisely backwards.
+and comes back. A metric reading only the vegetative pool scores dormancy as a cure and
+gets rCDI precisely backwards. Watch the spore *fraction*: an arm that is 78% spores has
+filled the recurrence reservoir, not emptied it.
 
 **How to read the table:**
 
 - If `untreated` does **not** show the pathogen establishing, stop — nothing else in the
-  run means anything, and no arm should be interpreted.
-- If `fmt_full` clears but `fmt_competition` does not, the layered mechanism is
-  load-bearing and the decomposition is the result.
-- If `fmt_competition` does just as well, clearance is nutrient competition and the
-  bile/pH story is decorative — an honest and publishable finding, not a failure.
+  run means anything.
+- Compare `fmt_competition` against `abx_only`: equal λ means the donors contribute
+  nothing through nutrient competition.
+- Compare `fmt_full` against `fmt_competition`: the gap is what the bile/pH arms buy.
 
-What this roster **cannot** show: *C. difficile* is the **fastest grower on this diet**
-(0.036/h against 0.026–0.034 for the donors), so the donors are not expected to win on
-nutrients. They were chosen for the mechanisms they carry — butyrate, *bai* — never for
-competitive ability. If `fmt_competition` looks no better than `abx_only`, that is the
-roster answering honestly.
+### Known limitation of this roster and diet
+
+*C. difficile* is the **fastest grower on this diet** (0.036/h vs 0.026–0.034 for the
+donors), so the donors are not expected to win on nutrients — and the measured result is
+that they don't: `fmt_competition` ≡ `abx_only`.
+
+The cause is the **diet, not the roster**. All four donors carry exchanges for starch
+(`cpd90003_e0`, `cpd90004_e0`) which the pathogen **cannot** use — but the ModelSEED
+diet omits it, along with glycogen, inositol and galacturonate. The BiGG `western_gut`
+diet *has* starch (`starch1200_e`, `amylose300_e`); the translation dropped it because
+ModelSEED encodes starch as chain-length-specific species that no annotation bridges.
+So the donors — fibre degraders, every one — were left competing for the same simple
+sugars the pathogen prefers, with their actual niche sitting in the untranslated column.
+Of 52 substrates the donors can use and the pathogen cannot, the diet supplies **10**,
+and those are mostly trace nucleosides.
+
+Until the polymer rows are mapped, this example demonstrates the **machinery** —
+ablation, provenance, spore accounting, λ — on a community that cannot show
+resource-based colonization resistance. See `derive_medium_modelseed.py`.
 
 ---
 

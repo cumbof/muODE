@@ -73,7 +73,45 @@ CORE_ARMS = ("untreated", "abx_only", "fmt_full", "fmt_competition")
 
 #: Pathogen biomass (vegetative + spores) below which the infection is called cleared.
 #: Shared with figures.py so the figure's threshold line and this verdict cannot drift.
+#:
+#: DEMOTED, deliberately.  This is an invented threshold, and crossed with a finite
+#: horizon it produces a verdict about when we stopped looking rather than about the
+#: biology: in the first working run every treated arm read CLEARED while the pathogen
+#: was still growing exponentially at t_end.  At the measured rates abx_only crosses 0.1
+#: at t~194 h and fmt_full at t~436 h -- same run, same biology, opposite verdicts,
+#: chosen by the horizon.  Keep it as a coarse flag; read REBOUND_RATE for the result.
 CLEARED_BELOW = 0.1
+
+#: Hours at the end of the run over which the rebound rate is fitted.  Long enough to
+#: average out the Euler wobble, short enough to sit well after the drug has cleared
+#: (concentration ~0.02 by t=24 with a 2 h half-life).
+REBOUND_WINDOW_H = 30.0
+
+
+def rebound_rate(series, window_h: float = REBOUND_WINDOW_H) -> float:
+    """Net specific growth rate (1/h) of the pathogen at the END of the run.
+
+    THE outcome measure, and the reason it replaces ``cleared`` as the headline: it is
+    free of both the threshold and the horizon.  A log-linear fit of the last
+    ``window_h`` hours gives lambda = dln(X)/dt = mu - D - (losses), which is exactly the
+    colonization-resistance question:
+
+        lambda < 0   the community EXCLUDES the pathogen -- it washes out
+        lambda ~ 0   it is held at a steady state
+        lambda > 0   it is growing; the arm delays recurrence, it does not prevent it
+
+    A final biomass answers "how far had it got when we stopped"; lambda answers "where
+    is it going", which is the thing a clinician and a reviewer both actually want.
+    """
+    import numpy as np
+
+    t = np.asarray(series.index, dtype=float)
+    x = np.asarray(series.values, dtype=float)
+    mask = (t >= t[-1] - window_h) & (x > 0)
+    if mask.sum() < 3:
+        return float("nan")
+    # ln X ~ a + lambda t  -- the slope IS the net specific growth rate
+    return float(np.polyfit(t[mask], np.log(x[mask]), 1)[0])
 
 
 def main() -> int:
@@ -133,19 +171,23 @@ def main() -> int:
         final_total = final_veg + final_spores
         cleared = final_total < CLEARED_BELOW
 
+        lam = rebound_rate(res.biomass[gs.PATHOGEN])
+
         latched = res.meta.get("spore_latched") or {}
         summary["arms"][name] = {
+            "rebound_rate": lam,                    # THE outcome: 1/h, horizon-free
+            "excluded": bool(lam < 0),              # lambda<0 = washout = resistance
             "pathogen_final": final_total,          # veg + spores: the reservoir
             "pathogen_final_vegetative": final_veg,
             "pathogen_final_spores": final_spores,
             "pathogen_min_vegetative": min_veg,
-            "cleared": cleared,
+            "cleared": cleared,                     # coarse flag; see CLEARED_BELOW
             "spore_latched": latched,
             "runtime_s": round(secs, 1),
         }
         print(f"    pathogen: veg={final_veg:.4f}  spores={final_spores:.4f}  "
-              f"total={final_total:.4f}  "
-              f"{'CLEARED' if cleared else 'PERSISTS'}  ({secs/60:.1f} min)")
+              f"total={final_total:.4f}  lambda={lam:+.4f}/h  "
+              f"{'EXCLUDED' if lam < 0 else 'GROWING'}  ({secs/60:.1f} min)")
         if latched:
             print(f"    !! SPORULATION TRIGGER LATCHED for {list(latched)}: growth never "
                   f"reached mu_stress ({latched}). This arm cannot be read.",
@@ -153,14 +195,20 @@ def main() -> int:
 
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
 
-    # The headline table: does clearance survive removing the advertised mechanism?
-    print("\n" + "=" * 64)
-    print("MECHANISM DECOMPOSITION (pathogen final biomass per arm)")
-    print("=" * 64)
+    # The headline table.  lambda is the result; the biomass columns are context.
+    print("\n" + "=" * 78)
+    print("MECHANISM DECOMPOSITION")
+    print("=" * 78)
+    print(f"  {'arm':20} {'total':>8} {'veg':>8} {'spores':>8} {'lambda/h':>9}  outcome")
     for name in arms:
         a = summary["arms"][name]
-        print(f"  {name:20} {a['pathogen_final']:8.4f}   "
-              f"{'CLEARED' if a['cleared'] else 'PERSISTS'}")
+        print(f"  {name:20} {a['pathogen_final']:8.4f} "
+              f"{a['pathogen_final_vegetative']:8.4f} {a['pathogen_final_spores']:8.4f} "
+              f"{a['rebound_rate']:+9.4f}  "
+              f"{'EXCLUDED' if a['excluded'] else 'GROWING'}")
+    print("\n  lambda < 0: the community excludes the pathogen (washout) -- resistance.")
+    print("  lambda > 0: it is still growing at t_end; the arm DELAYS recurrence.")
+    print("  A high spore fraction is not a cure: it is the recurrence reservoir.")
     print(f"\nwrote {out}/summary.json")
     return 0
 
