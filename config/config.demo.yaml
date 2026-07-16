@@ -7,7 +7,7 @@
 #   conda activate muode
 #   snakemake --cores 4 --configfile config/config.demo.yaml   # no --use-conda
 
-mags_dir: "examples/data/mags"
+mags_dir: "examples/stub_pipeline/data/mags"
 mag_extension: "fna"
 abundance: null
 outdir: "results/demo_pipeline"

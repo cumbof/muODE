@@ -36,11 +36,13 @@
 #   * gapseq on PATH (its own env)
 #   * ncbi-datasets-cli
 #
-# RUNTIME  ~30-90 min PER genome (the find step).  Three genomes: a few hours.
+# RUNTIME  ~30-90 min PER genome (the find step).  Five genomes: most of a day.
+#          Members whose .xml.gz is already present are skipped, so this is the
+#          full recipe for a fresh clone and a no-op on a complete checkout.
 #
 # RUN
 #   bash examples/fmt_cdiff/gems/reconstruct_gapseq.sh
-#   # then hand back the three *.gapseq.xml.gz files it drops in this dir.
+#   # then hand back the *.xml.gz files it drops in this dir.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -48,18 +50,21 @@ HERE="$(cd "$(dirname "$(realpath "$0")")" && pwd)"      # examples/fmt_cdiff/ge
 WORK="${HERE}/gapseq_work"                               # scratch + gapseq intermediates
 mkdir -p "${WORK}"
 
-# "ACCESSION|slug|role"  -- accessions match the donors already carved.
+# "ACCESSION|slug|role" -- the whole community, so this script IS the recipe.  The
+# accessions are the ones in PROVENANCE.md; each member already present is skipped.
 MEMBERS=(
   "GCF_000011065.1|B_thetaiotaomicron_VPI5482|generalist carbohydrate degrader"
   "GCA_004295125.1|C_scindens_ATCC35704|Stickland fermenter; bai arm via markers.py"
   "GCF_000009205.2|C_difficile_630|THE PATHOGEN (gapseq; iCN900 is the cross-check)"
+  "GCA_900537995.1|R_intestinalis_L182|butyrate producer (the SCFA arm)"
+  "GCA_002734145.1|F_prausnitzii_A2165|butyrate producer + published-GEM cross-check"
 )
 
 for row in "${MEMBERS[@]}"; do
     IFS='|' read -r acc slug role <<< "${row}"
     mdir="${WORK}/${slug}"
     fna="${mdir}/${slug}.fna"
-    gz="${HERE}/${slug}.gapseq.xml.gz"
+    gz="${HERE}/${slug}.xml.gz"
     mkdir -p "${mdir}"
 
     if [[ -s "${gz}" ]]; then echo "[skip] ${slug} (have ${gz})"; continue; fi
@@ -89,10 +94,8 @@ done
 
 echo
 echo "============================================================"
-echo " Done.  Hand back the three files in examples/fmt_cdiff/gems/:"
-echo "   B_thetaiotaomicron_VPI5482.gapseq.xml.gz"
-echo "   C_scindens_ATCC35704.gapseq.xml.gz"
-echo "   C_difficile_630.gapseq.xml.gz"
+echo " Done.  The community is the *.xml.gz files in examples/fmt_cdiff/gems/;"
+echo " compare their sha256 against PROVENANCE.md."
 echo " Keep gapseq_work/ -- its RDS intermediates are needed to cheaply"
 echo " re-gap-fill on the ModelSEED western_gut medium later."
 echo "============================================================"

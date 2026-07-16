@@ -82,6 +82,7 @@ present*. That is what makes the ablation a clean decomposition.
 |---|---|
 | `scenario.py` | the scenario as an importable module: `readiness()`, `verify()`, `build_community()` (refuses to assemble without the pathogen), `build_scenario(fmt, ablate=…)` |
 | `run.py` | the workstation driver — runs the five ablation arms, writes CSVs + `summary.json`, prints the decomposition table |
+| `figures.py` | draws the two figures that carry the claim, from `summary.json` + the biomass CSVs → `figures/` |
 | `derive_medium_modelseed.py` | translates the BiGG `western_gut` diet into ModelSEED once, from the models' own annotations → `gems/western_gut_modelseed.csv` |
 | `gems/` | the five gapseq GEMs, `reconstruct_gapseq.sh`, the ModelSEED diet, and `PROVENANCE.md` |
 | `benchmark.yaml` | the FMT-success validation spec (checked once the study has run) |
@@ -164,7 +165,26 @@ check timing: `python examples/fmt_cdiff/run.py --arms fmt_full no_fmt`.
 
 ---
 
-## Step 3 — validate against the benchmark
+## Step 3 — draw the figures
+
+```bash
+python examples/fmt_cdiff/figures.py --results results/fmt
+```
+
+Writes into `figures/` (created by this step; the PNGs are committed once the study
+has actually run, so what is in the repo is always a picture of a real run):
+
+| figure | what it shows |
+|---|---|
+| `mechanism_decomposition.png` | pathogen final biomass per arm against the clearance threshold — **the headline**: read `fmt_competition` against `fmt_full` |
+| `pathogen_trajectories.png` | *C. difficile* over time per arm, so *when* the arms diverge is visible (an arm that only separates after the transplant is evidence the transplant did it) |
+
+The figures plot the CSVs and nothing else — an arm that was not run is simply absent,
+and no curve is smoothed or extrapolated.
+
+---
+
+## Step 4 — validate against the benchmark
 
 ```bash
 muode validate --results results/fmt --expected examples/fmt_cdiff/benchmark.yaml

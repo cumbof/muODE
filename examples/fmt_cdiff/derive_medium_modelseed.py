@@ -55,12 +55,7 @@ def _load_models():
     import cobra
 
     logging.disable(logging.CRITICAL)  # cobra's SBML reader is very chatty
-    paths = sorted(glob.glob(str(GEMS / "*.gapseq.xml.gz")))
-    # the first two members predate the `.gapseq.` naming convention
-    for legacy in ("F_prausnitzii_A2165.xml.gz", "R_intestinalis_L182.xml.gz"):
-        p = GEMS / legacy
-        if p.exists() and str(p) not in paths:
-            paths.append(str(p))
+    paths = sorted(glob.glob(str(GEMS / "*.xml.gz")))
     models = {}
     for p in sorted(paths):
         with gzip.open(p, "rt") as fh:

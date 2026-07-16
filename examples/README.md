@@ -47,7 +47,7 @@ engine reuses the same models, diet and kinetics as the well-mixed demo.
 
 ## Whole-pipeline smoke test (the `stub` engine)
 
-`data/mags/` holds two tiny toy MAGs (`fermenter.fna`, `consumer.fna`) tagged
+`stub_pipeline/data/mags/` holds two tiny toy MAGs (`fermenter.fna`, `consumer.fna`) tagged
 with `muode-stub:<role>` in their FASTA headers. The dependency-free `stub`
 reconstruction engine turns them into simulatable placeholder GEMs, so the
 *entire* Snakemake DAG runs on any machine — including ones where CarveMe and

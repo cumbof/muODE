@@ -80,18 +80,16 @@ class Member:
     is_pathogen: bool = False
 
     def gem_path(self) -> Optional[Path]:
-        """Prefer the gapseq reconstruction; fall back to a bare ``.xml.gz``.
+        """This member's GEM, or None if it has not been reconstructed yet.
 
-        Returns None if no file exists yet.  A ``.gapseq.xml.gz`` is always gapseq; a
-        bare ``.xml.gz`` may be gapseq (the two already-done members) or a leftover
-        CarveMe carve (the two awaiting replacement) -- :func:`load` sorts that out by
-        namespace, so this only has to find *a* file.
+        The filename does not certify the reconstructor -- every model here is gapseq
+        (see ``gems/PROVENANCE.md``), so naming one of them ``.gapseq.`` would only
+        imply the others are something else.  What a file *is* is settled by
+        :func:`load`, which rejects anything outside the ModelSEED namespace; this
+        only has to find it.
         """
-        for name in (f"{self.slug}.gapseq.xml.gz", f"{self.slug}.xml.gz"):
-            p = GEMS / name
-            if p.exists():
-                return p
-        return None
+        p = GEMS / f"{self.slug}.xml.gz"
+        return p if p.exists() else None
 
 
 #: The designed 5-member FMT study.  Roles map to the mechanisms in :func:`cdi_ecology`:

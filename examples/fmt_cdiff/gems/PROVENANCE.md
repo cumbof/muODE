@@ -25,7 +25,7 @@ because its result *rests* on a pathway CarveMe cannot supply.
 | tool | **gapseq** `2.1.0` |
 | sequence DB | `1.5 (Bacteria, 2026-05-29)` |
 | route | `find → transport → draft → predict medium → fill` (`gapseq doall`) |
-| script | `reconstruct_gapseq.sh` (workstation; the three not built earlier) |
+| script | `reconstruct_gapseq.sh` (workstation; all five, skipping any already present) |
 | input | nucleotide genome FASTA (NCBI Datasets) |
 | gap-fill medium | gapseq's own predicted medium (see note) |
 
@@ -41,15 +41,17 @@ because its result *rests* on a pathway CarveMe cannot supply.
 
 | model | species / strain | accession | reactions | sha256 | role |
 |---|---|---|---:|---|---|
-| `C_difficile_630.gapseq.xml.gz` | *Clostridioides difficile* 630 | GCF_000009205.2 | 2051 | `4d76afe76abd57ee` | **THE PATHOGEN** — reconstructed with gapseq too, so it shares the ModelSEED pool (iCN900 stays a BiGG cross-check, not a member: no namespace mixing) |
-| `B_thetaiotaomicron_VPI5482.gapseq.xml.gz` | *Bacteroides thetaiotaomicron* VPI-5482 | GCF_000011065.1 | 1980 | `e849fd25f32fe9be` | generalist carbohydrate degrader: broad carbon competition, reshapes the nutrient pool |
+| `C_difficile_630.xml.gz` | *Clostridioides difficile* 630 | GCF_000009205.2 | 2051 | `4d76afe76abd57ee` | **THE PATHOGEN** — reconstructed with gapseq too, so it shares the ModelSEED pool (iCN900 stays a BiGG cross-check, not a member: no namespace mixing) |
+| `B_thetaiotaomicron_VPI5482.xml.gz` | *Bacteroides thetaiotaomicron* VPI-5482 | GCF_000011065.1 | 1980 | `e849fd25f32fe9be` | generalist carbohydrate degrader: broad carbon competition, reshapes the nutrient pool |
 | `R_intestinalis_L182.xml.gz` | *Roseburia intestinalis* L1-82 | GCA_900537995.1 | 1825 | `006156894c8a43fb` | butyrate producer: the SCFA/acidification arm of colonization resistance |
-| `C_scindens_ATCC35704.gapseq.xml.gz` | *Clostridium scindens* ATCC 35704 | GCA_004295125.1 | 1785 | `64472dee35c0c32a` | *bai⁺* 7α-dehydroxylase: cholate → deoxycholate (the secondary-bile-acid effector) |
+| `C_scindens_ATCC35704.xml.gz` | *Clostridium scindens* ATCC 35704 | GCA_004295125.1 | 1785 | `64472dee35c0c32a` | *bai⁺* 7α-dehydroxylase: cholate → deoxycholate (the secondary-bile-acid effector) |
 | `F_prausnitzii_A2165.xml.gz` | *Faecalibacterium prausnitzii* A2-165 | GCA_002734145.1 | 1559 | `9632d4705aa8832a` | butyrate producer + published-GEM cross-check |
 
-> The two files without the `.gapseq.` infix (Roseburia, F. prausnitzii) were the
-> first two members reconstructed, before the naming convention settled; they are
-> gapseq 2.1.0 models all the same.  `scenario.py` loads either name.
+> Filenames are uniformly `<slug>.xml.gz`: every model here is gapseq, so marking
+> some of them `.gapseq.` would only imply the rest are not.  What a file *is* is
+> settled by this table and, at load time, by the namespace check in `scenario.py`
+> — never by its name.  The sha256 are of the file contents and are unaffected by
+> the rename.
 
 ## Reproducing
 
