@@ -4,11 +4,11 @@
 Reads what ``run.py`` wrote (``summary.json`` + ``<arm>_biomass.csv``) and draws the
 two figures that carry the study's claim:
 
-  1. ``mechanism_decomposition.png`` -- pathogen final biomass per arm.  THE result:
-     if ``fmt_competition`` (bile and pH both ablated) clears the pathogen just as
-     well as ``fmt_full``, then clearance is nutrient competition and the advertised
-     bile mechanism is decoration.  The figure is built to make that readable at a
-     glance rather than to flatter the hypothesis.
+  1. ``mechanism_decomposition.png`` -- pathogen biomass per arm, split into the
+     vegetative and spore pools.  THE result, and the split is half of it: a bar that
+     is mostly spore is not a cure, it is a pathogen waiting for the drug to wash out.
+     Read ``untreated`` first (did it colonize at all?), then ``fmt_competition``
+     against ``fmt_full`` (is the bile/pH mechanism load-bearing, or is it competition?).
   2. ``pathogen_trajectories.png`` -- C. difficile biomass over time, one line per
      arm, so *when* the arms diverge is visible (before or after the transplant).
 
@@ -41,16 +41,18 @@ HERE = Path(__file__).resolve().parent
 #: arm keeps its hue whether or not the others were run (categorical slots 1-5 of the
 #: validated palette, in fixed order).
 ARMS = [
-    ("no_fmt", "no FMT (control)", "#2a78d6"),
-    ("fmt_full", "FMT, full mechanism", "#008300"),
-    ("fmt_no_bile", "FMT, bile ablated", "#e87ba4"),
-    ("fmt_no_ph", "FMT, pH ablated", "#eda100"),
-    ("fmt_competition", "FMT, competition only", "#1baf7a"),
+    ("untreated", "untreated (no drug, no FMT)", "#2a78d6"),
+    ("abx_only", "vancomycin only", "#008300"),
+    ("fmt_only", "FMT only (no drug)", "#e87ba4"),
+    ("fmt_full", "vancomycin + FMT", "#eda100"),
+    ("fmt_no_bile", "+ FMT, bile ablated", "#1baf7a"),
+    ("fmt_no_ph", "+ FMT, pH ablated", "#eb6834"),
+    ("fmt_competition", "+ FMT, competition only", "#4a3aa7"),
 ]
 
-#: run.py's clearance rule, restated here so the figure's line and the summary's
-#: verdict cannot drift apart.
-CLEARED_BELOW = 0.1
+#: run.py's clearance rule, imported rather than restated so the figure's threshold line
+#: and the summary's verdict cannot drift apart.
+from run import CLEARED_BELOW  # noqa: E402
 
 SURFACE = "#fcfcfb"
 INK = "#0b0b0b"
@@ -69,26 +71,41 @@ def _style(ax) -> None:
         lbl.set_color(INK_MUTED)
 
 
-def plot_decomposition(summary: dict, out: Path) -> Path:
-    """Pathogen final biomass per arm -- the headline.
+#: The two pools the pathogen can be in.  Colour is bound to the POOL here (not to the
+#: arm, as in the trajectory figure): the question this figure answers is "how much
+#: pathogen is left, and is it awake or dormant?"
+VEG_COLOUR = "#2a78d6"
+SPORE_COLOUR = "#eb6834"
 
-    One measure across five named conditions, so: one hue, no legend, and the
-    verdict spelled out per bar.  Colour never carries the CLEARED/PERSISTS
-    distinction on its own -- the text does.
+
+def plot_decomposition(summary: dict, out: Path) -> Path:
+    """Pathogen biomass per arm, split into vegetative and spore -- the headline.
+
+    Stacked rather than totalled because the split IS the finding: a bar that is mostly
+    spore is not a cure, it is a pathogen waiting for the drug to wash out. Reading only
+    the vegetative pool is what made an earlier run report CLEARED in every arm.
     """
     arms = [(k, label, c) for k, label, c in ARMS if k in summary["arms"]]
     if not arms:
         raise SystemExit("summary.json contains no known arms")
 
-    vals = [summary["arms"][k]["pathogen_final"] for k, _, _ in arms]
+    a = [summary["arms"][k] for k, _, _ in arms]
+    # Fall back to the total when an older summary.json has no per-pool split.
+    veg = [x.get("pathogen_final_vegetative", x["pathogen_final"]) for x in a]
+    spo = [x.get("pathogen_final_spores", 0.0) for x in a]
+    vals = [v + s for v, s in zip(veg, spo)]
     labels = [label for _, label, _ in arms]
-    verdicts = ["CLEARED" if summary["arms"][k]["cleared"] else "PERSISTS"
-                for k, _, _ in arms]
+    verdicts = ["CLEARED" if x["cleared"] else "PERSISTS" for x in a]
 
-    fig, ax = plt.subplots(figsize=(8.2, 3.6), facecolor=SURFACE)
+    # Height tracks the arm count so seven arms are not crammed into a five-arm figure.
+    fig, ax = plt.subplots(figsize=(8.6, 1.4 + 0.52 * len(arms)), facecolor=SURFACE)
     y = range(len(arms))
-    ax.barh(list(y), vals, height=0.62, color=[c for _, _, c in arms],
-            edgecolor=SURFACE, linewidth=2)
+    # 2px surface-coloured gap between the stacked segments.
+    ax.barh(list(y), veg, height=0.62, color=VEG_COLOUR, edgecolor=SURFACE,
+            linewidth=2, label="vegetative (growing)")
+    ax.barh(list(y), spo, height=0.62, left=veg, color=SPORE_COLOUR, edgecolor=SURFACE,
+            linewidth=2, label="spores (dormant reservoir)")
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK_MUTED, loc="lower right")
 
     ax.axvline(CLEARED_BELOW, color=INK_MUTED, linestyle="--", linewidth=1.2, zorder=0)
     # Blended transform: x in data units (pinned to the line), y in axes units (pinned
@@ -107,8 +124,9 @@ def plot_decomposition(summary: dict, out: Path) -> Path:
     ax.set_yticks(list(y))
     ax.set_yticklabels(labels)
     ax.invert_yaxis()
-    ax.set_xlim(0, span * 1.32)
-    ax.set_xlabel("C. difficile biomass at t_end (gDW/L)", color=INK_MUTED, fontsize=9)
+    ax.set_xlim(0, span * 1.42)
+    ax.set_xlabel("C. difficile biomass at t_end (gDW/L), vegetative + spores",
+                  color=INK_MUTED, fontsize=9)
     ax.set_title("Which arm of colonization resistance clears the pathogen?",
                  color=INK, fontsize=12, loc="left", pad=12)
     ax.grid(axis="x", color="#ecebe6", linewidth=1)

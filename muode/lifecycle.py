@@ -83,6 +83,67 @@ KI_INHIBITOR = register("lifecycle", Parameter(
     citation="Usui Y et al. Heliyon 6:e03717 (2020), doi:10.1016/j.heliyon.2020.e03717",
 ))
 
+#: mu_stress was **0.15/h** in the FMT example, and that number quietly decided the
+#: study.  No member of a genome-scale gut community can grow at 0.15/h on a diet whose
+#: uptake bounds come from measured dietary intake: the fastest grows at 0.036/h.  So
+#: ``growth < mu_stress`` was not a stress test, it was a tautology -- true at every
+#: step, for every organism, from t=0.  The pathogen sporulated unconditionally and the
+#: run reported CLEARED in all five arms, including the untreated control.
+#:
+#: The trap is that an ABSOLUTE threshold is only meaningful against the growth rate the
+#: medium can actually support.  0.15/h is unremarkable for a rich broth (mu ~ 0.5-1/h)
+#: and nonsense for a colon (mu ~ 0.03/h).  It was inherited from the toy, where yields
+#: were dials, and never re-derived when the yields became stoichiometry.
+#: :meth:`SporeForming.latched` exists so the tautology cannot come back silently.
+MU_STRESS = register("lifecycle", Parameter(
+    name="mu_stress",
+    value=0.01,
+    units="1/h",
+    evidence=Evidence.ASSUMED,
+    why=(
+        "Growth rate below which a spore-former reads its environment as nutrient-"
+        "limited and commits to sporulation. No measured value exists: this is a "
+        "phenomenological trigger, not a rate constant anyone has titrated. It is "
+        "ASSUMED, and the assumption is a SCALE argument, not a measurement: a colonic "
+        "population must grow at roughly the washout rate to persist (transit 24-48 h "
+        "-> 0.02-0.04/h), so a cell held at ~1/3 of the ambient rate is meaningfully "
+        "starved while one growing at the ambient rate is not. Any value at or above "
+        "the medium's achievable growth makes the trigger vacuous -- see latched()."
+    ),
+    citation="scale set by colonic transit (24-48 h); no measured mu_stress in the "
+             "literature -- treat as a sensitivity knob, not a fact",
+))
+
+#: Sporulation and germination RATES (as opposed to the trigger) are likewise not
+#: measured in any form transferable to a lumped two-compartment model: published work
+#: reports sporulation *frequencies* per generation under specific in vitro conditions,
+#: which is not a per-hour rate in a colon.  They are honest inventions, registered so
+#: they show up in the INVENTED tally rather than hiding as defaults.
+K_SPORULATION = register("lifecycle", Parameter(
+    name="k_sporulation",
+    value=0.5,
+    units="1/h",
+    evidence=Evidence.INVENTED,
+    why=(
+        "Rate at which nutrient-limited vegetative cells convert to spores. Chosen so "
+        "sporulation is fast relative to the colonic growth scale (a stressed cell "
+        "commits within hours, not days). Nobody measured this; the conclusion must be "
+        "shown insensitive to it, or it must be replaced by a calibrated value."
+    ),
+))
+
+K_GERMINATION = register("lifecycle", Parameter(
+    name="k_germination",
+    value=0.4,
+    units="1/h",
+    evidence=Evidence.INVENTED,
+    why=(
+        "Maximum spore->vegetative rate, scaled by the germination signal. Same status "
+        "as k_sporulation: the germinant AFFINITY (km_germinant) is measured, the rate "
+        "it saturates at is not."
+    ),
+))
+
 
 @dataclass
 class SporeForming(EcologyLayer):
@@ -111,15 +172,32 @@ class SporeForming(EcologyLayer):
     name: str = "spore_forming"
     species: set = field(default_factory=set)
     initial_spores: Dict[str, float] = field(default_factory=dict)
-    k_sporulation: float = 0.5
-    mu_stress: float = 0.05
-    k_germination: float = 0.4
+    k_sporulation: float = K_SPORULATION.value
+    mu_stress: float = MU_STRESS.value
+    k_germination: float = K_GERMINATION.value
     k_spore_decay: float = 0.0
     germinant: str = TAUROCHOLATE
     km_germinant: float = KM_GERMINANT.value
     inhibitor: Tuple[str, ...] = (DEOXYCHOLATE, LITHOCHOLATE)
     ki_inhibitor: float = KI_INHIBITOR.value
     _spores: Dict[str, float] = field(default_factory=dict, init=False, repr=False)
+    #: Highest growth rate seen per species over the run -- the evidence for latched().
+    _mu_seen: Dict[str, float] = field(default_factory=dict, init=False, repr=False)
+
+    def latched(self) -> Dict[str, float]:
+        """Species whose growth NEVER reached ``mu_stress`` -- i.e. always sporulating.
+
+        The sporulation trigger is only meaningful if the medium can support growth
+        above it.  When it cannot, ``growth < mu_stress`` is true at every step and the
+        layer silently converts the species to spores from t=0 regardless of the
+        biology being tested -- which is exactly how the FMT study came to report its
+        untreated control as CLEARED.  The failure is invisible in the output (a
+        vanishing pathogen looks like success), so it has to be reported here.
+
+        Returns ``{species: max growth observed}`` for the latched species; empty when
+        the trigger behaved as a trigger.
+        """
+        return {s: mx for s, mx in self._mu_seen.items() if mx < self.mu_stress}
 
     def extra_metabolites(self) -> Tuple[str, ...]:
         """The germinant and its inhibitors: read from the medium, so declare them.
@@ -132,6 +210,7 @@ class SporeForming(EcologyLayer):
 
     def reset(self, community) -> None:
         self._spores = {s: float(self.initial_spores.get(s, 0.0)) for s in self.species}
+        self._mu_seen = {s: 0.0 for s in self.species}
 
     def spores(self) -> Dict[str, float]:
         return dict(self._spores)
@@ -149,6 +228,8 @@ class SporeForming(EcologyLayer):
             veg = X.get(s, 0.0)
             spore = self._spores.get(s, 0.0)
             growth = mu.get(s, 0.0)
+            if growth > self._mu_seen.get(s, 0.0):
+                self._mu_seen[s] = growth
 
             d_spo = (self.k_sporulation * veg * dt) if growth < self.mu_stress else 0.0
             d_germ = self.k_germination * spore * signal * dt

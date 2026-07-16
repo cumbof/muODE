@@ -76,12 +76,46 @@ def test_the_scenario_uses_evidence_based_parameters_not_the_toy_overrides():
     someone re-adds an override to force a bile effect, this fails.
     """
     from muode.bile import KI_BILE
-    from muode.lifecycle import KI_INHIBITOR, KM_GERMINANT
+    from muode.lifecycle import KI_INHIBITOR, KM_GERMINANT, MU_STRESS
 
     layers = {type(layer).__name__: layer for layer in gs.cdi_ecology().layers}
     assert layers["SporeForming"].km_germinant == pytest.approx(KM_GERMINANT.value)
     assert layers["SporeForming"].ki_inhibitor == pytest.approx(KI_INHIBITOR.value)
     assert layers["BileAcidInhibition"].ki == pytest.approx(KI_BILE.value)
+
+    # mu_stress is the one that actually decided the first genome-scale run.  It was
+    # overridden to 0.15/h -- 4x faster than ANY member of this community can grow on a
+    # diet bounded by measured intake (the best manages 0.036/h) -- so `growth <
+    # mu_stress` was true at every step and the pathogen sporulated unconditionally from
+    # t=0.  Every arm reported CLEARED, the untreated control included.
+    assert layers["SporeForming"].mu_stress == pytest.approx(MU_STRESS.value)
+
+
+def test_mu_stress_is_below_what_the_diet_can_actually_support():
+    """The sporulation trigger must be a trigger, not a tautology.
+
+    An ABSOLUTE growth threshold only means something relative to the growth the medium
+    supports.  0.15/h is unremarkable in a rich broth and nonsense in a colon, where the
+    community runs at ~0.03/h because the diet's uptake bounds come from measured
+    dietary intake.  This test is the guard rail that keeps a trigger from being set
+    above the ceiling again -- the failure it prevents is invisible in the output,
+    because a pathogen that sporulates away looks exactly like a pathogen defeated.
+    """
+    from muode.lifecycle import MU_STRESS
+
+    layers = {type(layer).__name__: layer for layer in gs.cdi_ecology().layers}
+    mu_stress = layers["SporeForming"].mu_stress
+    assert mu_stress == pytest.approx(MU_STRESS.value)
+
+    # the pathogen must be able to OUTGROW its own sporulation trigger on this diet,
+    # otherwise no arm of the study can be read
+    pathogen = next(m for m in gs.MEMBERS if m.is_pathogen)
+    report = gs.verify(pathogen)
+    assert report.growth > mu_stress, (
+        f"{pathogen.slug} grows at {report.growth:.4f}/h on the diet but the sporulation "
+        f"trigger is {mu_stress}/h: it would sporulate unconditionally, and every arm "
+        f"would report CLEARED regardless of the biology."
+    )
 
 
 def test_guild_membership_is_the_real_strains_not_a_label():
@@ -96,6 +130,16 @@ def test_guild_membership_is_the_real_strains_not_a_label():
     assert layers["SporeForming"].species == {gs.PATHOGEN}
     assert layers["Antibiotic"].susceptible == {gs.PATHOGEN}
     assert gs.PATHOGEN == "C_difficile_630"
+
+    # BSH was never passed at all, so bsh_producers was an empty set: taurocholate was
+    # never deconjugated and the tca -> ca -> dca cascade was broken at its first step,
+    # leaving the bai arm to act only on whatever cholate the diet supplied directly.
+    # Both guilds are read from the GEMs' own EC annotations (BSH = 3.5.1.24, bai
+    # 7a-dehydratase = 4.2.1.106), which is why B. theta -- the obvious guess for a
+    # deconjugator -- is correctly absent: this genome carries no bile reaction at all.
+    assert layers["BileAcidTransform"].bsh_producers == gs.BSH_GUILD
+    assert gs.BSH_GUILD == {"R_intestinalis_L182", "F_prausnitzii_A2165"}
+    assert "B_thetaiotaomicron_VPI5482" not in gs.BSH_GUILD
 
 
 def test_ablation_removes_exactly_the_named_layers():
@@ -115,8 +159,17 @@ def test_ablation_removes_exactly_the_named_layers():
     competition = names(gs.cdi_ecology("bile ph"))
     assert "WeakAcidInhibition" not in competition
     assert "BileAcidTransform" not in competition
-    # spore reservoir + antibiotic always remain -- they define the clinical setup
-    assert {"SporeForming", "Antibiotic"} <= competition
+    # the spore reservoir always remains: it is the pathogen's biology, not a treatment
+    assert "SporeForming" in competition
+
+    # ...but the DRUG is ablatable, and that is not cosmetic.  While vancomycin was in
+    # every arm there was no untreated baseline: it kills at ~4.5/h against a pathogen
+    # growing at 0.036/h, so it cleared the infection everywhere and the study reported
+    # CLEARED in all five arms -- a fact about the drug read as a fact about the FMT.
+    assert "Antibiotic" in names(gs.cdi_ecology(""))
+    assert "Antibiotic" not in names(gs.cdi_ecology("abx"))
+    assert "SporeForming" in names(gs.cdi_ecology("abx"))               # pathogen kept
+    assert "Antibiotic" not in names(gs.cdi_ecology("bile ph abx"))
 
 
 def test_the_diet_carries_a_physiological_bile_pool():
@@ -128,11 +181,33 @@ def test_the_diet_carries_a_physiological_bile_pool():
     from muode.bile import CHOLATE, TAUROCHOLATE
 
     diet = gs.cdi_diet()
-    assert diet.initial_concentration(TAUROCHOLATE) == pytest.approx(2.0)
-    assert diet.initial_concentration(CHOLATE) == pytest.approx(2.0)
+    assert diet.initial_concentration(TAUROCHOLATE) == pytest.approx(gs.CAECAL_BILE_MM)
+    assert diet.initial_concentration(CHOLATE) == pytest.approx(gs.CAECAL_BILE_MM)
     # and it still carries the ModelSEED carbon the pathogen ferments (Stickland)
     assert diet.initial_concentration("cpd00129_e0") > 0    # L-proline
     assert diet.initial_concentration("cpd00033_e0") > 0    # glycine
+
+
+def test_the_bile_influx_holds_the_pool_at_the_concentration_it_claims():
+    """Influx is DERIVED from the concentration and the washout, not chosen.
+
+    An unconsumed pool settles at influx/D, so the two numbers cannot be picked
+    independently: a flat influx of 0.3 with no washout ramped taurocholate to ~31 mM by
+    t=96 -- 15x the caecal concentration the docstring cites -- and swept the germination
+    signal from 0.11 to 0.66 on the way.  The germinant's affinity (km 15.9 mM) is
+    MEASURED; letting its concentration float 15x was overriding that measurement with
+    an artifact.
+    """
+    from muode.bile import CHOLATE, TAUROCHOLATE
+
+    for D in (0.02, gs.DILUTION_RATE, 0.04):
+        diet = gs.cdi_diet(dilution_rate=D)
+        for met in (TAUROCHOLATE, CHOLATE):
+            steady_state = diet.influx_rate(met) / D
+            assert steady_state == pytest.approx(gs.CAECAL_BILE_MM), (
+                f"{met} settles at {steady_state:.2f} mM, not the {gs.CAECAL_BILE_MM} mM "
+                f"this diet claims to supply"
+            )
 
 
 @pytest.mark.slow

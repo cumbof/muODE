@@ -90,6 +90,19 @@ acids. This is what makes infection recur (spores survive a drug course) and wha
 an FMT shuts off (restored bile metabolism keeps germination blocked). Records
 `germination_signal` and per-species spore biomass.
 
+> **`mu_stress` must sit below the growth your medium can actually support.** It is an
+> *absolute* threshold, so it only means something relative to the medium: 0.15/h is
+> unremarkable in a rich broth and impossible in a colon, where diets with
+> intake-derived uptake bounds run the community at ~0.03/h. Set it too high and
+> `growth < mu_stress` is true at every step — the species sporulates unconditionally
+> from t=0 and the layer silently deletes it from the vegetative pool. **This failure
+> looks like success**: a pathogen that sporulates away reads as a pathogen defeated.
+> Call `layer.latched()` after a run — it returns any species whose growth never once
+> reached `mu_stress`, and a non-empty result means that run cannot be interpreted.
+>
+> Clearance metrics must likewise count **spores + vegetative**. Sporulation is not
+> death; it is the survival strategy the whole recurrence story rests on.
+
 ### `Antibiotic` — pharmacokinetics / dynamics (`muode.antibiotic`)
 
 A drug is not a constant. One-compartment PK (`C(t) = Σ dose·e^{−k(t−t_d)}` over

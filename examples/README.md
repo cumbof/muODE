@@ -122,9 +122,13 @@ python examples/fmt_cdiff/run.py --outdir results/fmt
 ```
 
 Whether the transplant clears *C. difficile* is an **emergent** outcome of the
-shared-pool dynamic FBA, and the five arms (`no_fmt`, `fmt_full`, `fmt_no_bile`,
-`fmt_no_ph`, `fmt_competition`) separate nutrient competition from SCFA
-acidification and secondary bile acids. See
+shared-pool dynamic FBA. Seven arms separate the drug from the community
+(`untreated`, `abx_only`, `fmt_only`, `fmt_full`) and then the community's own
+mechanisms from each other (`fmt_no_bile`, `fmt_no_ph`, `fmt_competition`).
+The `untreated` arm is the one to read first: without it, "cleared" measures
+what vancomycin did rather than what the donors did. Clearance counts **spores as
+well as vegetative cells**, because sporulation is how *C. difficile* survives a
+drug course — scoring dormancy as a cure gets rCDI backwards. See
 **[fmt_cdiff/README.md](fmt_cdiff/README.md)** for the community, the ablation
 table, and how to read the result.
 

@@ -74,12 +74,24 @@ def test_the_invented_parameters_are_named_and_the_list_only_shrinks():
     This list is allowed to get SHORTER (someone did the reading) and must never get
     longer without a deliberate decision.  A new INVENTED parameter appearing here is a
     new way for a result to be indefensible.
+
+    lifecycle.k_sporulation and lifecycle.k_germination joined the list in the rebuild,
+    and that is the registry doing its job rather than a regression.  They were ALWAYS
+    invented; they were merely unregistered, so they sat in the layer's defaults looking
+    like facts, and the FMT scenario then overrode them (0.8 and 0.6) behind a docstring
+    claiming it passed no overrides.  Registering an existing invention does not create
+    a new one -- it stops it hiding.  The list got longer because the code got honest.
     """
     assert set(invented()) == {
         "bile.km_bai",     # community-level Km for 7a-dehydroxylation: not measured
         "bile.km_bsh",     # community-level Km for BSH: not measured
         "bile.vmax_bai",   # per-gram-of-community turnover: nobody has measured it
         "bile.vmax_bsh",   # ditto
+        # published work reports sporulation FREQUENCIES per generation in vitro, which
+        # is not a per-hour rate in a colon; the germinant's affinity is measured
+        # (km_germinant) but the rate it saturates at is not
+        "lifecycle.k_sporulation",
+        "lifecycle.k_germination",
     }
     assert unpublishable() == invented()
 
@@ -150,3 +162,13 @@ def test_the_bile_decomposition_is_now_a_genome_scale_STUDY_not_a_toy_unit_test(
     assert "fmt_full" in fmt_run.ARMS
     assert "fmt_competition" in fmt_run.ARMS      # bile AND pH removed -> pure competition
     assert fmt_run.ARMS["fmt_competition"] == (True, "bile ph")
+
+    # ...AND it contains an arm where nothing is done at all.  The first genome-scale
+    # run dosed vancomycin in every arm, so its "control" was drug-without-FMT; the drug
+    # kills at ~4.5/h against a pathogen growing at 0.036/h, so every arm reported
+    # CLEARED and the study measured the drug rather than the community.  A CDI study
+    # with no untreated arm cannot detect colonization resistance, only pharmacology.
+    assert "untreated" in fmt_run.ARMS
+    assert fmt_run.ARMS["untreated"] == (False, "abx")
+    assert "abx_only" in fmt_run.ARMS
+    assert "untreated" in fmt_run.CORE_ARMS

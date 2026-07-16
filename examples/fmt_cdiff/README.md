@@ -125,43 +125,52 @@ justified moving off CarveMe: the CarveMe producers would report the pathway *ab
 ## Step 2 — run the mechanism-decomposition study (workstation)
 
 ```bash
-python examples/fmt_cdiff/run.py --outdir results/fmt
+python examples/fmt_cdiff/run.py --core --outdir results/fmt   # the decisive four
+python examples/fmt_cdiff/run.py --outdir results/fmt          # all seven
 ```
 
-Five arms, differing only in the transplant and which ecology layers are active:
+Seven arms, differing only in the transplant, the drug, and which ecology layers are
+active:
 
 | arm | fmt? | layers removed | what it isolates |
 |---|---|---|---|
-| `no_fmt` | no | — | recurrence baseline (spores germinate in the wiped gut) |
-| `fmt_full` | yes | — | the claim: donor community clears the pathogen |
-| `fmt_no_bile` | yes | bile | clearance **without** the bile arm — is bile load-bearing? |
-| `fmt_no_ph` | yes | pH | clearance **without** SCFA acidification |
+| `untreated` | no | abx | **read this first**: does the pathogen colonize at all? |
+| `abx_only` | no | — | vancomycin alone — the standard of care and the rCDI baseline |
+| `fmt_only` | yes | abx | can donors displace the pathogen with no drug? |
+| `fmt_full` | yes | — | drug + FMT: the treatment |
+| `fmt_no_bile` | yes | bile | the treatment **without** the bile arm — is bile load-bearing? |
+| `fmt_no_ph` | yes | pH | the treatment **without** SCFA acidification |
 | `fmt_competition` | yes | bile + pH | pure nutrient competition |
 
+> **Why `untreated` exists.** The first genome-scale run dosed vancomycin in *every*
+> arm, so its "control" was really drug-without-FMT. The drug kills at ~4.5/h against a
+> pathogen growing at 0.036/h, so it cleared the infection everywhere and all five arms
+> reported CLEARED — a fact about pharmacology, read as a fact about the FMT. A study of
+> colonization resistance needs an arm where nothing is done at all.
+
 `run.py` refuses to start if the pathogen GEM is not ready, writes `<arm>_biomass.csv`
-/ `<arm>_metabolites.csv` / `<arm>_spores.csv` and `summary.json`, and prints:
+/ `<arm>_metabolites.csv` / `<arm>_spores.csv` and `summary.json`, and prints a
+`MECHANISM DECOMPOSITION` table of final pathogen biomass per arm.
 
-```
-MECHANISM DECOMPOSITION (pathogen final biomass per arm)
-  no_fmt              …   PERSISTS
-  fmt_full            …   CLEARED
-  fmt_no_bile         …   …
-  fmt_no_ph           …   …
-  fmt_competition     …   …
-```
+**Clearance counts spores.** `pathogen_final` is vegetative **+** spore biomass, because
+sporulation is not clearance — it is exactly how *C. difficile* survives a drug course
+and comes back. A metric that reads only the vegetative pool scores dormancy as a cure
+and gets rCDI precisely backwards.
 
-**The reading of the table is the result:**
+**How to read the table:**
 
-- If `fmt_full` clears but `fmt_competition` does **not**, the layered mechanism is
-  load-bearing and muODE has decomposed colonization resistance into its arms — the
-  paper.
-- If `fmt_competition` clears just as well, clearance is nutrient competition and the
-  bile/pH story is decorative — which is an honest and publishable finding too, not a
-  failure.
+- If `untreated` does **not** show the pathogen establishing, stop — nothing else in the
+  run means anything, and no arm should be interpreted.
+- If `fmt_full` clears but `fmt_competition` does not, the layered mechanism is
+  load-bearing and the decomposition is the result.
+- If `fmt_competition` does just as well, clearance is nutrient competition and the
+  bile/pH story is decorative — an honest and publishable finding, not a failure.
 
-Either way the conclusion comes from stoichiometry plus one binary choice per layer,
-with every kinetic parameter carrying its provenance. Run the subset first to sanity
-check timing: `python examples/fmt_cdiff/run.py --arms fmt_full no_fmt`.
+What this roster **cannot** show: *C. difficile* is the **fastest grower on this diet**
+(0.036/h against 0.026–0.034 for the donors), so the donors are not expected to win on
+nutrients. They were chosen for the mechanisms they carry — butyrate, *bai* — never for
+competitive ability. If `fmt_competition` looks no better than `abx_only`, that is the
+roster answering honestly.
 
 ---
 

@@ -260,40 +260,113 @@ def build_community(
 #: vancomycin target.  (Ideally bai/bsh membership comes from markers.py run on the
 #: proteomes; C. scindens is declared here because it is definitional for this strain.)
 PATHOGEN = "C_difficile_630"
+
+#: Both guilds are read off the MODELS' OWN ANNOTATIONS, not asserted here -- the same
+#: discipline the ModelSEED diet follows.  Searching the five GEMs for the relevant EC
+#: numbers gives exactly one answer each:
+#:
+#:   bai 7a-dehydratase (EC 4.2.1.106) -> C. scindens only          (rxn05066_c0, ...)
+#:   BSH               (EC 3.5.1.24)  -> R. intestinalis, F. prausnitzii  (rxn02795_c0, ...)
+#:
+#: B. thetaiotaomicron carries NO bile-acid reaction at all, which is worth knowing:
+#: the obvious guess (Bacteroides deconjugate bile) is wrong for THIS genome, and the
+#: guess is what a hand-written guild would have encoded.
+#:
+#: BSH was previously never passed to BileAcidTransform at all, so bsh_producers was an
+#: empty set: taurocholate was never deconjugated, the tca -> ca -> dca cascade was
+#: broken at step 1, and the germinant accumulated unopposed (influx, no consumer, no
+#: washout) to ~31 mM by t=96 -- 15x physiological.  The bai arm was acting only on the
+#: 2 mM of cholate the diet happened to supply directly.
 BAI_GUILD = {"C_scindens_ATCC35704"}
+BSH_GUILD = {"R_intestinalis_L182", "F_prausnitzii_A2165"}
 DONORS = ["R_intestinalis_L182", "F_prausnitzii_A2165",
           "B_thetaiotaomicron_VPI5482", "C_scindens_ATCC35704"]
 
 
-def cdi_diet(diet: Optional[Diet] = None) -> Diet:
+#: Colonic washout, 1/h.  DERIVED, and the one number here with a solid basis: colonic
+#: transit is 24-48 h, so D = 1/transit = 0.021-0.042/h; 0.025 is a 40 h transit.
+#:
+#: This was 0.0 -- i.e. the colon was modelled as a sealed batch culture.  That is not a
+#: conservative simplification, it is an actively wrong one that compounds with time:
+#: anything the community does not consume integrates without bound.  Taurocholate
+#: (influx 0.3, no exchange, and -- until BSH_GUILD was wired up -- no consumer) reached
+#: ~31 mM by t=96, 15x physiological, dragging the germination signal from 0.11 to 0.66
+#: on an artifact.  With washout it instead sits at a steady state of influx/D.
+#:
+#: It also makes colonization resistance EXPRESSIBLE.  At D=0, any organism with mu>0
+#: persists forever and no community can exclude anything; with washout, a member has to
+#: outgrow transit to stay, which is what resistance to colonization means.  Note the
+#: consequence for this roster: C. difficile grows at 0.036/h on this diet, FASTER than
+#: any donor, so it clears washout on its own -- the donors must earn their place by
+#: cross-feeding.  See README: these donors were chosen for the mechanisms they carry,
+#: never for the ability to out-compete the pathogen.
+DILUTION_RATE = 0.025
+
+
+#: Bile-acid concentration in the caecum, mM.  Ramirez & Abel-Santos 2011.
+CAECAL_BILE_MM = 2.0
+
+
+def cdi_diet(diet: Optional[Diet] = None,
+             dilution_rate: float = DILUTION_RATE) -> Diet:
     """ModelSEED western_gut PLUS the bile-acid pool the ecology layers act on.
 
     The bile ids (tca_e/ca_e/dca_e) are muODE ecology-layer ids, NOT ModelSEED: the
     bile transformation is a phenomenological pool process keyed on guild membership,
-    so the GEMs need no bile exchanges.  Concentrations are physiological -- bile
-    reaches the caecum at ~2 mM (Ramirez & Abel-Santos 2011) -- rather than tuned.
+    so the GEMs need no bile exchanges.
+
+    The influx is DERIVED from the concentration rather than picked: at steady state an
+    unconsumed pool sits at ``influx / dilution_rate``, so supplying it at ``C * D``
+    holds it at the physiological ~2 mM instead of letting it drift.  It used to be a
+    flat 0.3 mmol/L/h, which -- with no washout and (through the bsh_producers bug) no
+    consumer -- meant taurocholate ramped to ~31 mM by t=96, 15x physiological, dragging
+    the germination signal from 0.11 to 0.66 on nothing but an accumulation artifact.
+    The germinant's own affinity is measured (km 15.9 mM); letting its concentration
+    float was quietly overriding that measurement.
     """
     from muode.bile import CHOLATE, TAUROCHOLATE
 
     base = diet or load_modelseed_diet()
     conc = dict(base.concentrations)
-    conc[TAUROCHOLATE] = 2.0      # germinant, ~caecal bile concentration
-    conc[CHOLATE] = 2.0           # primary bile: the bai substrate
+    conc[TAUROCHOLATE] = CAECAL_BILE_MM   # the germinant
+    conc[CHOLATE] = CAECAL_BILE_MM        # primary bile: the bai substrate
     influx = dict(base.influx)
-    influx[TAUROCHOLATE] = 0.3
-    influx[CHOLATE] = 0.3
+    influx[TAUROCHOLATE] = CAECAL_BILE_MM * dilution_rate
+    influx[CHOLATE] = CAECAL_BILE_MM * dilution_rate
     return Diet(concentrations=conc, influx=influx, max_uptake=dict(base.max_uptake),
                 source=dict(base.source), name="modelseed_western_gut+bile")
 
 
 def cdi_ecology(ablate: str = ""):
-    """The mechanistic stack, with EVIDENCE-BASED parameters (the layer defaults).
+    """The mechanistic stack.  ``ablate`` selects which arms are present.
 
-    Unlike the toy ``scenario.cdi_ecology``, this passes NO parameter overrides: it uses
-    the layer defaults, which are now the provenance-registered values (germination
-    km 15.9 mM, inhibition ki 0.5 mM -- see muode.provenance).  The only knobs are which
-    layers are present, so ``ablate`` can remove the bile and/or pH arm to decompose the
-    mechanism the way test_provenance did for the toy -- but now on real stoichiometry.
+    There are two kinds of number here, and the distinction is the point.
+
+    **Library parameters** -- germination km (15.9 mM, MEASURED), inhibition ki (0.5 mM,
+    DERIVED), mu_stress (0.01/h, ASSUMED), k_sporulation / k_germination (INVENTED) --
+    are NOT passed.  They come from the layer defaults, which are the registered values
+    in :mod:`muode.provenance`, so there is exactly one place to audit them.
+
+    This docstring used to claim that ALL parameters worked that way, while quietly
+    passing eleven overrides.  One of them decided the study: ``mu_stress=0.15`` is 4x
+    faster than any member of this community can grow on a diet bounded by measured
+    intake (the fastest manages 0.036/h), so ``growth < mu_stress`` was true at every
+    step for every organism and the pathogen sporulated unconditionally -- every arm
+    reported CLEARED, the untreated control included.  See
+    :data:`muode.lifecycle.MU_STRESS`.
+
+    **Scenario parameters** stay explicit below, because they describe THIS clinical
+    story rather than the mechanism, and no library default could be right for them:
+
+    * the vancomycin course (which drug, what dose, how often);
+    * the colonic titration (``buffer_capacity``) and how acid-sensitive THIS pathogen
+      is (``ki``).
+
+    All of them are INVENTED -- nobody measured them for this system, and the honest
+    treatment of an invented mechanism is to make it removable and show what it does.
+    Each is covered by an ``ablate`` arm (``abx``, ``ph``), so its contribution is
+    measured rather than asserted.  If an arm turns out to carry the result, that number
+    needs evidence before the result can be published.
     """
     from muode.antibiotic import Antibiotic
     from muode.bile import BileAcidInhibition, BileAcidTransform
@@ -303,38 +376,60 @@ def cdi_ecology(ablate: str = ""):
 
     layers = []
     if "ph" not in ablate:
+        # INVENTED, both of them: buffer_capacity 25 (vs the library's generic 60) says
+        # colonic content titrates more sharply than a lab medium, and ki 3.0 (vs the
+        # default 12.0) says C. difficile is ~4x more acid-sensitive than the community
+        # around it.  Directionally supported -- SCFAs do inhibit C. difficile -- but
+        # neither number is measured for this system.  The `ph` arm is what tests them.
         layers.append(WeakAcidInhibition(buffer_capacity=25.0, default_ki=12.0,
                                          ki={PATHOGEN: 3.0}))
     if "bile" not in ablate:
-        layers.append(BileAcidTransform(bai_producers=set(BAI_GUILD)))
+        layers.append(BileAcidTransform(bai_producers=set(BAI_GUILD),
+                                        bsh_producers=set(BSH_GUILD)))
         layers.append(BileAcidInhibition(targets={PATHOGEN}))
-    layers.append(SporeForming(species={PATHOGEN}, initial_spores={PATHOGEN: 0.05},
-                               k_germination=0.6, k_sporulation=0.8, mu_stress=0.15))
-    layers.append(Antibiotic(susceptible={PATHOGEN},
-                             dose_times=tuple(float(t) for t in range(0, 10, 2)),
-                             dose=3.0, half_life=2.0, emax=5.0, ec50=0.4))
+    layers.append(SporeForming(species={PATHOGEN}, initial_spores={PATHOGEN: 0.05}))
+    if "abx" not in ablate:
+        # Vancomycin 125 mg PO qid is the standard rCDI course; dosed here at t=0..8 h
+        # so the drug is cleared (half-life 2 h) long before t_end and any rebound is
+        # the community's doing, not the drug's.
+        layers.append(Antibiotic(susceptible={PATHOGEN},
+                                 dose_times=tuple(float(t) for t in range(0, 10, 2)),
+                                 dose=3.0, half_life=2.0, emax=5.0, ec50=0.4))
     return EcologyModel(layers)
 
 
-def build_scenario(fmt: bool, ablate: str = "", t_end: float = 96.0, dt: float = 0.05,
-                   fmt_time: float = 12.0, fmt_biomass: float = 0.05):
+
+
+def build_scenario(fmt: bool, ablate: str = "", t_end: float = 120.0, dt: float = 0.05,
+                   fmt_time: float = 12.0, fmt_biomass: float = 0.05,
+                   dilution_rate: float = DILUTION_RATE):
     """Run the rCDI/FMT scenario on the real gapseq community.
 
     The recipient carries the (bloomed) pathogen; the four donors are members from t=0
     at zero biomass so the bile layer can refer to them, and an FMT injection seeds them
-    at ``fmt_time``.  The ONLY difference between the arms is the injection.
+    at ``fmt_time``.  The ONLY difference between the treatment and control arms is the
+    injection.
 
-    ``ablate`` ("", "bile", "ph", "bile ph") drops ecology layers so the mechanism can
-    be decomposed: this is the experiment that, on the toy models, showed clearance was
-    nutrient competition rather than the advertised bile mechanism.  Re-running it here
-    asks whether that still holds once the yields are stoichiometry, not dials.
+    ``ablate`` ("", "bile", "ph", "abx", or any space-separated combination) drops
+    ecology layers so the mechanism can be decomposed.  ``abx`` matters most: with the
+    drug in every arm there is no untreated baseline, so "cleared" measures what
+    vancomycin did, not what the community did.
 
-    Returns a :class:`~muode.dfba.SimulationResult`.  ~30 min per arm on a genome-scale
-    community -- a workstation job; see ``run.py``.
+    ``t_end`` is 120 h, about 3 colonic transits -- long enough to reach the washout
+    steady state and to see any post-drug rebound (the course ends at t=8 and the drug
+    is gone by t~24), and NOT long enough to pretend we are simulating the weeks over
+    which real rCDI recurs.  That timescale is governed by immune recovery and mucosal
+    refuge, none of which a well-mixed dFBA represents; see docs/LIMITATIONS.md.
+
+    Returns a :class:`~muode.dfba.SimulationResult`.  ``result.meta["spore_latched"]``
+    reports any species whose growth never once reached ``mu_stress`` -- see
+    :meth:`muode.lifecycle.SporeForming.latched`.  If it is non-empty the sporulation
+    trigger never disengaged and no arm of that run can be read.
     """
     from muode.dfba import DynamicFBA
     from muode.inject import Injection
     from muode.kinetics import KineticParameters
+    from muode.lifecycle import SporeForming
 
     community = build_community(
         abundances={PATHOGEN: 1.0, **{d: 0.0 for d in DONORS}})
@@ -343,9 +438,21 @@ def build_scenario(fmt: bool, ablate: str = "", t_end: float = 96.0, dt: float =
         injections = [Injection.from_abundances(
             fmt_time, {d: 1.0 / len(DONORS) for d in DONORS},
             total_biomass=fmt_biomass, name="FMT")]
-    return DynamicFBA(t_end=t_end, dt=dt).run(
-        community, cdi_diet(), KineticParameters(),
-        injections=injections, ecology=cdi_ecology(ablate))
+
+    ecology = cdi_ecology(ablate)
+    # The SAME dilution rate must reach the diet: the bile influx is derived from it so
+    # the pool holds at the physiological concentration. Passing one and defaulting the
+    # other would put the germinant at the wrong steady state, silently.
+    result = DynamicFBA(t_end=t_end, dt=dt, dilution_rate=dilution_rate).run(
+        community, cdi_diet(dilution_rate=dilution_rate), KineticParameters(),
+        injections=injections, ecology=ecology)
+
+    # Surface the latch check on the result: a silently latched trigger looks exactly
+    # like success (the pathogen vanishes), so it must travel with the numbers.
+    for layer in ecology.layers:
+        if isinstance(layer, SporeForming):
+            result.meta["spore_latched"] = layer.latched()
+    return result
 
 
 if __name__ == "__main__":
