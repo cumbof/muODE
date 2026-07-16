@@ -33,16 +33,26 @@ readiness gate remains so the refusal is enforced, not assumed.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from muode.community import Community
-from muode.diet import Diet
-from muode.organism import CobraOrganism
-
 HERE = Path(__file__).resolve().parent
 GEMS = HERE / "gems"
+
+# Run against the checkout this example ships in, not whatever ``muode`` happens to be
+# installed.  A script's sys.path[0] is its own directory, so without this the repo root
+# is absent and an older installed muode wins -- silently, and only where it differs
+# (an outdated Diet, a missing ecology layer).  A checkout is authoritative for its own
+# examples; if muode is not vendored here, fall through to the installed package.
+_ROOT = HERE.parents[1]
+if (_ROOT / "muode" / "__init__.py").exists() and str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from muode.community import Community  # noqa: E402
+from muode.diet import Diet  # noqa: E402
+from muode.organism import CobraOrganism  # noqa: E402
 
 #: ModelSEED ids for the metabolites the scenario reasons about.  (The bile pool is an
 #: ecology-layer concern in muODE ids, namespace-independent -- see :func:`cdi_diet` --
