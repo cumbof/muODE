@@ -1,0 +1,117 @@
+# western_gut (ModelSEED / gapseq namespace) -- TRANSLATION of western_gut.csv
+#
+# DERIVED FILE -- do not hand-edit.  Regenerate with:
+#   python examples/fmt_cdiff/derive_medium_modelseed.py
+#
+# This is the BiGG western_gut diet with its ids mapped to ModelSEED, so the
+# gapseq FMT community can be fed by it.  Concentrations, influx, max_uptake and
+# the `source` provenance column are carried over UNCHANGED from western_gut.csv;
+# only the metabolite id changes (glc__D_e -> cpd00027_e0).  The mapping is built
+# from the gapseq models' own bigg.metabolite annotations plus a small verified
+# pin layer (muode.media._CURATED_BIGG_TO_MODELSEED); see the derive script.
+#
+# Built from 5 gapseq model(s): B_thetaiotaomicron_VPI5482.gapseq.xml.gz, C_difficile_630.gapseq.xml.gz, C_scindens_ATCC35704.gapseq.xml.gz, F_prausnitzii_A2165.xml.gz, R_intestinalis_L182.xml.gz.
+# 94 of 136 diet rows resolved; 42 unresolved (dropped, listed below).
+# UNRESOLVED (no ModelSEED id in any present model; dropped from this medium):
+#   26dap__M, 2obut, 4abz, 4hbz, acmana, ade
+#   adocbl, ala__D, amp, amylose300, arab__L, cellb
+#   cgly, cit, dad_2, dcyt, ddca, dgsn
+#   drib, gthox, gthrd, gua, hxan, lmn30
+#   melib, nac, ncam, nmn, ocdcea, pullulan1200
+#   pydam, pydx, pydxn, raffin, sel, slnt
+#   starch1200, ttdca, tungs, uri, xylan4, xylan8
+metabolite,concentration,influx,max_uptake,source
+cpd00001_e0,4800,10,10,intake
+cpd00009_e0,48,0.1,0.1,source_default
+cpd00011_e0,0,0,,product
+cpd00013_e0,0,0,,product
+cpd00023_e0,8.64,0.018,0.018,intake
+cpd00028_e0,0.0340633,7.09651e-05,7.09651e-05,dri
+cpd00029_e0,0,0,,product
+cpd00030_e0,48,0.1,0.1,source_default
+cpd00033_e0,21.6,0.045,0.045,intake
+cpd00034_e0,48,0.1,0.1,source_default
+cpd00035_e0,48,0.1,0.1,source_default
+cpd00036_e0,0,0,,product
+cpd00039_e0,7.2,0.015,0.015,intake
+cpd00041_e0,10.8,0.0225,0.0225,intake
+cpd00047_e0,0,0,,product
+cpd00048_e0,48,0.1,0.1,source_default
+cpd00051_e0,7.2,0.015,0.015,intake
+cpd00053_e0,8.64,0.018,0.018,intake
+cpd00054_e0,48,0.1,0.1,source_default
+cpd00058_e0,48,0.1,0.1,source_default
+cpd00060_e0,8.64,0.018,0.018,intake
+cpd00063_e0,48,0.1,0.1,source_default
+cpd00064_e0,48,0.1,0.1,source_default
+cpd00065_e0,3.92736,0.008182,0.008182,intake
+cpd00066_e0,48,0.1,0.1,source_default
+cpd00067_e0,48,0.1,0.1,source_default
+cpd00069_e0,48,0.1,0.1,source_default
+cpd00073_e0,58.2751,0.121406,0.121406,derived
+cpd00075_e0,0.0326016,6.792e-05,6.792e-05,dri
+cpd00076_e0,3.57566,0.0074493,0.0074493,intake
+cpd00080_e0,48,0.1,0.1,source_default
+cpd00082_e0,7.15133,0.0148986,0.0148986,intake
+cpd00084_e0,48,0.1,0.1,source_default
+cpd00092_e0,0,0,,product
+cpd00098_e0,5.27983,0.0109996,0.0109996,dri
+cpd00099_e0,48,0.1,0.1,source_default
+cpd00100_e0,86.3834,0.179966,0.179966,intake
+cpd00104_e0,0.000122795,2.55823e-07,2.55823e-07,dri
+cpd00105_e0,8.58158,0.0178783,0.0178783,intake
+cpd00106_e0,48,0.1,0.1,source_default
+cpd00107_e0,7.2,0.015,0.015,intake
+cpd00108_e0,7.15133,0.0148986,0.0148986,intake
+cpd00116_e0,18.24,0.038,0.038,override
+cpd00118_e0,48,0.1,0.1,source_default
+cpd00119_e0,7.2,0.015,0.015,intake
+cpd00122_e0,2.49989,0.0052081,0.0052081,derived
+cpd00129_e0,8.64,0.018,0.018,intake
+cpd00132_e0,10.8,0.0225,0.0225,intake
+cpd00138_e0,7.15133,0.0148986,0.0148986,intake
+cpd00141_e0,0,0,,product
+cpd00149_e0,48,0.1,0.1,source_default
+cpd00154_e0,8.58158,0.0178783,0.0178783,intake
+cpd00156_e0,8.64,0.018,0.018,intake
+cpd00159_e0,0,0,,product
+cpd00161_e0,10.8,0.0225,0.0225,intake
+cpd00179_e0,3.57566,0.0074493,0.0074493,intake
+cpd00180_e0,21.4539,0.0446957,0.0446957,intake
+cpd00182_e0,0.299356,0.000623659,0.000623659,derived
+cpd00184_e0,0.103208,0.000215016,0.000215016,derived
+cpd00185_e0,48,0.1,0.1,source_default
+cpd00205_e0,48,0.1,0.1,source_default
+cpd00211_e0,0,0,,product
+cpd00214_e0,19.0258,0.0396371,0.0396371,intake
+cpd00220_e0,0.00345414,7.19612e-06,7.19612e-06,dri
+cpd00221_e0,0,0,,product
+cpd00222_e0,7.15133,0.0148986,0.0148986,intake
+cpd00232_e0,0.798655,0.00166386,0.00166386,derived
+cpd00239_e0,0,0,,product
+cpd00244_e0,48,0.1,0.1,supplement
+cpd00254_e0,48,0.1,0.1,source_default
+cpd00264_e0,48,0.1,0.1,source_default
+cpd00276_e0,0,0,,product
+cpd00305_e0,0.00452216,9.42116e-06,9.42116e-06,dri
+cpd00307_e0,0,0,,product
+cpd00309_e0,0,0,,product
+cpd00311_e0,0.282446,0.000588429,0.000588429,derived
+cpd00314_e0,7.15133,0.0148986,0.0148986,intake
+cpd00322_e0,7.2,0.015,0.015,intake
+cpd00359_e0,0,0,,product
+cpd00363_e0,0,0,,product
+cpd00367_e0,0.32892,0.000685251,0.000685251,derived
+cpd00393_e0,0.000906208,1.88793e-06,1.88793e-06,dri
+cpd00396_e0,7.15133,0.0148986,0.0148986,intake
+cpd00644_e0,0.0228071,4.75148e-05,4.75148e-05,dri
+cpd00751_e0,7.15133,0.0148986,0.0148986,intake
+cpd00794_e0,35.7566,0.074493,0.074493,intake
+cpd00971_e0,48,0.1,0.1,supplement
+cpd01024_e0,0,0,,product
+cpd01080_e0,8.12558,0.0169283,0.0169283,intake
+cpd01354_e0,3.57566,0.0074493,0.0074493,intake
+cpd10515_e0,48,0.1,0.1,source_default
+cpd10516_e0,48,0.1,0.1,source_default
+cpd11574_e0,48,0.1,0.1,source_default
+cpd11640_e0,0,0,,product

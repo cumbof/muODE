@@ -26,7 +26,7 @@ WHAT IT ANSWERS
     too, is a publishable (and honest) finding.
 
 RUN (on the workstation)
-    python examples/fmt_cdiff/run_genome_scale.py --outdir results/fmt_genome_scale
+    python examples/fmt_cdiff/run.py --outdir results/fmt
     # ~2-3 h total.  Add --arms fmt_full no_fmt to run a subset first.
 """
 
@@ -40,7 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import genome_scale as gs  # noqa: E402
+import scenario as gs  # noqa: E402
 
 #: arm name -> (fmt?, ablate)
 ARMS = {
@@ -55,7 +55,7 @@ ARMS = {
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--outdir", default="results/fmt_genome_scale")
+    ap.add_argument("--outdir", default="results/fmt")
     ap.add_argument("--arms", nargs="+", choices=list(ARMS), default=list(ARMS))
     ap.add_argument("--t-end", type=float, default=96.0)
     ap.add_argument("--dt", type=float, default=0.05)

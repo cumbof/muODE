@@ -23,7 +23,7 @@ diet says `nh4`), lactose (two compounds share the `lcts` annotation), and a cou
 of un-annotated trace nutrients read out of the models BY NAME.  Anything neither
 layer resolves is DROPPED and reported below -- never guessed.
 
-    python examples/fmt_cdiff/derive_western_gut_modelseed.py
+    python examples/fmt_cdiff/derive_medium_modelseed.py
 
 Output
 ------
@@ -92,7 +92,7 @@ def main() -> int:
         "# western_gut (ModelSEED / gapseq namespace) -- TRANSLATION of western_gut.csv",
         "#",
         "# DERIVED FILE -- do not hand-edit.  Regenerate with:",
-        "#   python examples/fmt_cdiff/derive_western_gut_modelseed.py",
+        "#   python examples/fmt_cdiff/derive_medium_modelseed.py",
         "#",
         "# This is the BiGG western_gut diet with its ids mapped to ModelSEED, so the",
         "# gapseq FMT community can be fed by it.  Concentrations, influx, max_uptake and",

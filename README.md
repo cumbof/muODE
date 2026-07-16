@@ -327,8 +327,8 @@ and (where relevant) a dependency-light `mechanistic_demo.py` that runs **anywhe
 
 ```bash
 # run any mechanistic demo on any machine (toy models, no GEMs needed):
-python examples/fmt_cdiff/mechanistic_demo.py --outdir results/fmt_mechanistic
 PYTHONPATH=$(git rev-parse --show-toplevel) python examples/multikingdom/mechanistic_demo.py
+PYTHONPATH=$(git rev-parse --show-toplevel) python examples/strain_competition/mechanistic_demo.py
 ```
 
 ## 📊 Inputs and Outputs

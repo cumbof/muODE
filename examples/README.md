@@ -105,32 +105,28 @@ removal), and guidance on interpreting the output figures, see
 ## Fecal microbiota transplant (FMT) for recurrent *C. difficile*
 
 `fmt_cdiff/` simulates an **FMT** as treatment for **recurrent *Clostridioides
-difficile* infection**, showcasing muODE's timed **biomass injection**. Two
-communities are assembled independently — a dysbiotic recipient (*C. difficile*
-plus a post-antibiotic pathobiont bloom) and a healthy donor (9 commensals) —
-and the donor is *transplanted* into the recipient mid-simulation:
+difficile* infection** on **real genome-scale models**. The five members — the
+pathogen and four donors — are reconstructed with **gapseq** (one ModelSEED
+namespace, so they cross-feed with no id translation), and *no growth yield is a
+dial*: each is the biomass stoichiometry that came out of the genome. The donor
+community is transplanted into the recipient mid-simulation, and the experiment
+**ablates** the bile and pH ecology layers to decompose *which* arm of
+colonization resistance actually clears the pathogen:
 
 ```bash
-bash examples/fmt_cdiff/download_genomes.sh   # 4 recipient + 9 donor genomes
+# check readiness + the per-member yields that used to be dials (runs anywhere)
+python examples/fmt_cdiff/scenario.py
 
-# CONTROL — recipient alone: C. difficile persists (recurrence)
-muode simulate --community examples/fmt_cdiff/recipient_env/community.json \
-               --time 96 --outdir examples/fmt_cdiff/results_control
-
-# TREATMENT — transplant the donor at t=24 h: C. difficile is outcompeted
-muode simulate --community examples/fmt_cdiff/recipient_env/community.json \
-               --inject examples/fmt_cdiff/donor_env/community.json \
-               --inject-time 24 --time 96 \
-               --outdir examples/fmt_cdiff/results_fmt
+# the mechanism-decomposition study (WORKSTATION: ~30 min/arm × 5 arms)
+python examples/fmt_cdiff/run.py --outdir results/fmt
 ```
 
-Whether the transplant clears *C. difficile* is an **emergent** outcome of
-nutrient competition in the shared metabolite pool — donor commensals consume
-the carbon sources the pathogen needs (colonization resistance), not a scripted
-result. The example is honest about what is and isn't modelled (the secondary
-bile-acid mechanism is **not**). See **[fmt_cdiff/README.md](fmt_cdiff/README.md)**
-for the full walkthrough, the control-vs-treatment comparison, and variations
-(transplant timing, dose, donor quality).
+Whether the transplant clears *C. difficile* is an **emergent** outcome of the
+shared-pool dynamic FBA, and the five arms (`no_fmt`, `fmt_full`, `fmt_no_bile`,
+`fmt_no_ph`, `fmt_competition`) separate nutrient competition from SCFA
+acidification and secondary bile acids. See
+**[fmt_cdiff/README.md](fmt_cdiff/README.md)** for the community, the ablation
+table, and how to read the result.
 
 ## Multi-kingdom community (bacteria + fungus + phage)
 

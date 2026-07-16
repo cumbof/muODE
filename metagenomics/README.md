@@ -255,10 +255,12 @@ If a MAG has no species-level GTDB assignment it cannot be matched, and is recor
 as `reconstructed_only` — it is still simulated, since CoverM measures it directly.
 
 **Metabolite namespace.** CarveMe emits BiGG exchange ids; gapseq emits
-ModelSEED (`cpd*****`). Whichever you choose downstream, the ecology adapters
-(e.g. `examples/fmt_cdiff/dynamics/real_data_adapter.py`) must use the matching
-metabolite ids or members share no pool and no cross-feeding emerges. That check
-lives on the muODE side; this pipeline only produces the genomes.
+ModelSEED (`cpd*****`). Whichever you choose downstream, the diet and the ecology
+layers must use the matching metabolite ids or members share no pool and no
+cross-feeding emerges — see `examples/fmt_cdiff/` (a gapseq/ModelSEED community
+whose one BiGG↔ModelSEED boundary, the diet, is translated by
+`derive_medium_modelseed.py`). That check lives on the muODE side; this pipeline
+only produces the genomes.
 
 **Viruses/phages** are under `results/viruses/` (geNomad contigs + CheckV
 quality). They are not reconstructed into GEMs (viruses have no metabolism) —

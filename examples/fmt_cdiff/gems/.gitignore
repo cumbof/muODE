@@ -1,4 +1,6 @@
-# carve_donors.sh scratch: raw genomes + uncompressed SBML. Regenerable; never commit.
+# reconstruct_gapseq.sh scratch: raw genomes + gapseq intermediates (RDS, drafts,
+# uncompressed SBML). Regenerable; never commit. Keep only the *.gapseq.xml.gz.
+gapseq_work/
 work/
 *.xml
 !*.xml.gz

@@ -1,38 +1,41 @@
-# Expected outcome of a *successful* FMT in the C. difficile example, evaluated
-# at the end of the simulation (t = 96 h, ~72 h after the transplant).
+# Expected outcome of a *successful* FMT (the `fmt_full` arm of run.py), evaluated
+# at the end of the simulation (t = 96 h, ~84 h after the transplant).
 #
-#   muode validate --results examples/fmt_cdiff/results_fmt \
-#                  --expected examples/fmt_cdiff/benchmark.yaml
+#   muode validate --results results/fmt --expected examples/fmt_cdiff/benchmark.yaml
 #
-# The clinical endpoint of FMT for recurrent CDI is engraftment of donor
-# commensals and collapse of C. difficile. muODE captures the *nutrient
-# competition* arm of colonization resistance: donor Bacteroides and butyrate
-# producers consume the simple sugars / succinate that C. difficile depends on,
-# starving it out. (Secondary bile-acid inhibition of C. diff germination -- the
-# other major mechanism -- is NOT modelled; see README.)
+# The clinical endpoint of FMT for recurrent CDI is engraftment of donor commensals
+# and collapse of C. difficile.  This is a genome-scale gapseq community, so the ids
+# are ModelSEED (cpd00027_e0 glucose, cpd00029_e0 acetate, cpd00211_e0 butyrate) and
+# every growth yield is stoichiometric -- nothing here was tuned to hit these numbers.
 #
-# Tolerances are deliberately generous: exact numbers depend on GEM quality, the
-# CarveMe version, and the simplified built-in diet.
+# STATUS: this file is the success *specification*.  The point values below are the
+# qualitative endpoint (pathogen down, donors up, butyrate restored, acetate
+# cross-feeding present); the exact targets and tolerances are refreshed against
+# results/fmt/summary.json once the workstation run has produced it.  Tolerances are
+# deliberately generous -- exact numbers depend on GEM quality, the gapseq/DB version,
+# and the (still-incomplete) translated colonic medium.
 name: fmt_cdiff_success
 
 # --- community composition at simulation end -------------------------------
-# C. difficile should be displaced; donor commensals should dominate.
+# C. difficile should be displaced; donor commensals should dominate.  Only the five
+# reconstructed members exist (see gems/PROVENANCE.md).
 relative_abundances:
-  C_difficile_630: 0.03            # crashed from ~0.5 pre-FMT
-  B_thetaiotaomicron_VPI5482: 0.22 # donor Bacteroides engrafts and dominates
-  E_rectale_ATCC33656: 0.10        # butyrate producer establishes via cross-feeding
-  F_prausnitzii_A2165: 0.09        # anti-inflammatory butyrate producer engrafts
+  C_difficile_630: 0.03             # crashed from dominance pre-FMT
+  B_thetaiotaomicron_VPI5482: 0.40  # generalist degrader engrafts and dominates
+  R_intestinalis_L182: 0.20         # butyrate producer establishes via cross-feeding
+  F_prausnitzii_A2165: 0.10         # butyrate producer engrafts (fastidious cross-feeder)
 
-# --- metabolite concentrations at simulation end (mmol/L) ------------------
+# --- metabolite concentrations at simulation end (mmol/L), ModelSEED ids ----
 metabolites:
-  glc_e: 2.0     # simple sugars drawn down by the dense donor community
-  ac_e: 1.0      # acetate cross-feeding shuttle
-  but_e: 0.6     # butyrate restored by engrafted producers (a health marker)
+  cpd00027_e0: 2.0   # glucose / simple sugars drawn down by the dense donor community
+  cpd00029_e0: 1.0   # acetate: the cross-feeding shuttle
+  cpd00211_e0: 0.6   # butyrate restored by engrafted producers (a health marker)
 
 # --- expected cross-feeding (donor-driven colonization resistance) ---------
+# B. thetaiotaomicron releases acetate; the butyrate producers consume it.
 cross_feeding:
-  - [B_thetaiotaomicron_VPI5482, ac_e, E_rectale_ATCC33656]
-  - [B_thetaiotaomicron_VPI5482, ac_e, F_prausnitzii_A2165]
+  - [B_thetaiotaomicron_VPI5482, cpd00029_e0, R_intestinalis_L182]
+  - [B_thetaiotaomicron_VPI5482, cpd00029_e0, F_prausnitzii_A2165]
 
 # --- tolerances ------------------------------------------------------------
 tolerances:

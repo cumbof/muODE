@@ -2,7 +2,7 @@
 
 The toy scenario's growth yields are hand-set (``_grower(CDIFF, yld=0.10)``), and those
 dials are the root of the circularity pinned in test_provenance.py -- the competitive
-outcome that clears the pathogen was tuned in.  ``examples/fmt_cdiff/genome_scale.py``
+outcome that clears the pathogen was tuned in.  ``examples/fmt_cdiff/scenario.py``
 removes the dial: each member is a gapseq genome-scale reconstruction, so its yield is
 biomass stoichiometry that came out of a genome.
 
@@ -22,7 +22,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "fmt_cdiff"))
 
-import genome_scale as gs  # noqa: E402
+import scenario as gs  # noqa: E402
 
 
 def _ready():
@@ -185,7 +185,7 @@ def test_the_ready_producers_encode_a_connected_butyrate_pathway():
 def test_the_genome_scale_scenario_integrates_and_the_antibiotic_bites():
     """A SHORT end-to-end run: the 5-GEM community integrates and behaves.
 
-    Not the full study (that is ~30 min/arm on the workstation -- run_genome_scale.py).
+    Not the full study (that is ~30 min/arm on the workstation -- run.py).
     This is a 4 h smoke run that pins the things that must not silently break: all five
     members are tracked, the bile pool and spore reservoir exist, and the early
     vancomycin course actually knocks the vegetative pathogen down (the clinical setup).

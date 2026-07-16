@@ -120,86 +120,33 @@ def test_a_conclusion_that_moves_with_an_invented_number_is_not_a_conclusion():
     # both true at once == the result must not be reported.  There is no third option.
 
 
-@pytest.mark.slow
-def test_the_fmt_result_does_NOT_come_from_the_bile_mechanism_it_advertises():
-    """THE FINDING, and the reason this module exists.
+def test_the_bile_decomposition_is_now_a_genome_scale_STUDY_not_a_toy_unit_test():
+    """THE FINDING has moved to the real scenario -- deliberately, and here is the trail.
 
-    muode/bile.py opens by explaining that bile acids are "the second major arm of
-    colonization resistance against C. difficile", that FMT works by restoring the rare
-    bai guild, and that this is "the mechanistic basis of recurrence, and of why FMT
-    cures it" (Buffie 2015 Nature; Theriot 2014 Nat Commun).  All of that is real
-    biology and it is properly cited.
+    On the *toy* rCDI models this module used to prove that the FMT arm clears the
+    pathogen even with the bile mechanism removed entirely -- i.e. that clearance was
+    nutrient competition and the advertised bile mechanism (Buffie 2015; Theriot 2014)
+    was decorative.  But that finding rested on hand-tuned yields whose own comment
+    admitted the competitive outcome was tuned in, so it was a toy result about a toy.
 
-    **The simulation does not do it.**
+    The toy scenario is gone (examples/fmt_cdiff is now genome-scale only).  The finding
+    is re-asked properly by ``examples/fmt_cdiff/run.py``, which ablates the bile and pH
+    layers on the REAL gapseq community and reports whether clearance survives -- now on
+    stoichiometry, not dials.  That is a research result (a ~30 min/arm workstation run),
+    not a code invariant, so it is not pinned as a unit test.
 
-    Strip the bile layers out of the rCDI scenario entirely and the FMT arm still clears
-    the pathogen.  Strip the pH layer out too and it still clears it.  The clearance is
-    nutrient competition: the injected competitor out-eats C. difficile for proline and
-    glycine.  And the yields that decide THAT race carry this comment in rcdi.py:
-
-        "Tuned so that fast guilds reach steady state within a few simulated days and
-         the pathogen can bloom in an empty lumen but is out-competed in a restored one."
-
-    i.e. the competitive outcome was tuned in.  So the scenario is circular -- tuned to
-    produce its conclusion -- and it reaches that conclusion through a mechanism it does
-    not advertise, while the mechanism it DOES advertise is decorative.
-
-    That is not a bug in the code; every layer does what it says.  It is a bug in the
-    CLAIM, and it is exactly the kind of thing that survives peer review and should not.
-
-    This test pins the defect so it cannot be forgotten.  When the bile mechanism is
-    made load-bearing -- with a real bile pool in the diet, at physiological
-    concentrations (bile reaches the caecum at ~2 mM), and rates that are measured
-    rather than invented -- this test SHOULD fail, and that failure is the fix.
+    What IS still a code invariant -- that the decomposition machinery works, i.e. that
+    ablating a layer actually removes it -- is pinned in
+    tests/test_fmt_scenario.py::test_ablation_removes_exactly_the_named_layers.  This
+    test just guards the trail so the finding cannot be quietly lost in the refactor.
     """
-    from muode.antibiotic import Antibiotic
-    from muode.bile import BileAcidInhibition, BileAcidTransform
-    from muode.dfba import DynamicFBA
-    from muode.ecology import EcologyModel
-    from muode.inject import Injection
     import sys
     from pathlib import Path
 
-    from muode.lifecycle import SporeForming
-    from muode.ph import WeakAcidInhibition
-
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "fmt_cdiff"))
-    from scenario import (  # noqa: E402
-        BAI,
-        CDIFF,
-        COMPETITOR,
-        cdi_community,
-        cdi_diet,
-        cdi_kinetics,
-    )
+    import run as fmt_run  # noqa: E402
 
-    def run(with_bile: bool) -> float:
-        layers = [WeakAcidInhibition(buffer_capacity=25.0, default_ki=12.0,
-                                     ki={CDIFF: 3.0})]
-        if with_bile:
-            layers += [BileAcidTransform(bai_producers={BAI}, vmax_bai=3.0),
-                       BileAcidInhibition(targets={CDIFF}, ki=0.05)]
-        layers += [
-            SporeForming(species={CDIFF}, initial_spores={CDIFF: 0.05},
-                         k_germination=0.6, k_sporulation=0.8, mu_stress=0.15),
-            Antibiotic(susceptible={CDIFF},
-                       dose_times=tuple(float(t) for t in range(0, 10, 2)),
-                       dose=3.0, half_life=2.0, emax=5.0, ec50=0.4),
-        ]
-        fmt = [Injection.from_abundances(12.0, {COMPETITOR: 0.6, BAI: 0.4},
-                                         total_biomass=0.05, name="FMT")]
-        res = DynamicFBA(t_end=96.0, dt=0.05).run(
-            cdi_community(), cdi_diet(), cdi_kinetics(),
-            injections=fmt, ecology=EcologyModel(layers),
-        )
-        return float(res.biomass[CDIFF].iloc[-1])
-
-    with_bile = run(True)
-    without_bile = run(False)
-
-    assert with_bile < 0.1, "the FMT arm should clear the pathogen (it does)"
-    assert without_bile < 0.1, (
-        "REMOVING the entire bile mechanism should ALSO clear it -- and it does. "
-        "If this now fails, the bile layer has become load-bearing, which is the "
-        "outcome we want: delete this assertion and celebrate."
-    )
+    # the study still runs the ablation arms that decompose the mechanism
+    assert "fmt_full" in fmt_run.ARMS
+    assert "fmt_competition" in fmt_run.ARMS      # bile AND pH removed -> pure competition
+    assert fmt_run.ARMS["fmt_competition"] == (True, "bile ph")
