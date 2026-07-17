@@ -55,17 +55,26 @@ T_END = 48.0
 
 
 def load_models(models_dir: Path) -> dict[str, Path]:
-    """Map strain code -> GEM, by the filename stem the genomes were named with."""
+    """Map strain code -> GEM, by the filename stem the genomes were named with.
+
+    Accepts gzipped models (``*.xml.gz``) too: gapseq GEMs are committed gzipped, and
+    ``CobraOrganism.from_file`` reads either.
+    """
     found = {}
-    for path in sorted(models_dir.glob("*.xml")) + sorted(models_dir.glob("*.sbml")):
-        code = path.stem.split(".")[0]
+    for path in (sorted(models_dir.glob("*.xml")) + sorted(models_dir.glob("*.xml.gz"))
+                 + sorted(models_dir.glob("*.sbml"))):
+        code = path.name.split(".")[0]
         if code in ck.STRAINS:
             found[code] = path
     return found
 
 
-def simulate(codes, models, diet, kinetics, t_end=T_END, dt=0.1, n_jobs=1):
-    """Run one community and return (net metabolite production, relative abundance)."""
+def simulate(codes, models, diet, kinetics, metabolites, t_end=T_END, dt=0.1, n_jobs=1):
+    """Run one community and return (net metabolite production, relative abundance).
+
+    ``metabolites`` is the namespace's measured-column -> exchange-id map
+    (``ck.metabolite_map(...)``); it must match the GEMs' namespace and the ``diet``.
+    """
     organisms = [CobraOrganism.from_file(str(models[c]), id=c) for c in codes]
     community = Community(organisms, abundances={c: 1.0 / len(codes) for c in codes},
                           total_biomass=0.01)
@@ -73,8 +82,8 @@ def simulate(codes, models, diet, kinetics, t_end=T_END, dt=0.1, n_jobs=1):
 
     final_mets = result.metabolites.iloc[-1].to_dict()
     net = {
-        bigg: float(final_mets.get(bigg, 0.0)) - diet.initial_concentration(bigg)
-        for bigg in ck.METABOLITES.values()
+        exch: float(final_mets.get(exch, 0.0)) - diet.initial_concentration(exch)
+        for exch in metabolites.values()
     }
 
     biomass = result.biomass.iloc[-1].to_dict()
@@ -91,6 +100,10 @@ def main() -> int:
     ap.add_argument("--outdir", type=Path, default=Path("results/clark2021/benchmark"))
     ap.add_argument("--max-richness", type=int, default=None, help="skip communities above this size")
     ap.add_argument("--tier", choices=["1", "2", "3", "all"], default="all")
+    ap.add_argument("--namespace", choices=["bigg", "modelseed"], default="bigg",
+                    help="bigg = CarveMe GEMs (default); modelseed = gapseq GEMs "
+                         "(the namespace that can secrete butyrate -- needs "
+                         "dm38_modelseed.csv, see derive_dm38_modelseed.py)")
     ap.add_argument("--threads", type=int, default=1)
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
@@ -100,44 +113,50 @@ def main() -> int:
         print(f"downloading the measurement table -> {data}")
         ck.fetch(data)
 
-    diet = ck.dm38()
+    # The medium and the measured-metabolite map switch namespace TOGETHER: a gapseq
+    # prediction keyed cpd00211_e0 must be scored against a truth keyed the same way and
+    # a baseline read from the same medium.
+    diet = ck.medium(args.namespace)
+    mets = ck.metabolite_map(args.namespace)
     kinetics = KineticParameters()
     df = ck.load(data)
     models = load_models(args.models)
+    print(f"namespace: {args.namespace}  (scoring {', '.join(mets.values())})")
 
     print(f"GEMs: {len(models)}/{len(ck.STRAINS)} strains -> {sorted(models)}")
     absent = sorted(set(ck.STRAINS) - set(models))
     if absent:
         print(f"MISSING GEMs for {absent} -- every community containing them is skipped")
 
-    report: dict = {"n_models": len(models), "missing_models": absent, "t_end_h": T_END}
+    report: dict = {"namespace": args.namespace, "n_models": len(models),
+                    "missing_models": absent, "t_end_h": T_END}
 
     # -- tier 1: monoculture secretion phenotype ----------------------------
     if args.tier in ("1", "all"):
         print("\n=== tier 1: monoculture phenotype on DM38 ===")
-        truth = ck.monoculture_phenotypes(df)
+        truth = ck.monoculture_phenotypes(df, diet=diet, metabolites=mets)
         skip = ck.non_growers(df)
         predicted: dict = {}
         for code in sorted(models):
-            net, _ = simulate([code], models, diet, kinetics, n_jobs=args.threads)
+            net, _ = simulate([code], models, diet, kinetics, mets, n_jobs=args.threads)
             predicted[code] = {b: v > 5.0 for b, v in net.items()}
             secretes = sorted(b for b, v in predicted[code].items() if v)
             print(f"  {code}  {ck.STRAINS[code].species:38} -> {secretes or '(nothing)'}")
 
         report["tier1"] = {
-            bigg: ck.score_phenotypes(predicted, truth, bigg, exclude=skip)
-            for bigg in ck.METABOLITES.values()
+            exch: ck.score_phenotypes(predicted, truth, exch, exclude=skip)
+            for exch in mets.values()
         }
         print(f"\n  excluded (did not grow in DM38 in vitro): {list(skip)}")
-        for bigg, score in report["tier1"].items():
-            print(f"  {bigg:10} accuracy={score['accuracy']:.2f}  F1={score['f1']:.2f}  "
+        for exch, score in report["tier1"].items():
+            print(f"  {exch:10} accuracy={score['accuracy']:.2f}  F1={score['f1']:.2f}  "
                   f"(n={score['n_strains']})  wrong: {score['misclassified'] or 'none'}")
 
     # -- tiers 2/3: communities ---------------------------------------------
     if args.tier in ("2", "3", "all"):
         want = {"2": (2, 2), "3": (3, 99), "all": (2, 99)}[args.tier]
         observed = [
-            o for o in ck.observations(df)
+            o for o in ck.observations(df, diet=diet, metabolites=mets)
             if want[0] <= o.richness <= want[1]
             and all(c in models for c in o.species)
             and (args.max_richness is None or o.richness <= args.max_richness)
@@ -148,7 +167,7 @@ def main() -> int:
 
         predicted_mets, abundance_error = {}, []
         for i, obs in enumerate(observed, 1):
-            net, abundances = simulate(list(obs.species), models, diet, kinetics,
+            net, abundances = simulate(list(obs.species), models, diet, kinetics, mets,
                                        n_jobs=args.threads)
             predicted_mets[obs.community] = net
             if obs.abundances:
@@ -163,8 +182,8 @@ def main() -> int:
         report["community"] = {
             "n_communities": len(observed),
             "metabolites": {
-                bigg: ck.score_metabolites(predicted_mets, observed, bigg, net=True)
-                for bigg in ck.METABOLITES.values()
+                exch: ck.score_metabolites(predicted_mets, observed, exch, net=True)
+                for exch in mets.values()
             },
             "abundance_mae": (sum(abundance_error) / len(abundance_error)
                               if abundance_error else None),
@@ -173,12 +192,12 @@ def main() -> int:
         if not observed:
             print("  NO communities could be scored: every one contains a strain with no\n"
                   "  GEM.  This is not a result -- reconstruct the missing strains first.")
-        for bigg, score in report["community"]["metabolites"].items():
+        for exch, score in report["community"]["metabolites"].items():
             if "mae" not in score:                      # degenerate: too few pairs
-                print(f"  {bigg:10} not scored ({score.get('error', 'no data')})")
+                print(f"  {exch:10} not scored ({score.get('error', 'no data')})")
                 continue
             r = score.get("pearson_r")
-            print(f"  {bigg:10} r={'n/a' if r is None else format(r, '.3f')}  "
+            print(f"  {exch:10} r={'n/a' if r is None else format(r, '.3f')}  "
                   f"MAE={score['mae']:.2f} mM  bias={score['bias']:+.2f}  (n={score['n']})")
         mae = report["community"]["abundance_mae"]
         if mae is not None:

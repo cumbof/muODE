@@ -41,6 +41,46 @@ def test_dm38_is_the_published_medium():
     assert all(dm38.influx_rate(m) == 0.0 for m in dm38.metabolites())
 
 
+# --- namespace switching (CarveMe/BiGG vs gapseq/ModelSEED) -----------------
+
+def test_metabolite_map_switches_namespace():
+    assert ck.metabolite_map("bigg")["Butyrate"] == "but_e"
+    assert ck.metabolite_map("modelseed")["Butyrate"] == "cpd00211_e0"
+    assert ck.metabolite_map("modelseed")["Lactate"] == "cpd00159_e0"
+    with pytest.raises(ValueError, match="bigg.*modelseed"):
+        ck.metabolite_map("nonsense")
+
+
+def test_dm38_modelseed_accessor_is_a_workstation_artifact_and_says_so_when_absent():
+    """It is derived from the gapseq GEMs, so it is not committed; the accessor must not
+    fail obscurely -- it points at the script that builds it."""
+    from muode.diet import _DIET_DIR
+
+    if (_DIET_DIR / "dm38_modelseed.csv").exists():
+        pytest.skip("dm38_modelseed.csv is present (built on a workstation)")
+    with pytest.raises(FileNotFoundError, match="derive_dm38_modelseed"):
+        ck.medium("modelseed")
+
+
+def test_the_measured_side_keys_by_the_chosen_namespace_and_subtracts_that_baseline(df):
+    """A gapseq prediction is keyed cpd00211_e0; the measured truth it is scored against
+    must be keyed the same way and have the SAME namespace's medium baseline removed.
+    Pass the ModelSEED map + a ModelSEED medium and the observation flips namespace with
+    the lactate-baseline correction intact."""
+    from muode.diet import Diet
+
+    ms = ck.metabolite_map("modelseed")
+    # a minimal ModelSEED DM38: only the lactate baseline matters for net (the SCFAs are
+    # products, absent from the medium -> baseline 0), and it is the 28.3 mM trap.
+    ms_diet = Diet(concentrations={"cpd00159_e0": 28.3082}, name="dm38_ms_min")
+
+    obs = ck.observations(df, diet=ms_diet, metabolites=ms)
+    o = next(x for x in obs if x.net_metabolites)
+    assert set(o.net_metabolites) <= set(ms.values())        # ModelSEED ids, not BiGG
+    if "cpd00159_e0" in o.metabolites:                       # lactate baseline removed
+        assert o.net_metabolites["cpd00159_e0"] < o.metabolites["cpd00159_e0"]
+
+
 def test_dm38_feeds_a_real_bigg_model_anaerobically():
     """If DM38 cannot grow E. coli core, the mapping to BiGG dropped a nutrient."""
     cobra = pytest.importorskip("cobra")

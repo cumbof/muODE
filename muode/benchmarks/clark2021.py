@@ -57,12 +57,35 @@ DATA_URL = (
 )
 
 #: The four metabolites quantified by HPLC, as muODE (BiGG) exchange metabolites.
+#: Used when the community is reconstructed with CarveMe (BiGG namespace).
 METABOLITES: Dict[str, str] = {
     "Acetate": "ac_e",
     "Butyrate": "but_e",
     "Lactate": "lac__L_e",
     "Succinate": "succ_e",
 }
+
+#: The same four, as ModelSEED exchange metabolites, for a gapseq-reconstructed
+#: community.  gapseq is the namespace that can actually secrete butyrate (CarveMe's
+#: BiGG universe cannot, so a CarveMe run scores AC/CC/ER/RI as non-producers).  A
+#: prediction and its measured baseline must be compared in ONE namespace, so the medium
+#: (dm38 vs dm38_modelseed) and this map switch together -- see ``metabolite_map`` /
+#: ``medium`` and ``examples/benchmarks/clark2021/derive_dm38_modelseed.py``.
+METABOLITES_MODELSEED: Dict[str, str] = {
+    "Acetate": "cpd00029_e0",
+    "Butyrate": "cpd00211_e0",
+    "Lactate": "cpd00159_e0",
+    "Succinate": "cpd00036_e0",
+}
+
+
+def metabolite_map(namespace: str = "bigg") -> Dict[str, str]:
+    """The measured-column -> exchange-id map for the reconstruction's namespace."""
+    if namespace == "bigg":
+        return METABOLITES
+    if namespace == "modelseed":
+        return METABOLITES_MODELSEED
+    raise ValueError(f"namespace must be 'bigg' or 'modelseed', not {namespace!r}")
 
 
 @dataclass(frozen=True)
@@ -149,7 +172,7 @@ AUTHORS_SUCCINATE_PRODUCERS: Tuple[str, ...] = ("PJ", "BT", "BF", "BC", "BO", "B
 
 
 def dm38() -> Diet:
-    """The DM38 defined medium the communities were actually grown in.
+    """The DM38 defined medium the communities were actually grown in (BiGG namespace).
 
     Derived from Supplementary Data 4 -- see
     `examples/benchmarks/clark2021/derive_dm38.py`.
@@ -157,6 +180,34 @@ def dm38() -> Diet:
     from muode.diet import _DIET_DIR
 
     return Diet.from_csv(_DIET_DIR / "dm38.csv", name="DM38")
+
+
+def dm38_modelseed() -> Diet:
+    """DM38 in the ModelSEED namespace, for feeding a gapseq-reconstructed community.
+
+    Not committed: it is derived from the gapseq GEMs' own annotations (a workstation
+    step), so it depends on which strains were reconstructed.  Build it with
+    ``examples/benchmarks/clark2021/derive_dm38_modelseed.py --gems <dir>``.
+    """
+    from muode.diet import _DIET_DIR
+
+    path = _DIET_DIR / "dm38_modelseed.csv"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} does not exist.  It is a workstation artifact: reconstruct the "
+            "clark strains with gapseq, then run "
+            "examples/benchmarks/clark2021/derive_dm38_modelseed.py --gems <dir>."
+        )
+    return Diet.from_csv(path, name="DM38_modelseed")
+
+
+def medium(namespace: str = "bigg") -> Diet:
+    """The DM38 medium in the reconstruction's namespace (see :func:`metabolite_map`)."""
+    if namespace == "bigg":
+        return dm38()
+    if namespace == "modelseed":
+        return dm38_modelseed()
+    raise ValueError(f"namespace must be 'bigg' or 'modelseed', not {namespace!r}")
 
 
 def fetch(dest: str | Path) -> Path:
@@ -216,26 +267,33 @@ class Observation:
         return len(self.species)
 
 
-def observations(df, diet: Optional[Diet] = None) -> List[Observation]:
+def observations(df, diet: Optional[Diet] = None,
+                 metabolites: Optional[Dict[str, str]] = None) -> List[Observation]:
     """Collapse replicate wells into one :class:`Observation` per community.
 
     ``net_metabolites`` subtracts the DM38 starting concentration, so a positive
     value is net production and a negative one net consumption.  This is the
     quantity a model predicts; the raw endpoint of lactate is dominated by the
     28.3 mM already in the medium.
+
+    ``metabolites`` (and ``diet``) select the namespace: pass
+    ``metabolite_map("modelseed")`` + ``dm38_modelseed()`` to key the measured values by
+    the same ModelSEED exchange ids a gapseq community's prediction uses.  They MUST
+    agree -- a prediction keyed cpd00211_e0 cannot be compared to a truth keyed but_e.
     """
     diet = diet or dm38()
+    metabolites = metabolites or METABOLITES
     out: List[Observation] = []
 
     for community, grp in df.groupby("Treatment", sort=True):
         species = tuple(str(community).split("-"))
         mets, net = {}, {}
-        for column, bigg in METABOLITES.items():
+        for column, exch in metabolites.items():
             if column not in grp:
                 continue
             measured = float(grp[column].mean())
-            mets[bigg] = measured
-            net[bigg] = measured - diet.initial_concentration(bigg)
+            mets[exch] = measured
+            net[exch] = measured - diet.initial_concentration(exch)
 
         abundances = {}
         for code in species:
@@ -283,7 +341,9 @@ def non_growers(df, min_od: float = 0.1) -> Tuple[str, ...]:
     return tuple(sorted(c for c, od in monoculture_growth(df).items() if od < min_od))
 
 
-def monoculture_phenotypes(df, threshold: float = 5.0) -> Dict[str, Dict[str, bool]]:
+def monoculture_phenotypes(df, threshold: float = 5.0, diet: Optional[Diet] = None,
+                           metabolites: Optional[Dict[str, str]] = None
+                           ) -> Dict[str, Dict[str, bool]]:
     """Ground-truth secretion phenotype per strain, **derived from the data**.
 
     For each strain grown in monoculture, whether it produced each metabolite
@@ -301,7 +361,8 @@ def monoculture_phenotypes(df, threshold: float = 5.0) -> Dict[str, Dict[str, bo
     organism -- and a model that grows FP well will "fail" this test for a
     defensible reason.  Report it; do not tune it away.
     """
-    diet = dm38()
+    diet = diet or dm38()
+    metabolites = metabolites or METABOLITES
     mono = df[~df["Treatment"].astype(str).str.contains("-")]
 
     phenotypes: Dict[str, Dict[str, bool]] = {}
@@ -310,8 +371,8 @@ def monoculture_phenotypes(df, threshold: float = 5.0) -> Dict[str, Dict[str, bo
         if code not in STRAINS:
             continue
         phenotypes[code] = {
-            bigg: bool(float(grp[column].median()) - diet.initial_concentration(bigg) > threshold)
-            for column, bigg in METABOLITES.items() if column in grp
+            exch: bool(float(grp[column].median()) - diet.initial_concentration(exch) > threshold)
+            for column, exch in metabolites.items() if column in grp
         }
     return phenotypes
 
