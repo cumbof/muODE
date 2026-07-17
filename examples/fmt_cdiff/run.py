@@ -28,15 +28,17 @@ WHAT IT ANSWERS
     infection everywhere and all five arms reported CLEARED -- a result about the drug,
     read as a result about the community.
 
-    Note what this roster can and cannot show.  The first genome-scale run found
-    fmt_competition == abx_only and the obvious reading was that these donors compete
-    badly -- but the cause was the DIET: its starch row failed to translate into the
-    ModelSEED namespace, leaving a colonic medium with no fibre in it and every donor
-    here is a fibre degrader.  With starch restored (media.py), B. theta overtakes the
-    pathogen in monoculture (0.0416 vs 0.0359/h) and C. difficile gains nothing from it.
-    Whether that advantage survives washout is what this run decides -- monoculture mu
-    is not lambda.  If fmt_competition STILL looks no better than abx_only, that is the
-    honest answer, not a bug.
+    Note what this roster can and cannot show -- this is settled, not open.  The study
+    finds fmt_competition == abx_only: nutrient competition contributes nothing HERE, and
+    the mechanism that works is bile (fmt_full is the lowest burden, 83% of it dormant
+    spores held from germinating -- the C. scindens -> deoxycholate arm, Buffie 2015).
+    That is NOT because the donors are poor competitors: restoring the diet's missing
+    fibre lets B. theta overtake the pathogen in monoculture (0.042 vs 0.036/h) and still
+    does not move fmt_competition.  The reason is structural -- at physiological uptake
+    bounds the community grows at mu~0.03/h and never reaches food-limiting density
+    within 120 h, so every substrate stays replete (hence lambda>0 in every arm).  Bile
+    is a rate modifier, so it acts at any density; competition needs a food-limited
+    community this model does not reach at a defensible horizon.  See the README.
 
 RUN (on the workstation)
     python examples/fmt_cdiff/run.py --outdir results/fmt            # all seven arms

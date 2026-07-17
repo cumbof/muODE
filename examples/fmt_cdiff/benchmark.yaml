@@ -1,5 +1,5 @@
 # Expected outcome of a *successful* FMT (the `fmt_full` arm of run.py), evaluated
-# at the end of the simulation (t = 96 h, ~84 h after the transplant).
+# at the end of the simulation (t = 120 h, ~108 h after the transplant).
 #
 #   muode validate --results results/fmt --expected examples/fmt_cdiff/benchmark.yaml
 #
@@ -8,31 +8,44 @@
 # are ModelSEED (cpd00027_e0 glucose, cpd00029_e0 acetate, cpd00211_e0 butyrate) and
 # every growth yield is stoichiometric -- nothing here was tuned to hit these numbers.
 #
-# STATUS: this file is the success *specification*.  The point values below are the
-# qualitative endpoint (pathogen down, donors up, butyrate restored, acetate
-# cross-feeding present); the exact targets and tolerances are refreshed against
-# results/fmt/summary.json once the workstation run has produced it.  Tolerances are
-# deliberately generous -- exact numbers depend on GEM quality, the gapseq/DB version,
-# and the (still-incomplete) translated colonic medium.
+# MECHANISM (see README "What the study found"): on this community the arm that clears
+# the pathogen is the SECONDARY BILE ACID arm -- C. scindens 7a-dehydroxylation ->
+# deoxycholate holds spores from germinating (Buffie 2015), while vancomycin removes the
+# vegetative pool.  Nutrient competition contributes nothing here: the community stays
+# food-replete over a physiological horizon, so `fmt_competition` == `abx_only`.  Do not
+# read the endpoint below as sugar competition -- glucose is NOT expected to be drawn
+# down by donor demand in this regime.
+#
+# STATUS: this file is the success *specification*, and it is the CLINICAL endpoint (what
+# a real FMT achieves in a patient), NOT yet reconciled with this five-member, food-
+# replete model's actual output.  The point values are the qualitative target (pathogen
+# down, donors engrafted, butyrate restored, acetate cross-feeding present); the exact
+# targets and tolerances must be refreshed against results/fmt/summary.json + the biomass
+# CSVs once the workstation run is in hand (that data lives on the workstation, not here).
+# Tolerances are deliberately generous -- exact numbers depend on GEM quality, the
+# gapseq/DB version, and the (still-incomplete) translated colonic medium.
 name: fmt_cdiff_success
 
 # --- community composition at simulation end -------------------------------
-# C. difficile should be displaced; donor commensals should dominate.  Only the five
-# reconstructed members exist (see gems/PROVENANCE.md).
+# C. difficile should be displaced (its vegetative pool cleared by the drug, its spores
+# held dormant by bile); donor commensals engraft.  Only the five reconstructed members
+# exist (see gems/PROVENANCE.md).  CLINICAL target -- reconcile against the biomass CSVs.
 relative_abundances:
-  C_difficile_630: 0.03             # crashed from dominance pre-FMT
-  B_thetaiotaomicron_VPI5482: 0.40  # generalist degrader engrafts and dominates
+  C_difficile_630: 0.03             # collapsed: drug clears vegetative cells, bile blocks germination
+  B_thetaiotaomicron_VPI5482: 0.40  # generalist degrader engrafts
   R_intestinalis_L182: 0.20         # butyrate producer establishes via cross-feeding
   F_prausnitzii_A2165: 0.10         # butyrate producer engrafts (fastidious cross-feeder)
 
 # --- metabolite concentrations at simulation end (mmol/L), ModelSEED ids ----
 metabolites:
-  cpd00027_e0: 2.0   # glucose / simple sugars drawn down by the dense donor community
+  cpd00027_e0: 2.0   # glucose / simple sugars -- NOT a competition marker here (see header)
   cpd00029_e0: 1.0   # acetate: the cross-feeding shuttle
   cpd00211_e0: 0.6   # butyrate restored by engrafted producers (a health marker)
 
-# --- expected cross-feeding (donor-driven colonization resistance) ---------
-# B. thetaiotaomicron releases acetate; the butyrate producers consume it.
+# --- expected cross-feeding (donor engraftment, not competition) -----------
+# B. thetaiotaomicron releases acetate; the butyrate producers consume it.  This is
+# metabolic cooperation among the donors, and it happens at any density -- it is not the
+# resource-competition arm (which this model does not express; see the header).
 cross_feeding:
   - [B_thetaiotaomicron_VPI5482, cpd00029_e0, R_intestinalis_L182]
   - [B_thetaiotaomicron_VPI5482, cpd00029_e0, F_prausnitzii_A2165]

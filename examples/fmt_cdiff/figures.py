@@ -8,7 +8,8 @@ two figures that carry the study's claim:
      vegetative and spore pools.  THE result, and the split is half of it: a bar that
      is mostly spore is not a cure, it is a pathogen waiting for the drug to wash out.
      Read ``untreated`` first (did it colonize at all?), then ``fmt_competition``
-     against ``fmt_full`` (is the bile/pH mechanism load-bearing, or is it competition?).
+     against ``fmt_full``: the figure shows the bile/pH arm is load-bearing and
+     competition is not (fmt_competition tracks abx_only) -- see the README.
   2. ``pathogen_trajectories.png`` -- C. difficile biomass over time, one line per
      arm, so *when* the arms diverge is visible (before or after the transplant).
 

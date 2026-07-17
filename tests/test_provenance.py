@@ -147,6 +147,15 @@ def test_the_bile_decomposition_is_now_a_genome_scale_STUDY_not_a_toy_unit_test(
     stoichiometry, not dials.  That is a research result (a ~30 min/arm workstation run),
     not a code invariant, so it is not pinned as a unit test.
 
+    The workstation run has since answered it, and the answer INVERTED the toy: on the
+    genome-scale community the bile arm is load-bearing (fmt_full is the lowest pathogen
+    burden, 83% of it dormant spores held from germinating) and nutrient competition
+    contributes nothing (fmt_competition == abx_only).  The toy's "clearance is
+    competition, bile is decorative" was an artifact of the hand-tuned yields; the real
+    stoichiometry says the reverse -- for the structural reason documented in the README
+    (this community stays food-replete over a physiological horizon, so competition never
+    engages, while bile acts as a rate modifier at any density).
+
     What IS still a code invariant -- that the decomposition machinery works, i.e. that
     ablating a layer actually removes it -- is pinned in
     tests/test_fmt_scenario.py::test_ablation_removes_exactly_the_named_layers.  This

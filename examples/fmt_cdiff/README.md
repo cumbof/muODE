@@ -7,6 +7,13 @@ mechanistic: *when a donor community clears the pathogen, which arm of colonizat
 resistance is actually doing the work* — nutrient competition, SCFA acidification, or
 secondary bile acids?
 
+> **Result:** on this community, **secondary bile acids** (the *C. scindens* → deoxycholate
+> arm; Buffie et al. 2015). The ablation arms show nutrient competition contributes
+> nothing *here*, for a structural reason worth understanding before you trust it — see
+> [What the study found](#what-the-study-found-bile-not-competition). Read that section's
+> limitation note: this is a food-replete, well-mixed toy that can show the bile/SCFA/spore
+> arms but not competition.
+
 Everything here runs on **real genome-scale models** reconstructed with **gapseq**.
 No growth yield is a dial: each member's yield is the biomass stoichiometry that came
 out of its genome, so if the pathogen is out-competed it is because the
@@ -62,7 +69,7 @@ reaction, so C. scindens carries the role without needing a bile reaction in its
 
 | Mechanism | In muODE | How |
 |---|---|---|
-| **Nutrient-niche competition** — commensals consume the pathogen's sugars / Stickland pairs / succinate | **Yes (FBA core)** | shared-pool dynamic FBA over the gapseq GEMs |
+| **Nutrient-niche competition** — commensals consume the pathogen's sugars / Stickland pairs / succinate | **Machinery yes; not expressed here** | shared-pool dynamic FBA over the gapseq GEMs — but this community stays food-replete over a physiological horizon, so competition does not engage (see "Why nutrient competition does *not* show" below) |
 | **SCFA → pH inhibition** — a dense fermenting community acidifies the lumen | **Yes** | `WeakAcidInhibition` (ecology layer) |
 | **Secondary bile acids** — *bai* 7α-dehydroxylation → deoxycholate inhibits growth and blocks germination | **Yes** | `BileAcidTransform` + `BileAcidInhibition` |
 | **Sporulation / germination** — a spore reservoir survives antibiotics, germinates only when bile permits | **Yes** | `SporeForming` |
@@ -183,61 +190,72 @@ filled the recurrence reservoir, not emptied it.
   nothing through nutrient competition.
 - Compare `fmt_full` against `fmt_competition`: the gap is what the bile/pH arms buy.
 
-### The diet was starving the donors — fixed, and what it changes
+### What the study found: bile, not competition
 
-The first genome-scale run measured `fmt_competition` ≡ `abx_only` and the obvious
-reading was that the donor roster simply competes badly. It was **the diet**.
+Core arms (`--core`, `t_end=120h`, `D=0.025`):
 
-The BiGG `western_gut` diet has starch (`starch1200_e`); the ModelSEED translation
-dropped it, so the colonic medium had **no fibre in it** — and every donor here is a
-fibre degrader. The row fell through for two stacked reasons: the diet names a chain
-length (`starch1200`) while the models annotate the bare stem (`starch`), and that stem
-is ambiguous across `cpd90003`/`cpd90004`, so the ambiguity guard refused it. One row in
-a lookup table took the whole competition arm with it.
+| arm | pathogen total | vegetative | spores | λ (1/h) | reading |
+|---|---|---|---|---|---|
+| `untreated` | 0.332 | 0.332 | 0.0002 | +0.0109 | colonizes and persists — the infection is real |
+| `abx_only` | 0.038 | 0.037 | 0.0002 | +0.0115 | vancomycin knocks it down, but it rebounds (λ>0) |
+| `fmt_full` | 0.022 | 0.004 | 0.018 | +0.0088 | **lowest burden — and 83% of it is dormant spores** |
+| `fmt_competition` | 0.039 | 0.039 | 0.0002 | +0.0119 | indistinguishable from `abx_only` |
 
-That gap was not symmetric. **All four donors carry starch exchanges; *C. difficile*
-carries none** — starch is the one substrate in the medium the donor community can eat
-and the pathogen cannot, and it was the substrate the translation threw away.
+Two comparisons carry the result:
 
-Translating it is a **unit conversion, not a rename**: BiGG starch is 1200 glucose units
-and `cpd90003` is 27, so the row is rescaled by 1200/27 to conserve monomer flux (see
-`_CURATED_POLYMER_BIGG_TO_MODELSEED` in `muode/media.py`). With fibre in the medium, the
-monoculture ordering **flips**:
+1. **`fmt_competition` ≡ `abx_only`.** With bile and pH ablated, the transplant adds
+   nothing — the donors do not suppress the pathogen by eating its food.
+2. **`fmt_full` is the lowest burden, and 83% of that residual is spores.** The gap
+   between `fmt_full` and `fmt_competition` is the bile/pH layers, and the mechanism is
+   the bile arm holding spores from germinating — the *C. scindens* → deoxycholate story
+   of **Buffie et al. 2015 (Nature)**. No parameter is tuned per arm; this comes out of
+   the stoichiometry plus the ecology layers.
 
-| member | no starch | +starch | |
-|---|---|---|---|
-| B. thetaiotaomicron | 0.0335/h | **0.0416/h** | now the fastest grower |
-| C. difficile | 0.0359/h | 0.0359/h | gains exactly nothing |
-| R. intestinalis | 0.0262/h | 0.0339/h | +29% |
-| C. scindens | 0.0008/h | 0.0008/h | limited by something else |
-| F. prausnitzii | 0.0008/h | 0.0008/h | acetate cross-feeder; see below |
+So the defensible, literature-consistent finding is **bile-acid-mediated colonization
+resistance**, not nutrient competition.
 
-So the claim this README used to make — that *C. difficile* is the fastest grower and
-the donors cannot win on nutrients — was an artifact of a fibre-free diet, not a fact
-about the roster.
+### Why nutrient competition does *not* show — and why it is not the roster
 
-That table is not a t=0 artifact. Under washout every diet row decays ~12× from its
-seeded concentration toward the level the influx sustains (starch 2.13 → `influx/D` =
-0.178 mM), so the advantage had to be re-checked there — and it is **unchanged**,
-because at 0.178 mM the Michaelis–Menten rate (9.5) still far exceeds the dietary
-ceiling (0.0044), so the *diet* is the binding constraint at both concentrations, not
-transport. The asymmetry is also visible in the dynamics directly: in the `untreated`
-arm, starch drawdown is 99.8% accounted for by washout alone — the pathogen eats none
-of it.
+The obvious guess (the donors are poor competitors) is wrong, and so was our first fix.
 
-**This does not yet prove the community excludes the pathogen.** Monoculture µ is not λ;
-whether the donors' new advantage survives washout, and whether it moves
-`fmt_competition` off `abx_only`, is what the re-run decides. Two things to watch:
-C. scindens (the *bai* producer — the entire bile arm) and F. prausnitzii sit at
-0.0008/h and gain nothing from starch. For F. prausnitzii that is expected in
-monoculture (it needs acetate, which starts at 0 and is cross-fed in community);
-C. scindens has no such excuse and is worth a look.
+The donors are fibre degraders and the ModelSEED diet had lost its starch in
+translation, so we restored it (a genuine correctness fix — see
+`_CURATED_POLYMER_BIGG_TO_MODELSEED` in `muode/media.py`; BiGG `starch1200` is 1200
+glucose units and ModelSEED `cpd90003` is 27, so the row is rescaled by 1200/27 to
+conserve monomer flux, not renamed). With fibre in the medium *B. thetaiotaomicron*
+overtakes the pathogen in monoculture (0.042 vs 0.036/h) and *C. difficile* gains
+nothing, because it carries no starch exchange. **But it did not move
+`fmt_competition`** — and the reason is structural, not about the roster:
 
-Still untranslated, each for a reason: `amylose300`, `pullulan1200` and `lmn30` have no
-compound in any of these models; `xylan4`/`xylan8` do (`cpd90021`/`cpd90022`) but
-*C. difficile* carries them **too**, so xylan feeds the pathogen alongside the donors —
-a real gap in the medium, but not a competition asymmetry. See
-`derive_medium_modelseed.py`.
+**Competition needs the community to be food-limited, and at physiological parameters it
+never gets there within a defensible horizon.** Two facts collide:
+
+- The diet's uptake bounds are real dietary intake, so the community grows at μ ≈
+  0.03/h. From a post-antibiotic inoculum it takes **~275 h** to reach the density where
+  the medium's carbon becomes limiting (~1 gDW/L) and **~500 h** to reach a real colon's
+  density (20–40 gDW/L — which the diet's own 20 gDW/L provisioning correctly targets).
+- The run is 120 h — about three colonic transits, already at the edge of what a
+  well-mixed model can honestly represent. Over 120 h the community stays well below
+  carrying capacity, so every substrate is replete and nobody competes. (This is also
+  why λ > 0 in *every* arm.)
+
+You can have physiological density **or** a defensible horizon, not both. Forcing
+competition inside 120 h would require provisioning the gut for ~100× fewer microbes
+than reality — an unphysical medium chosen to manufacture the result, which we do not
+do. **Bile is unaffected** because it acts as a growth-rate modifier, not a resource: it
+works at any density, which is exactly why it is the mechanism this example can show.
+
+> **Limitation, stated plainly for the reader.** This five-member community, well-mixed
+> and integrated over a physiological horizon, sits in the *food-replete* regime. It
+> demonstrates the **bile / SCFA / spore** arms of colonization resistance, which are
+> rate-modifying and act at any density — not **nutrient-competition-based** resistance,
+> which needs a food-limited community this model does not reach at physiological density
+> and horizon. Read `fmt_competition` as a negative control that came out negative *for a
+> defensible reason*, not as a verdict on how well the donors compete.
+
+(Some fibre rows remain untranslated on purpose: `amylose300`, `pullulan1200`, `lmn30`
+have no compound in any of these GEMs, and `xylan4`/`xylan8` do but *C. difficile*
+carries them too — a real gap in the medium, not a competition asymmetry.)
 
 ---
 
