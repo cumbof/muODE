@@ -80,9 +80,13 @@ download_genome "GCF_000025985.1"  "B_fragilis_NCTC9343"           \
 # ---------------------------------------------------------------------------
 download_genome "GCF_000020605.1"  "E_rectale_ATCC33656"           \
     "Eubacterium rectale ATCC 33656"
-download_genome "GCF_000209895.1"  "R_intestinalis_L182"           \
+# NB: the two accessions below are the ones the committed gapseq GEMs were ACTUALLY
+# built from (shared byte-identical with examples/fmt_cdiff; see gems/PROVENANCE.md).
+# They differ from the RefSeq assemblies an earlier draft of this script used, so the
+# recipe stays consistent with the reconstruction artifact.
+download_genome "GCA_900537995.1"  "R_intestinalis_L182"           \
     "Roseburia intestinalis L1-82"
-download_genome "GCF_000154385.1"  "F_prausnitzii_A2165"           \
+download_genome "GCA_002734145.1"  "F_prausnitzii_A2165"           \
     "Faecalibacterium prausnitzii A2-165"
 download_genome "GCF_000154245.1"  "R_bromii_L263"                 \
     "Ruminococcus bromii L2-63"

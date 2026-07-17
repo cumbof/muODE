@@ -2,8 +2,15 @@
 # Run from the repository root:
 #   snakemake --use-conda --cores 8 --configfile examples/gut_western/config.yaml
 #
-# Requires CarveMe + Prodigal (carveme conda env).  On aarch64 or machines
-# without CarveMe, use engine: stub for pipeline validation (not real science).
+# ENGINE: gapseq.  This example's payload is a BUTYRATE cross-feeding network, and
+# CarveMe (BiGG universe) has no connected butyrate pathway for gut anaerobes, so the
+# butyrate producers would carry no butyrate exchange and the whole point would collapse
+# to a dial.  gapseq builds bottom-up from MetaCyc and secretes butyrate natively.  See
+# gems/PROVENANCE.md.  gapseq needs its own env and does NOT run on aarch64.
+#
+# The committed GEMs are the reproducible artifact: build them once with
+# gems/reconstruct_gapseq.sh (workstation), then the pipeline runs from gems/.  Only 3
+# of 12 are committed so far (shared with fmt_cdiff); the other 9 are a workstation job.
 
 # --- inputs / outputs -------------------------------------------------------
 mags_dir: "examples/gut_western/data/mags"
@@ -19,9 +26,9 @@ min_completeness: 50.0
 max_contamination: 10.0
 
 # --- Phase 1: reconstruction ------------------------------------------------
-engine: "carveme"
-universe: "bacteria"
-gapfill_media: null
+engine: "gapseq"
+universe: null          # a CarveMe concept; gapseq uses its own MetaCyc/ModelSEED DB
+gapfill_media: null     # gapseq doall gap-fills on its own predicted medium (see PROVENANCE)
 
 # --- Phase 2/3: refinement --------------------------------------------------
 universal_model: null
@@ -33,11 +40,11 @@ default_vmax: 10.0
 default_km: 0.01
 
 # --- Phase 4: simulation ----------------------------------------------------
-# The built-in preset supplies glucose (10 mmol/L, 1 mmol/L/h influx),
-# fructose (5 mmol/L, 0.5 mmol/L/h influx), and lactose (2 mmol/L) as
-# primary nutrients.  For a full western diet (>200 metabolites, VMH curation)
-# replace with a path to a diet CSV: diet: "path/to/vmh_western.csv"
-diet: "western_gut"
+# gapseq models are ModelSEED-native, so the diet must be too.  western_gut is
+# translated BiGG->ModelSEED ONCE, from the models' own annotations, by
+# derive_medium_modelseed.py -> gems/western_gut_modelseed.csv.  That file is a
+# workstation output (it needs the 12 GEMs); it is generated, not committed.
+diet: "examples/gut_western/gems/western_gut_modelseed.csv"
 total_biomass: 0.01
 t_end: 48.0
 dt: 0.1

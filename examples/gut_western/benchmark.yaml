@@ -3,17 +3,21 @@
 #   muode validate --results examples/gut_western/results \
 #                  --expected examples/gut_western/benchmark.yaml
 #
-# Tolerances are intentionally generous:
-#   - GEM quality varies across reconstruction runs and CarveMe versions.
-#   - The built-in western_gut diet is a curated complete medium, not the
-#     official ~200-metabolite VMH diet, so exact fluxes will differ.
-#   - These thresholds check the broad ecological signal (Bacteroides dominance,
-#     SCFA cross-feeding) rather than exact numerical reproducibility.
+# NAMESPACE: ModelSEED (gapseq).  The community is gapseq-reconstructed, so metabolite
+# ids are cpd* (cpd00027 glucose, cpd00029 acetate, cpd00211 butyrate), not BiGG.
+#
+# STATUS: these are the QUALITATIVE ecological target (Bacteroides dominance, an
+# acetate->butyrate cross-feeding chain), NOT yet reconciled with a real run -- only 3
+# of the 12 GEMs are reconstructed, so the community has never been simulated end to
+# end.  The exact abundance/metabolite targets and tolerances MUST be refreshed against
+# examples/gut_western/results/ once the workstation has built all 12 GEMs and run it.
+# Tolerances are intentionally generous: GEM quality varies with the gapseq/DB version,
+# and the translated colonic medium is still incomplete.
 name: western_gut_12sp
 
 # --- expected community composition at simulation end ----------------------
-# Bacteroides should remain dominant on the glucose/fructose-rich western diet.
-# Butyrate producers survive by cross-feeding on Bacteroides-derived acetate.
+# Bacteroides should remain dominant on the sugar-rich western diet; butyrate producers
+# persist by cross-feeding on primary-fermenter acetate/succinate.
 relative_abundances:
   B_thetaiotaomicron_VPI5482: 0.25
   B_fragilis_NCTC9343: 0.14
@@ -21,22 +25,21 @@ relative_abundances:
   B_longum_NCC2705: 0.07
 
 # --- expected metabolite concentrations at simulation end (mmol/L) ----------
-# Glucose should be largely consumed (steady influx = low standing pool).
-# Acetate is the primary fermentation product and cross-feeding shuttle;
-# a nonzero pool is expected because not all of it is consumed downstream.
-# Butyrate is the terminal product of the cross-feeding chain.
+# Glucose largely consumed; acetate the primary fermentation product and cross-feeding
+# shuttle (nonzero pool, not all consumed downstream); butyrate the terminal product of
+# the cross-feeding chain -- the arm that REQUIRES gapseq (CarveMe cannot make it).
 metabolites:
-  glc_e: 2.0        # mostly consumed
-  ac_e: 1.0         # produced then partially cross-fed
-  but_e: 0.5        # terminal butyrate pool (cross-fed from acetate)
+  cpd00027_e0: 2.0        # glucose -- mostly consumed
+  cpd00029_e0: 1.0        # acetate -- produced then partially cross-fed
+  cpd00211_e0: 0.5        # butyrate -- terminal pool of the cross-feeding chain
 
 # --- expected cross-feeding interactions ------------------------------------
-# The key ecological signal: Bacteroides thetaiotaomicron ferments glucose ->
-# acetate, which Eubacterium rectale uses as a substrate for butyrate synthesis.
-# Bifidobacterium longum also feeds acetate into the pool (oligosaccharide -> acetate).
+# The key ecological signal: B. thetaiotaomicron ferments glucose -> acetate, which
+# E. rectale uses as a co-substrate for butyrate synthesis; B. longum also feeds acetate
+# into the pool (oligosaccharide -> acetate).  ModelSEED acetate is cpd00029_e0.
 cross_feeding:
-  - [B_thetaiotaomicron_VPI5482, ac_e, E_rectale_ATCC33656]
-  - [B_longum_NCC2705, ac_e, E_rectale_ATCC33656]
+  - [B_thetaiotaomicron_VPI5482, cpd00029_e0, E_rectale_ATCC33656]
+  - [B_longum_NCC2705, cpd00029_e0, E_rectale_ATCC33656]
 
 # --- tolerances -------------------------------------------------------------
 tolerances:
