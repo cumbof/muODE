@@ -103,3 +103,8 @@ def test_phage_therapy_scenario_controls_bloom():
     assert yes.final_biomass()[PATHOGEN] < 0.25 * no.final_biomass()[PATHOGEN]
     # ... and releases the commensal it was out-competing
     assert yes.final_biomass()[COMMENSAL] > no.final_biomass()[COMMENSAL]
+    # ... and it is the phage that did it -- pin the CAUSE, not just the effect: the
+    # titer AMPLIFIES above the dose it was given (a lytic burst ran), so the crash is
+    # predation, not some coincidental collapse a bloom-only assertion would also accept.
+    DOSE = 0.5  # phage_predation_scenario default initial_titer
+    assert yes.environment["phage[T4-like]"].max() > 1.5 * DOSE
