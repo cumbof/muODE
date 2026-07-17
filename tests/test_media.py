@@ -8,11 +8,14 @@ against and the medium we simulate on must be the same medium, and the QC growth
 check must be run under the diet's bounds rather than the model's own.
 """
 
+from pathlib import Path
+
 import cobra
 import pytest
 
 from muode.diet import Diet, load_diet, load_preset
 from muode.gapfill import ensure_biomass, grows
+from muode.kinetics import KineticParameters
 from muode.media import (
     build_bigg_to_modelseed,
     diet_medium,
@@ -304,6 +307,78 @@ def test_translate_carries_every_column_onto_the_modelseed_id():
     # the product row is carried at 0 so it stays a tracked pool for cross-feeding
     assert seed.initial_concentration("cpd00211_e0") == 0.0
     assert unresolved == []
+
+
+def test_a_polymer_is_rescaled_to_conserve_monomers_not_merely_renamed():
+    """The two namespaces encode starch at different chain lengths, so a rename is wrong.
+
+    BiGG's dietary starch is `starch1200` (1200 glucose units); gapseq's is `cpd90003`
+    (n=27).  Carrying the molar flux across verbatim delivers 27/1200 of the dietary
+    carbon -- a 44x cut -- because the flux counts MOLECULES and the molecules are
+    different sizes.  What crosses the boundary intact is the monomer flux, so the row
+    scales by 1200/27.  Both degrees of polymerisation are stated by the source data
+    (the BiGG id; the ModelSEED compound's own name), so the factor is derived.
+    """
+    diet = Diet(
+        concentrations={"starch1200_e": 0.048},
+        influx={"starch1200_e": 0.0001},
+        max_uptake={"starch1200_e": 0.0001},
+        source={"starch1200_e": "intake"},
+        name="t",
+    )
+    seed, unresolved = translate_diet_to_modelseed(diet, mapping={})
+
+    scale = 1200 / 27
+    assert unresolved == []                    # the pin resolves what the map cannot
+    assert seed.uptake_limit("cpd90003_e0") == pytest.approx(0.0001 * scale)
+    assert seed.initial_concentration("cpd90003_e0") == pytest.approx(0.048 * scale)
+    assert seed.influx_rate("cpd90003_e0") == pytest.approx(0.0001 * scale)
+
+    # glucose-equivalents in == glucose-equivalents out.  THIS is the invariant; the
+    # molar flux is merely its representation in a namespace.
+    assert seed.uptake_limit("cpd90003_e0") * 27 == pytest.approx(0.0001 * 1200)
+
+    # ...and the row must not still claim to be the source's number, because it is not
+    assert seed.provenance("cpd90003_e0") == "intake+dp_scaled"
+
+
+def test_the_colonic_medium_actually_contains_the_fibre_the_donors_eat():
+    """A regression guard on the gap that made the FMT competition arm unreadable.
+
+    `starch1200` resolved to nothing for two stacked reasons -- the diet names the
+    chain length (`starch1200`) while the models annotate the bare stem (`starch`), and
+    that stem is ambiguous across cpd90003/cpd90004 so the ambiguity guard dropped it.
+    The result was a colonic diet with no fibre in it.  That is not a cosmetic loss:
+    all four donors carry starch exchanges and C. difficile carries none, so starch was
+    the single substrate the donor community can eat and the pathogen cannot, and the
+    resulting competition arm was read as evidence the donors compete poorly.
+    """
+    seed = Diet.from_csv(
+        Path(__file__).resolve().parents[1]
+        / "examples" / "fmt_cdiff" / "gems" / "western_gut_modelseed.csv"
+    )
+    assert seed.uptake_limit("cpd90003_e0") == pytest.approx(0.0001 * 1200 / 27, rel=1e-4)
+    assert seed.initial_concentration("cpd90003_e0") > 0.0
+
+
+def test_the_fibre_row_is_diet_limited_so_washout_cannot_quietly_erode_it():
+    """Why the starch fix survives the chemostat, pinned.
+
+    Under washout every diet row decays toward `influx/D` -- for starch, 2.13 -> 0.178
+    mM, a 12x fall from the seeded value.  If TRANSPORT were the binding constraint the
+    donors' fibre advantage would fade over the first transit and the fix would only
+    work at t=0.  It does not, because even at the sustained concentration the
+    Michaelis-Menten rate is orders of magnitude above the dietary ceiling: the DIET
+    limits starch uptake, and the diet is replenished.  A Km large enough to invert
+    that would silently make this example's headline depend on the horizon again.
+    """
+    seed = Diet.from_csv(
+        Path(__file__).resolve().parents[1]
+        / "examples" / "fmt_cdiff" / "gems" / "western_gut_modelseed.csv"
+    )
+    sustained = seed.influx_rate("cpd90003_e0") / 0.025      # scenario.DILUTION_RATE
+    rate = KineticParameters().michaelis_menten("any", "cpd90003_e0", sustained)
+    assert rate > 10 * seed.uptake_limit("cpd90003_e0")
 
 
 def test_translate_reports_unresolved_rows_rather_than_dropping_them_silently():

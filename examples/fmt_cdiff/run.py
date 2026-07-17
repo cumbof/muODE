@@ -28,10 +28,15 @@ WHAT IT ANSWERS
     infection everywhere and all five arms reported CLEARED -- a result about the drug,
     read as a result about the community.
 
-    Note what this roster can and cannot show: C. difficile is the FASTEST grower on
-    this diet (0.036/h vs 0.026-0.034 for the donors), so the donors are not expected to
-    win on nutrients.  They were chosen for the mechanisms they carry.  If
-    fmt_competition looks no better than abx_only, that is the honest answer, not a bug.
+    Note what this roster can and cannot show.  The first genome-scale run found
+    fmt_competition == abx_only and the obvious reading was that these donors compete
+    badly -- but the cause was the DIET: its starch row failed to translate into the
+    ModelSEED namespace, leaving a colonic medium with no fibre in it and every donor
+    here is a fibre degrader.  With starch restored (media.py), B. theta overtakes the
+    pathogen in monoculture (0.0416 vs 0.0359/h) and C. difficile gains nothing from it.
+    Whether that advantage survives washout is what this run decides -- monoculture mu
+    is not lambda.  If fmt_competition STILL looks no better than abx_only, that is the
+    honest answer, not a bug.
 
 RUN (on the workstation)
     python examples/fmt_cdiff/run.py --outdir results/fmt            # all seven arms

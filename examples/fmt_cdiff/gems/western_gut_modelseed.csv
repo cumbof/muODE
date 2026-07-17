@@ -10,8 +10,15 @@
 # from the gapseq models' own bigg.metabolite annotations plus a small verified
 # pin layer (muode.media._CURATED_BIGG_TO_MODELSEED); see the derive script.
 #
-# Built from 5 gapseq model(s): B_thetaiotaomicron_VPI5482.gapseq.xml.gz, C_difficile_630.gapseq.xml.gz, C_scindens_ATCC35704.gapseq.xml.gz, F_prausnitzii_A2165.xml.gz, R_intestinalis_L182.xml.gz.
-# 94 of 136 diet rows resolved; 42 unresolved (dropped, listed below).
+# EXCEPT for polymers, which are RESCALED rather than renamed: the namespaces
+# encode them at different chain lengths, so the row is multiplied by the ratio of
+# the degrees of polymerisation to conserve monomer flux (starch1200 -> cpd90003 is
+# x1200/27).  Those rows are marked `+dp_scaled` in the source column, because their
+# numbers are no longer the source's numbers.  See
+# muode.media._CURATED_POLYMER_BIGG_TO_MODELSEED.
+#
+# Built from 5 gapseq model(s): B_thetaiotaomicron_VPI5482.xml.gz, C_difficile_630.xml.gz, C_scindens_ATCC35704.xml.gz, F_prausnitzii_A2165.xml.gz, R_intestinalis_L182.xml.gz.
+# 95 of 136 diet rows resolved; 41 unresolved (dropped, listed below).
 # UNRESOLVED (no ModelSEED id in any present model; dropped from this medium):
 #   26dap__M, 2obut, 4abz, 4hbz, acmana, ade
 #   adocbl, ala__D, amp, amylose300, arab__L, cellb
@@ -19,7 +26,7 @@
 #   drib, gthox, gthrd, gua, hxan, lmn30
 #   melib, nac, ncam, nmn, ocdcea, pullulan1200
 #   pydam, pydx, pydxn, raffin, sel, slnt
-#   starch1200, ttdca, tungs, uri, xylan4, xylan8
+#   ttdca, tungs, uri, xylan4, xylan8
 metabolite,concentration,influx,max_uptake,source
 cpd00001_e0,4800,10,10,intake
 cpd00009_e0,48,0.1,0.1,source_default
@@ -115,3 +122,4 @@ cpd10515_e0,48,0.1,0.1,source_default
 cpd10516_e0,48,0.1,0.1,source_default
 cpd11574_e0,48,0.1,0.1,source_default
 cpd11640_e0,0,0,,product
+cpd90003_e0,2.13333,0.00444444,0.00444444,intake+dp_scaled

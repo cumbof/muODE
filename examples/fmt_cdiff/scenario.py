@@ -295,11 +295,10 @@ DONORS = ["R_intestinalis_L182", "F_prausnitzii_A2165",
 #:
 #: It also makes colonization resistance EXPRESSIBLE.  At D=0, any organism with mu>0
 #: persists forever and no community can exclude anything; with washout, a member has to
-#: outgrow transit to stay, which is what resistance to colonization means.  Note the
-#: consequence for this roster: C. difficile grows at 0.036/h on this diet, FASTER than
-#: any donor, so it clears washout on its own -- the donors must earn their place by
-#: cross-feeding.  See README: these donors were chosen for the mechanisms they carry,
-#: never for the ability to out-compete the pathogen.
+#: outgrow transit to stay, which is what resistance to colonization means.  Every member
+#: here clears D=0.025 on its own in monoculture except C. scindens and F. prausnitzii
+#: (0.0008/h), which must be cross-fed to hold their place at all -- so this rate is not
+#: a passive parameter, it is what decides who the community can carry.
 DILUTION_RATE = 0.025
 
 
@@ -348,9 +347,9 @@ def cdi_ecology(ablate: str = ""):
     in :mod:`muode.provenance`, so there is exactly one place to audit them.
 
     This docstring used to claim that ALL parameters worked that way, while quietly
-    passing eleven overrides.  One of them decided the study: ``mu_stress=0.15`` is 4x
-    faster than any member of this community can grow on a diet bounded by measured
-    intake (the fastest manages 0.036/h), so ``growth < mu_stress`` was true at every
+    passing eleven overrides.  One of them decided the study: ``mu_stress=0.15`` is over
+    3x faster than any member of this community can grow on a diet bounded by measured
+    intake (the fastest manages 0.042/h), so ``growth < mu_stress`` was true at every
     step for every organism and the pathogen sporulated unconditionally -- every arm
     reported CLEARED, the untreated control included.  See
     :data:`muode.lifecycle.MU_STRESS`.

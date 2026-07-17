@@ -183,25 +183,61 @@ filled the recurrence reservoir, not emptied it.
   nothing through nutrient competition.
 - Compare `fmt_full` against `fmt_competition`: the gap is what the bile/pH arms buy.
 
-### Known limitation of this roster and diet
+### The diet was starving the donors — fixed, and what it changes
 
-*C. difficile* is the **fastest grower on this diet** (0.036/h vs 0.026–0.034 for the
-donors), so the donors are not expected to win on nutrients — and the measured result is
-that they don't: `fmt_competition` ≡ `abx_only`.
+The first genome-scale run measured `fmt_competition` ≡ `abx_only` and the obvious
+reading was that the donor roster simply competes badly. It was **the diet**.
 
-The cause is the **diet, not the roster**. All four donors carry exchanges for starch
-(`cpd90003_e0`, `cpd90004_e0`) which the pathogen **cannot** use — but the ModelSEED
-diet omits it, along with glycogen, inositol and galacturonate. The BiGG `western_gut`
-diet *has* starch (`starch1200_e`, `amylose300_e`); the translation dropped it because
-ModelSEED encodes starch as chain-length-specific species that no annotation bridges.
-So the donors — fibre degraders, every one — were left competing for the same simple
-sugars the pathogen prefers, with their actual niche sitting in the untranslated column.
-Of 52 substrates the donors can use and the pathogen cannot, the diet supplies **10**,
-and those are mostly trace nucleosides.
+The BiGG `western_gut` diet has starch (`starch1200_e`); the ModelSEED translation
+dropped it, so the colonic medium had **no fibre in it** — and every donor here is a
+fibre degrader. The row fell through for two stacked reasons: the diet names a chain
+length (`starch1200`) while the models annotate the bare stem (`starch`), and that stem
+is ambiguous across `cpd90003`/`cpd90004`, so the ambiguity guard refused it. One row in
+a lookup table took the whole competition arm with it.
 
-Until the polymer rows are mapped, this example demonstrates the **machinery** —
-ablation, provenance, spore accounting, λ — on a community that cannot show
-resource-based colonization resistance. See `derive_medium_modelseed.py`.
+That gap was not symmetric. **All four donors carry starch exchanges; *C. difficile*
+carries none** — starch is the one substrate in the medium the donor community can eat
+and the pathogen cannot, and it was the substrate the translation threw away.
+
+Translating it is a **unit conversion, not a rename**: BiGG starch is 1200 glucose units
+and `cpd90003` is 27, so the row is rescaled by 1200/27 to conserve monomer flux (see
+`_CURATED_POLYMER_BIGG_TO_MODELSEED` in `muode/media.py`). With fibre in the medium, the
+monoculture ordering **flips**:
+
+| member | no starch | +starch | |
+|---|---|---|---|
+| B. thetaiotaomicron | 0.0335/h | **0.0416/h** | now the fastest grower |
+| C. difficile | 0.0359/h | 0.0359/h | gains exactly nothing |
+| R. intestinalis | 0.0262/h | 0.0339/h | +29% |
+| C. scindens | 0.0008/h | 0.0008/h | limited by something else |
+| F. prausnitzii | 0.0008/h | 0.0008/h | acetate cross-feeder; see below |
+
+So the claim this README used to make — that *C. difficile* is the fastest grower and
+the donors cannot win on nutrients — was an artifact of a fibre-free diet, not a fact
+about the roster.
+
+That table is not a t=0 artifact. Under washout every diet row decays ~12× from its
+seeded concentration toward the level the influx sustains (starch 2.13 → `influx/D` =
+0.178 mM), so the advantage had to be re-checked there — and it is **unchanged**,
+because at 0.178 mM the Michaelis–Menten rate (9.5) still far exceeds the dietary
+ceiling (0.0044), so the *diet* is the binding constraint at both concentrations, not
+transport. The asymmetry is also visible in the dynamics directly: in the `untreated`
+arm, starch drawdown is 99.8% accounted for by washout alone — the pathogen eats none
+of it.
+
+**This does not yet prove the community excludes the pathogen.** Monoculture µ is not λ;
+whether the donors' new advantage survives washout, and whether it moves
+`fmt_competition` off `abx_only`, is what the re-run decides. Two things to watch:
+C. scindens (the *bai* producer — the entire bile arm) and F. prausnitzii sit at
+0.0008/h and gain nothing from starch. For F. prausnitzii that is expected in
+monoculture (it needs acetate, which starts at 0 and is cross-fed in community);
+C. scindens has no such excuse and is worth a look.
+
+Still untranslated, each for a reason: `amylose300`, `pullulan1200` and `lmn30` have no
+compound in any of these models; `xylan4`/`xylan8` do (`cpd90021`/`cpd90022`) but
+*C. difficile* carries them **too**, so xylan feeds the pathogen alongside the donors —
+a real gap in the medium, but not a competition asymmetry. See
+`derive_medium_modelseed.py`.
 
 ---
 

@@ -23,6 +23,17 @@ diet says `nh4`), lactose (two compounds share the `lcts` annotation), and a cou
 of un-annotated trace nutrients read out of the models BY NAME.  Anything neither
 layer resolves is DROPPED and reported below -- never guessed.
 
+Polymers need a third layer, because they are the case a rename gets WRONG rather
+than merely misses (`muode.media._CURATED_POLYMER_BIGG_TO_MODELSEED`).  The two
+namespaces encode starch at different chain lengths -- BiGG `starch1200` is 1200
+glucose units, ModelSEED `cpd90003` is 27 -- so the row is rescaled by 1200/27 to
+conserve MONOMER flux; carrying the molar bound across verbatim would deliver 1/44th
+of the dietary carbon.  This is not a detail: starch is the only substrate in this
+medium the four donors can eat and C. difficile cannot, it silently resolved to
+nothing (`starch1200` != the annotated stem `starch`, which is itself ambiguous
+across cpd90003/cpd90004), and the resulting fibre-free colonic diet was misread as
+evidence that the donor roster competes poorly.  See the README.
+
     python examples/fmt_cdiff/derive_medium_modelseed.py
 
 Output
@@ -95,6 +106,13 @@ def main() -> int:
         "# only the metabolite id changes (glc__D_e -> cpd00027_e0).  The mapping is built",
         "# from the gapseq models' own bigg.metabolite annotations plus a small verified",
         "# pin layer (muode.media._CURATED_BIGG_TO_MODELSEED); see the derive script.",
+        "#",
+        "# EXCEPT for polymers, which are RESCALED rather than renamed: the namespaces",
+        "# encode them at different chain lengths, so the row is multiplied by the ratio of",
+        "# the degrees of polymerisation to conserve monomer flux (starch1200 -> cpd90003 is",
+        "# x1200/27).  Those rows are marked `+dp_scaled` in the source column, because their",
+        "# numbers are no longer the source's numbers.  See",
+        "# muode.media._CURATED_POLYMER_BIGG_TO_MODELSEED.",
         "#",
         f"# Built from {len(models)} gapseq model(s): {', '.join(sorted(models))}.",
         f"# {len(seed.metabolites())} of {len(diet.metabolites())} diet rows resolved; "

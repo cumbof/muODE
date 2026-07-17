@@ -100,6 +100,51 @@ _CURATED_BIGG_TO_MODELSEED = {
 }
 
 
+# A polymer is not a compound -- it is a compound TIMES a chain length, and the two
+# namespaces disagree about the length.  BiGG encodes dietary starch as `starch1200`
+# (1200 glucose units); gapseq/ModelSEED encodes it as `cpd90003` ("starch (n=27,
+# 3xalpha1-6, 23xalpha1-4)").  Neither id resolves to the other: the diet says
+# `starch1200`, the models annotate the bare stem `starch`, and that stem is ambiguous
+# anyway (it sits on BOTH cpd90003 and cpd90004), so the auto-map correctly refuses it
+# and the ambiguity guard drops the row.  The result was a *fibre-free* colonic diet.
+#
+# That gap was not cosmetic.  All four donors in examples/fmt_cdiff carry starch
+# exchanges and C. difficile carries none, so starch is the one substrate in the medium
+# the donor community can eat and the pathogen cannot -- and it was the substrate the
+# translation silently threw away.  The competition arm was then read as evidence that
+# the donors are poor competitors.
+#
+# TRANSLATING A POLYMER REQUIRES A UNIT CONVERSION, NOT A RENAME.  Carrying max_uptake
+# across verbatim would deliver 27/1200 of the dietary carbon -- a 44x cut -- because
+# the flux is molar and the molecules are different sizes.  The invariant that IS
+# conserved across the boundary is the **monomer** (glucose-equivalent) flux:
+#
+#     glucose-equiv/gDW/h = max_uptake(starch1200) * 1200 = 0.0001 * 1200 = 0.12
+#     max_uptake(cpd90003) = 0.12 / 27                                   = 0.00444
+#
+# Both degrees of polymerisation are STATED BY THE SOURCE DATA -- 1200 by the BiGG id,
+# 27 by the ModelSEED compound's own name -- so the factor is derived, not chosen.
+# Concentration and influx scale by the same ratio, for the same reason.
+#
+# The one judgement call is cpd90003 (n=27) over cpd90004 (n=19): both are annotated
+# `starch` and both are carried by the same four donors.  Because the conversion
+# conserves glucose-equivalents, the choice moves the molar flux but not the carbon,
+# which is what growth is limited by; supplying both would double the fibre.
+#
+#: BiGG polymer id -> (ModelSEED compound, monomers per BiGG molecule, monomers per
+#: ModelSEED molecule).  Fluxes and concentrations are scaled by ``bigg_n / seed_n``.
+_CURATED_POLYMER_BIGG_TO_MODELSEED = {
+    "starch1200": ("cpd90003", 1200, 27),
+}
+# Deliberately NOT in this table, and each for a reason worth keeping:
+#   amylose300, pullulan1200, lmn30  -- no corresponding compound in ANY gapseq model,
+#       so there is nothing to translate to.  Inventing one would invent a nutrient.
+#   xylan4, xylan8  -- cpd90021/cpd90022 exist, but C. difficile carries them TOO, so
+#       xylan feeds the pathogen alongside the donors.  It is a real gap in the medium
+#       and translating it is defensible future work; it is not a competition asymmetry,
+#       and it must not be added quietly under cover of the starch fix.
+
+
 def build_bigg_to_modelseed(
     models, curated: Optional[Dict[str, str]] = None
 ) -> tuple[Dict[str, str], Dict[str, list]]:
@@ -147,7 +192,10 @@ def build_bigg_to_modelseed(
 
 
 def translate_diet_to_modelseed(
-    diet: Diet, mapping: Dict[str, str], compartment: str = "_e0"
+    diet: Diet,
+    mapping: Dict[str, str],
+    compartment: str = "_e0",
+    polymers: Optional[Dict[str, tuple]] = None,
 ) -> tuple[Diet, list]:
     """Translate a BiGG-namespace ``diet`` into ModelSEED ids a gapseq community eats.
 
@@ -159,26 +207,45 @@ def translate_diet_to_modelseed(
     *fermentation product* still starts at 0 exactly as it did; a dropped *nutrient*
     is a real gap in the medium, which is why the caller is handed the list.)
 
+    ``polymers`` handles the rows a rename cannot: the two namespaces encode a polymer
+    at *different chain lengths*, so its row is rescaled by the ratio of the degrees of
+    polymerisation to conserve **monomer** flux (see
+    ``_CURATED_POLYMER_BIGG_TO_MODELSEED``).  Carrying a polymer's molar flux across
+    verbatim would silently change how much carbon the diet delivers.
+
     Returns ``(translated_diet, unresolved)``.
     """
+    polymers = _CURATED_POLYMER_BIGG_TO_MODELSEED if polymers is None else polymers
     conc: Dict[str, float] = {}
     influx: Dict[str, float] = {}
     max_uptake: Dict[str, float] = {}
     source: Dict[str, str] = {}
     unresolved: list = []
     for mid in diet.metabolites():
-        cpd = mapping.get(to_compound(mid))
+        base = to_compound(mid)
+        # A polymer's own pin wins over the annotation map AND over the ambiguity
+        # guard, because it carries the chain-length conversion the map cannot express.
+        if base in polymers:
+            cpd, bigg_n, seed_n = polymers[base]
+            scale = bigg_n / seed_n
+        else:
+            cpd, scale = mapping.get(base), 1.0
         if cpd is None:
-            unresolved.append(to_compound(mid))
+            unresolved.append(base)
             continue
         new = f"{cpd}{compartment}"
-        conc[new] = diet.initial_concentration(mid)
+        conc[new] = diet.initial_concentration(mid) * scale
         if diet.influx_rate(mid):
-            influx[new] = diet.influx_rate(mid)
+            influx[new] = diet.influx_rate(mid) * scale
         limit = diet.uptake_limit(mid)
         if limit is not None:
-            max_uptake[new] = limit
+            max_uptake[new] = limit * scale
         prov = diet.provenance(mid)
+        if scale != 1.0:
+            # This row's numbers are no longer the source's numbers -- they were divided
+            # by a chain-length ratio.  The `source` column is the mechanism that exists
+            # for saying so, and a rescaled row that still claims `intake` is a lie.
+            prov = f"{prov or 'unknown'}+dp_scaled"
         if prov:
             source[new] = prov
     return (
