@@ -5,7 +5,7 @@ Runs anywhere (numpy/scipy only) and shows the two mechanisms that make a sample
 *multi-kingdom* rather than bacteria-only behave differently, both as emergent
 outcomes rather than scripted results:
 
-  1. EUKARYOTE / oxygen.  A facultative fungus (Candida-like) scavenges the
+  1. EUKARYOTE / oxygen.  A facultative gut yeast (Saccharomyces) scavenges the
      oxygen diffusing in from the mucosa.  That draws O2 down and *protects* the
      obligate-anaerobe keystone (Bacteroides-like), which is otherwise poisoned.
      -> compare the community with vs without the fungus.
@@ -17,9 +17,10 @@ outcomes rather than scripted results:
 
 Everything is a dependency-light LinprogOrganism so the *mechanisms* — not a
 particular genome-scale model — are what is exercised.  The genome-scale version
-would swap these for real GEMs (Bacteroides/Klebsiella via CarveMe; the fungus
-via a eukaryote route such as Yeast8 — CarveMe cannot build it; the phage is not
-a GEM at all but a PhageInfection layer).  See README.md.
+swaps these for real GEMs: Bacteroides/Klebsiella via CarveMe, and the fungus as
+curated Yeast8 (S. cerevisiae) with its exchanges harmonized to BiGG so it shares
+the pool — CarveMe cannot build a eukaryote.  The phage is not a GEM at all but a
+PhageInfection layer.  See README.md.
 
 Run with:  PYTHONPATH=<repo> python examples/multikingdom/mechanistic_demo.py
 """
@@ -41,7 +42,7 @@ from muode import (
 )
 
 BACTEROIDES = "B_thetaiotaomicron"   # obligate-anaerobe keystone (bacteria)
-CANDIDA = "C_albicans"               # facultative oxygen scavenger (eukaryote)
+YEAST = "S_cerevisiae"             # facultative oxygen scavenger (eukaryote); Yeast8
 KLEBSIELLA = "K_pneumoniae"          # facultative pathobiont, the phage host (bacteria)
 
 
@@ -61,20 +62,20 @@ def _grower(id: str, yld: float, product: str | None = None) -> LinprogOrganism:
 def build_community() -> Community:
     organisms = [
         _grower(BACTEROIDES, yld=0.18, product="ac_e"),   # slow, ferments to acetate
-        _grower(CANDIDA, yld=0.12),                        # facultative, modest grower
+        _grower(YEAST, yld=0.12),                        # facultative, modest grower
         _grower(KLEBSIELLA, yld=0.32),                     # fast pathobiont bloom
     ]
     traits = {
         BACTEROIDES: MicrobeTraits(domain=Domain.BACTERIA,
                                    oxygen=OxygenTolerance.OBLIGATE_ANAEROBE),
-        CANDIDA: MicrobeTraits(domain=Domain.EUKARYOTE,
+        YEAST: MicrobeTraits(domain=Domain.EUKARYOTE,
                                oxygen=OxygenTolerance.FACULTATIVE,
-                               cell_mass_pg=40.0, notes="fungus; reconstruct via Yeast8 route"),
+                               cell_mass_pg=40.0, notes="S. cerevisiae; curated Yeast8"),
         KLEBSIELLA: MicrobeTraits(domain=Domain.BACTERIA,
                                   oxygen=OxygenTolerance.FACULTATIVE),
     }
     return Community(organisms,
-                     {BACTEROIDES: 0.45, CANDIDA: 0.15, KLEBSIELLA: 0.40},
+                     {BACTEROIDES: 0.45, YEAST: 0.15, KLEBSIELLA: 0.40},
                      total_biomass=0.03, traits=traits)
 
 
@@ -94,7 +95,7 @@ def ecology(community: Community, with_fungus: bool, with_phage: bool) -> Ecolog
     # fungus its scavenging simply disappears and O2 stays high.
     traits = dict(community.traits)
     if not with_fungus:
-        traits.pop(CANDIDA, None)
+        traits.pop(YEAST, None)
     layers.append(OxygenSensitivity.from_traits(
         traits, o2_initial=0.3, o2_influx=0.15, consumption=18.0))
     if with_phage:
@@ -108,10 +109,10 @@ def ecology(community: Community, with_fungus: bool, with_phage: bool) -> Ecolog
 def run(with_fungus: bool, with_phage: bool):
     comm = build_community()
     if not with_fungus:
-        comm = Community([o for o in comm.organisms if o.id != CANDIDA],
-                         {k: v for k, v in comm.abundances.items() if k != CANDIDA},
+        comm = Community([o for o in comm.organisms if o.id != YEAST],
+                         {k: v for k, v in comm.abundances.items() if k != YEAST},
                          total_biomass=comm.total_biomass,
-                         traits={k: v for k, v in comm.traits.items() if k != CANDIDA})
+                         traits={k: v for k, v in comm.traits.items() if k != YEAST})
     eco = ecology(build_community(), with_fungus, with_phage)
     return DynamicFBA(t_end=36.0, dt=0.02).run(comm, diet(), kinetics(), ecology=eco)
 
@@ -122,7 +123,7 @@ def main() -> None:
         ("no fungus (O2 not scavenged)", False, True),
         ("no phage (Klebsiella unchecked)", True, False),
     ]
-    print(f"{'scenario':36s}  {'Bacteroides':>11s} {'Candida':>8s} "
+    print(f"{'scenario':36s}  {'Bacteroides':>11s} {'yeast':>8s} "
           f"{'Klebsiella':>10s} {'O2_final':>8s}")
     print("-" * 80)
     for label, fungus, phage in scenarios:
@@ -130,7 +131,7 @@ def main() -> None:
         fb = res.final_biomass()
         o2 = res.environment["oxygen"].iloc[-1]
         bact = fb.get(BACTEROIDES, 0.0)
-        cand = fb.get(CANDIDA, float("nan"))
+        cand = fb.get(YEAST, float("nan"))
         kleb = fb.get(KLEBSIELLA, 0.0)
         print(f"{label:36s}  {bact:11.3f} {cand:8.3f} {kleb:10.3f} {o2:8.3f}")
 

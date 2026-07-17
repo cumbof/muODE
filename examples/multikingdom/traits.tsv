@@ -6,5 +6,5 @@
 # oxygen : obligate_anaerobe | aerotolerant | facultative | obligate_aerobe
 mag_id	domain	oxygen
 B_thetaiotaomicron	bacteria	obligate_anaerobe
-C_albicans	fungus	facultative
+S_cerevisiae	fungus	facultative
 K_pneumoniae	bacteria	facultative

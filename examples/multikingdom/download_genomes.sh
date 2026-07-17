@@ -44,29 +44,29 @@ download_genome() {
 }
 
 echo "============================================================"
-echo " Multi-kingdom example genomes (2 bacteria + 1 fungus)"
+echo " Multi-kingdom example — the two BACTERIAL genomes"
 echo " Output: ${OUTDIR}"
 echo "============================================================"
 
 # --- bacteria → CarveMe (-u gramneg) ---------------------------------------
+# These are the only genomes to fetch: the fungus uses a curated model (Yeast8, via
+# fetch_yeast8.sh) and the phage has no GEM (a PhageInfection layer).
 download_genome "GCF_000011065.1"  "B_thetaiotaomicron"  \
     "Bacteroides thetaiotaomicron VPI-5482 (obligate anaerobe)"
 download_genome "GCF_000240185.1"  "K_pneumoniae"        \
     "Klebsiella pneumoniae HS11286 (facultative pathobiont)"
 
-# --- eukaryote → NOT CarveMe; reconstruct via a fungal route (Yeast8, etc.) -
-download_genome "GCF_000182965.3"  "C_albicans"          \
-    "Candida albicans SC5314 (facultative fungus)"
-
 cat <<'NOTE'
 
 ------------------------------------------------------------
-Reconstruction is kingdom-specific (muode.reconstruction_route):
-  * B_thetaiotaomicron, K_pneumoniae  -> CarveMe  (-u gramneg)
-  * C_albicans (fungus)               -> CarveMe CANNOT build this.
-        Use a fungal route: a Yeast8-derived template or a eukaryote-aware
-        reconstructor (CarveFungi / AuReMe / gapseq fungal mode), then load
-        the SBML as a CobraOrganism.
+Reconstruction is kingdom-specific (muode's _euk_engine routing):
+  * B_thetaiotaomicron, K_pneumoniae  -> CarveMe  (-u gramneg), from these genomes.
+  * S_cerevisiae (fungus)             -> CarveMe CANNOT build a eukaryote.  Use the
+        curated Yeast8 model, harmonized to BiGG (NO genome download needed):
+          bash   examples/multikingdom/fetch_yeast8.sh
+          python examples/multikingdom/harmonize_fungal_gem.py \
+              --in  examples/multikingdom/data/yeast-GEM.xml \
+              --out examples/multikingdom/data/eukaryote_models/S_cerevisiae_bigg.xml.gz
   * vB_Kpn (phage)                    -> no genome-scale model; declare a
         PhageInfection(host="K_pneumoniae", ...) layer instead.
 ------------------------------------------------------------

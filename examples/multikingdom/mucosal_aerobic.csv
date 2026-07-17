@@ -1,0 +1,38 @@
+# mucosal_aerobic -- a defined aerobic gut-interface medium (BiGG / CarveMe namespace)
+#
+# The multi-kingdom example needs OXYGEN: its mechanism is a facultative fungus
+# scavenging the O2 that diffuses in from the mucosa and thereby protecting the
+# obligate-anaerobe keystone.  muODE's western_gut preset is deliberately anaerobic, so
+# this example uses its own medium instead.
+#
+# It is the classic aerobic minimal medium a defined yeast culture runs on -- glucose as
+# the limiting carbon, a mucosal O2 trickle, and the N / P / S sources and salts / trace
+# metals from Yeast8's own defined medium (SysBioChalmers/yeast-GEM) -- which is also
+# everything a facultative bacterium needs.  All BiGG ids, so it feeds the CarveMe
+# bacteria and the BiGG-harmonized fungus (see harmonize_fungal_gem.py) from ONE pool.
+#
+# Verified: the harmonized Yeast8 grows at ~0.47/h here and 0 without O2 (so the
+# scavenging is load-bearing, not decorative).  Growth of the CarveMe bacteria on it is
+# a workstation check (they are not reconstructed here); if one starves, muode.qc's
+# no-growth diagnosis reports the missing nutrient -- supplement it then, in the methods.
+#
+# concentration mmol/L; influx mmol/L/h (only the carbon and O2 are replenished -- a
+# mucosal flow); max_uptake caps the carbon so a GEM cannot import it at a uniform Vmax.
+# These pool sizes are a defined-medium DESIGN, not measurements (source=defined).
+metabolite,concentration,influx,max_uptake,source
+glc__D_e,10,1.2,10,defined
+o2_e,0.3,0.15,,defined
+nh4_e,10,0,,defined
+pi_e,10,0,,defined
+so4_e,10,0,,defined
+na1_e,100,0,,defined
+cl_e,100,0,,defined
+k_e,100,0,,defined
+mg2_e,10,0,,defined
+ca2_e,10,0,,defined
+fe2_e,1,0,,defined
+mn2_e,1,0,,defined
+cu2_e,1,0,,defined
+zn2_e,1,0,,defined
+h2o_e,1000,0,,defined
+h_e,1000,0,,defined

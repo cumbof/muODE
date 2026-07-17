@@ -16,9 +16,16 @@ metabolic LP does not encode. muODE addresses both explicitly.
 | Member | Kingdom | Oxygen | Role |
 |--------|---------|--------|------|
 | `B_thetaiotaomicron` | bacteria | obligate anaerobe | keystone fermenter |
-| `C_albicans` | **eukaryote** (fungus) | facultative | oxygen scavenger |
+| `S_cerevisiae` | **eukaryote** (fungus) | facultative | oxygen scavenger |
 | `K_pneumoniae` | bacteria | facultative | pathobiont (phage host) |
 | `vB_Kpn` | **virus** (phage) | — | lytic predator of *K. pneumoniae* |
+
+> **The fungus is *S. cerevisiae*, via Yeast8.** Yeast8 (SysBioChalmers/yeast-GEM) is the
+> gold-standard curated fungal GEM, and *S. cerevisiae* is a genuine gut-resident yeast
+> (*S. boulardii*, a probiotic, is a strain of it). *C. albicans* would be more gut-native
+> but has no comparably curated model — and the point here is the *cross-kingdom oxygen
+> mechanism*, which any respiring facultative fungus exercises. See "Scaling to real
+> genomes" below.
 
 `abundance.tsv` keeps the plain two-column `mag_id <TAB> rel_abundance` contract.
 The kingdom/oxygen annotation lives in the side file `traits.tsv` — and note the
@@ -53,7 +60,7 @@ PYTHONPATH=$(git rev-parse --show-toplevel) python examples/multikingdom/mechani
 It runs the community and two ablations. Expected (toy-model) result:
 
 ```
-scenario                              Bacteroides  Candida Klebsiella O2_final
+scenario                              Bacteroides    yeast Klebsiella O2_final
 full community (fungus + phage)             4.890    2.594      0.000    0.000
 no fungus (O2 not scavenged)                0.032      nan      0.000    5.648
 no phage (Klebsiella unchecked)             1.022    0.176     13.817    0.000
@@ -66,16 +73,49 @@ no phage (Klebsiella unchecked)             1.022    0.176     13.817    0.000
 
 ## Scaling to real genomes
 
-`download_genomes.sh` fetches representative genomes. Reconstruction is
-**kingdom-specific** (muODE's `reconstruction_route()` encodes this):
+Reconstruction is **kingdom-specific** (muODE's `_euk_engine` routing in the Snakefile
+encodes this). The fungus is handled *here*, locally; only the two bacteria need a
+reconstruction host.
 
-- **bacteria** (`B_thetaiotaomicron`, `K_pneumoniae`) → CarveMe (`-u gramneg`).
-- **eukaryote** (`C_albicans`) → CarveMe **cannot** build it. Use a fungal route:
-  a curated template (Yeast8 for ascomycetes) or a eukaryote-aware reconstructor
-  (CarveFungi / AuReMe / gapseq fungal mode), then load the SBML as a
-  `CobraOrganism`.
-- **virus** (`vB_Kpn`) → no GEM. Declare a `PhageInfection(host="K_pneumoniae", …)`
-  layer with its adsorption rate, burst size and latent period.
+**The fungus — curated, local, no gapseq/CarveFungi.** CarveMe cannot build a eukaryote.
+Rather than stand up MetaEuk + CarveFungi for one organism, use the gold-standard curated
+model. The only obstacle is namespace — the community shares one pool keyed by
+exchange-metabolite ids, and Yeast8 speaks its own dialect (`s_0565` = glucose) — so its
+exchanges are relabelled to BiGG from the `bigg.metabolite` annotations Yeast8 already
+carries. Both steps run on any machine:
+
+```bash
+bash   examples/multikingdom/fetch_yeast8.sh              # Yeast8 v9.1.0 (~12 MB, not committed)
+python examples/multikingdom/harmonize_fungal_gem.py \
+    --in  examples/multikingdom/data/yeast-GEM.xml \
+    --out examples/multikingdom/data/eukaryote_models/S_cerevisiae_bigg.xml.gz
+```
+
+`config.yaml` already points `eukaryote_models: {S_cerevisiae: …}` at that output, so the
+pipeline drops it into the community in place of an automated reconstruction. Verified:
+the harmonized model grows at ~0.47/h on `mucosal_aerobic.csv` and 0 without O₂ — so the
+oxygen scavenging is metabolically load-bearing, not a trait bolted on.
+
+**The bacteria — CarveMe (needs a reconstruction host).**
+
+```bash
+bash examples/multikingdom/download_genomes.sh           # B. theta + K. pneumoniae genomes
+snakemake --use-conda --cores 8 --configfile examples/multikingdom/config.yaml
+```
+
+`engine: carveme -u gramneg` builds both; the pipeline skips the fungus (curated) and the
+phage (no GEM). CarveMe and Yeast8 are both BiGG, so the harmonized fungus and the
+bacteria cross-feed from one pool on `mucosal_aerobic.csv` — a **defined aerobic** medium
+(muODE's `western_gut` preset is anaerobic; this example needs the O₂ the fungus
+scavenges).
+
+**The phage — no GEM.** Declare a `PhageInfection(host="K_pneumoniae", …)` layer with its
+adsorption rate, burst size and latent period (as in `mechanistic_demo.py`).
+
+> **Status.** The fungus route is done and verified locally; the two bacterial GEMs are
+> the only reconstruction step, and CarveMe growth on `mucosal_aerobic.csv` is verified
+> there (if a strain starves, `muode.qc`'s no-growth diagnosis names the missing nutrient
+> — supplement it in the methods).
 
 ## What is *not* modelled
 

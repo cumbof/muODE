@@ -32,30 +32,30 @@ min_completeness: 50.0
 max_contamination: 10.0
 
 # --- Phase 1: reconstruction ------------------------------------------------
-# gramneg covers the two bacteria. C_albicans (domain 'fungus' in traits.tsv)
-# reconstructs automatically via MetaEuk + CarveFungi once `euk_ref_db` is set
-# below; until then it is skipped. The phage has no GEM and is always skipped.
+# gramneg covers the two bacteria (CarveMe -> BiGG).  The fungus is NOT reconstructed
+# from a genome: it uses a curated model (below), which beats a CarveFungi draft and
+# needs no MetaEuk/CarveFungi tooling.  The phage has no GEM and is always skipped.
 engine: "carveme"
 universe: "gramneg"
 gapfill_media: null
 
-# Automated eukaryote reconstruction (fungus -> CarveFungi, eukaryote -> generic).
-# MetaEuk gene calling needs a protein reference database (MMseqs2/MetaEuk format,
-# e.g. a UniRef90 or curated-eukaryote DB). Set this to enable the fungus route:
-#   euk_ref_db: "/path/to/metaeuk/refdb"
-euk_ref_db: null
-# Optional: override the CarveFungi invocation ({proteins}/{output}/{threads}).
-#   carvefungi_cmd: "python /opt/CarveFungi/carvefungi.py {proteins} -o {output}"
-carvefungi_cmd: null
-# Optional: eggNOG-mapper data directory for the generic (non-fungal) euk route.
-eggnog_data_dir: null
+# The fungus is S. cerevisiae via Yeast8 -- the gold-standard curated fungal GEM, and a
+# real gut-resident yeast (S. boulardii, a probiotic, is a strain of it).  C. albicans
+# would be more gut-native but has no comparably curated model.  Yeast8 is BiGG-namespace
+# once its exchanges are harmonized (harmonize_fungal_gem.py), so it shares the pool with
+# the CarveMe bacteria.  Build it (both steps run locally, gapseq/CarveFungi not needed):
+#   bash   examples/multikingdom/fetch_yeast8.sh
+#   python examples/multikingdom/harmonize_fungal_gem.py \
+#       --in examples/multikingdom/data/yeast-GEM.xml \
+#       --out examples/multikingdom/data/eukaryote_models/S_cerevisiae_bigg.xml.gz
+eukaryote_models:
+  S_cerevisiae: "examples/multikingdom/data/eukaryote_models/S_cerevisiae_bigg.xml.gz"
 
-# Curated eukaryote GEMs (mag_id -> SBML path) override automated reconstruction.
-# Point here at a model from any eukaryote-aware reconstructor (Yeast8 template,
-# CarveFungi run by hand, ...), e.g.:
-#   eukaryote_models:
-#     C_albicans: "examples/multikingdom/data/eukaryote_models/C_albicans.xml"
-eukaryote_models: {}
+# The CarveFungi / generic-eukaryote route is left available but unused here (curated
+# model wins).  euk_ref_db enables it; carvefungi_cmd / eggnog_data_dir tune it.
+euk_ref_db: null
+carvefungi_cmd: null
+eggnog_data_dir: null
 
 # --- Phase 2/3: refinement --------------------------------------------------
 universal_model: null
@@ -67,10 +67,12 @@ default_vmax: 10.0
 default_km: 0.01
 
 # --- Phase 4: simulation ----------------------------------------------------
-# Carbon plus a steady oxygen trickle from the mucosa; the OxygenSensitivity and
-# PhageInfection layers are configured in code (mechanistic_demo.py) since they
-# need per-organism traits / a phage host.
-diet: "western_gut"
+# A DEFINED AEROBIC medium (glucose + a mucosal O2 trickle + salts): this example needs
+# O2 for the fungus to scavenge, and muODE's western_gut preset is anaerobic.  All BiGG,
+# so it feeds the CarveMe bacteria and the harmonized fungus from one pool.  Verified: it
+# grows the fungus at ~0.47/h (0 without O2).  The OxygenSensitivity and PhageInfection
+# layers are configured in code (they need per-organism traits / a phage host).
+diet: "examples/multikingdom/mucosal_aerobic.csv"
 total_biomass: 0.03
 t_end: 36.0
 dt: 0.05
