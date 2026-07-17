@@ -13,14 +13,19 @@ nutrient niche), and it must survive numeric drift while a flipped winner must f
 
 from __future__ import annotations
 
-import sys
+import importlib.util
 from pathlib import Path
 
 import pytest
 
-_DEMO_DIR = Path(__file__).resolve().parents[1] / "examples" / "strain_competition"
-sys.path.insert(0, str(_DEMO_DIR))
-import mechanistic_demo as scd  # noqa: E402
+# Both this example and multikingdom ship a module literally named `mechanistic_demo`,
+# so a plain `import mechanistic_demo` would let whichever test ran first win the
+# sys.modules cache and hand the other the WRONG module.  Load it by path under a unique
+# name instead.
+_DEMO = Path(__file__).resolve().parents[1] / "examples" / "strain_competition" / "mechanistic_demo.py"
+_spec = importlib.util.spec_from_file_location("strain_competition_demo", _DEMO)
+scd = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(scd)
 
 # Runs three 48 h dynamic-FBA integrations (~2 min); slow for the reason the test needs
 # -- it exercises the demo's real dynamics -- so it joins the -m "not slow" exclusion.
