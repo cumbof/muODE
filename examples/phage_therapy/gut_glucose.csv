@@ -1,0 +1,27 @@
+# gut_glucose -- a defined anaerobic glucose medium (BiGG / CarveMe namespace)
+#
+# A minimal chemically-defined medium for the phage-therapy scenario: glucose as the
+# shared limiting carbon both facultatives compete for, plus the N / P / S sources and
+# salts a genome-scale biomass reaction needs.  Anaerobic (the gut lumen is), so the two
+# facultative gram-negatives grow by fermentation -- no o2_e.  All BiGG, so the host and
+# the commensal draw from one pool and their competition is real.
+#
+# concentration mmol/L; influx mmol/L/h (only glucose is replenished -- a chemostat-like
+# trickle); max_uptake caps the carbon so a GEM cannot import it at a uniform Vmax.
+# Pool sizes are a defined-medium DESIGN, not measurements (source=defined).
+metabolite,concentration,influx,max_uptake,source
+glc__D_e,10,1.0,10,defined
+nh4_e,10,0,,defined
+pi_e,10,0,,defined
+so4_e,10,0,,defined
+na1_e,100,0,,defined
+cl_e,100,0,,defined
+k_e,100,0,,defined
+mg2_e,10,0,,defined
+ca2_e,10,0,,defined
+fe2_e,1,0,,defined
+mn2_e,1,0,,defined
+cu2_e,1,0,,defined
+zn2_e,1,0,,defined
+h2o_e,1000,0,,defined
+h_e,1000,0,,defined

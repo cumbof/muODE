@@ -89,7 +89,19 @@ bash examples/strain_competition/download_genomes.sh
 conda activate muode && pip install -e .
 snakemake --snakefile workflow/Snakefile --use-conda --cores 8 \
           --configfile examples/strain_competition/config.yaml
+
+# the pipeline runs pure RESOURCE competition; the colicin and niche modes need
+# ecology layers, so run all three on the refined GEMs with:
+python examples/strain_competition/genome_scale.py \
+    --models examples/strain_competition/results/refined
 ```
+
+`genome_scale.py` runs the same three modes as the toy on the real GEMs, over the defined
+`defined_medium.csv` (glucose; the niche arm adds L-arabinose). It **reports what the GEMs
+actually do** rather than the toy's assigned outcome — verified locally: the scenario
+logic runs on a real BiGG model, the colicin (interference) layer suppresses its target,
+and identical GEMs make the resource mode degenerate (the caveat below, made concrete).
+Only the three CarveMe GEMs need a reconstruction host.
 
 **Prerequisite — strain-resolved genomes.** This only works if the inputs are
 genuinely different strains. Do **not** source them from the dereplicated

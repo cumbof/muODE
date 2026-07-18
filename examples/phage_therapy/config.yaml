@@ -1,0 +1,46 @@
+# muODE pipeline config -- genome-scale phage-therapy scenario (host + commensal).
+# Run from the repository root:
+#   bash examples/phage_therapy/download_genomes.sh
+#   snakemake --snakefile workflow/Snakefile --use-conda --cores 8 \
+#             --configfile examples/phage_therapy/config.yaml
+#
+# The pipeline reconstructs the two bacteria and runs their PURE competition.  The phage
+# is an ecology layer (PhageInfection), which the pipeline does not wire -- so the actual
+# therapy vs no-therapy contrast is run by genome_scale.py on the refined GEMs.  Both
+# members are facultative gram-negatives -> CarveMe (-u gramneg), one BiGG namespace, so
+# they compete in one shared pool.
+
+mags_dir: "examples/phage_therapy/data/mags"
+mag_extension: "fna"
+abundance: "examples/phage_therapy/abundance.tsv"
+outdir: "examples/phage_therapy/results"
+
+run_checkm2: false
+min_completeness: 50.0
+max_contamination: 10.0
+
+engine: "carveme"
+universe: "gramneg"
+gapfill_media: null
+euk_ref_db: null
+eukaryote_models: {}
+
+universal_model: null
+run_memote: false
+predict_kinetics: false
+predictor: "heuristic"
+enzyme_constraints: false
+default_vmax: 10.0
+default_km: 0.01
+
+diet: "western_gut"
+total_biomass: 0.02
+t_end: 48.0
+dt: 0.05
+
+max_species: null
+min_abundance: null
+abundance_coverage: null
+
+threads: 8
+perturbation: null

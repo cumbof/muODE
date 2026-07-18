@@ -1,0 +1,26 @@
+# defined_medium -- a minimal anaerobic glucose medium (BiGG / CarveMe namespace)
+#
+# The shared habitat for the strain-competition scenario: glucose as the single limiting
+# carbon all strains compete for, plus the N / P / S sources and salts a genome-scale
+# biomass reaction needs.  Anaerobic (no o2_e) -- E. coli ferments.  The niche-
+# differentiation arm adds L-arabinose to this in code (genome_scale.py), to ask whether
+# any strain has a PRIVATE catabolic route to it.
+#
+# concentration mmol/L; influx mmol/L/h (glucose replenished -- a chemostat trickle);
+# max_uptake caps the carbon.  Pool sizes are a defined-medium DESIGN (source=defined).
+metabolite,concentration,influx,max_uptake,source
+glc__D_e,10,1.0,10,defined
+nh4_e,10,0,,defined
+pi_e,10,0,,defined
+so4_e,10,0,,defined
+na1_e,100,0,,defined
+cl_e,100,0,,defined
+k_e,100,0,,defined
+mg2_e,10,0,,defined
+ca2_e,10,0,,defined
+fe2_e,1,0,,defined
+mn2_e,1,0,,defined
+cu2_e,1,0,,defined
+zn2_e,1,0,,defined
+h2o_e,1000,0,,defined
+h_e,1000,0,,defined
