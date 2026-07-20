@@ -6,6 +6,13 @@
 # differentiation arm adds L-arabinose to this in code (genome_scale.py), to ask whether
 # any strain has a PRIVATE catabolic route to it.
 #
+# Trace metals match CarveMe's own M9 reference minimal medium: besides fe2/mn2/cu2/zn2
+# we carry cobalt2, fe3, mobd (molybdate) and ni2 (nickel).  These are biomass-essential
+# elements a genome-scale biomass reaction demands and that CANNOT be synthesised -- only
+# imported -- so a defined medium that omits them makes CarveMe's gap-fill infeasible
+# (cobalt is load-bearing: no B12, no growth) and any reconstructed GEM scores 0.0/h.
+# fe3 is the same ferric-iron state fix DM38 needed (biomass wants Fe(III), not Fe(II)).
+#
 # concentration mmol/L; influx mmol/L/h (glucose replenished -- a chemostat trickle);
 # max_uptake caps the carbon.  Pool sizes are a defined-medium DESIGN (source=defined).
 metabolite,concentration,influx,max_uptake,source
@@ -19,8 +26,12 @@ k_e,100,0,,defined
 mg2_e,10,0,,defined
 ca2_e,10,0,,defined
 fe2_e,1,0,,defined
+fe3_e,1,0,,defined
 mn2_e,1,0,,defined
 cu2_e,1,0,,defined
 zn2_e,1,0,,defined
+cobalt2_e,1,0,,defined
+mobd_e,1,0,,defined
+ni2_e,1,0,,defined
 h2o_e,1000,0,,defined
 h_e,1000,0,,defined
