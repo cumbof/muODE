@@ -22,6 +22,10 @@ results/
 models/draft_gems/
 models/kinetic_gems/
 simulation_env/
+# gapseq scratch (RDS/blast intermediates, ~25 MB per genome).  Keep on disk -- it
+# makes a re-fill cheap -- but never version it; only the .xml.gz models are tracked.
+**/gapseq_work/
+**/clark_gapseq_work/
 *.xml
 *.sbml
 !examples/**/*.xml
