@@ -32,11 +32,17 @@
 # 1.5.  The fix is a CALIBRATED Vmax (examples/benchmarks/clark2021/fit_kinetics.py),
 # not an invented dietary bound.
 #
-# TRAP: iron is Fe(II) only.  That is chemically right for a reducing anaerobic
-# medium, but any GEM whose biomass demands fe3_e cannot grow on DM38 AT ALL --
-# iJO1366 does not, at any Vmax.  A zero from such a model is a medium artefact,
-# not biology.  Check the strain models for EX_fe3_e before believing a zero.
-# 67 components -> 65 exchange metabolites.
+# IRON -- A DELIBERATE DEVIATION FROM THE PUBLISHED MEDIUM.  DM38's only iron
+# source is FeSO4, i.e. Fe(II), which is chemically right for a reducing
+# anaerobic culture.  But CarveMe and gapseq both build biomass demanding
+# fe3_e / cpd10516_e0 and ship no Fe(II)->Fe(III) conversion, so on the medium
+# AS PUBLISHED all 26 clark strains score exactly 0.0/h in both namespaces --
+# a medium artefact that reads like 26 biological predictions of no growth.
+# muODE therefore offers the SAME 0.0658 mM iron pool as BOTH fe2_e and fe3_e.
+# The iron is not doubled; it is one pool exposed in two oxidation states,
+# because the GEMs pick a state arbitrarily.  At ~1000x above the biomass
+# requirement iron cannot be limiting, so this cannot shift a predicted flux.
+# 67 components -> 66 exchange metabolites.
 metabolite,concentration,influx
 4abz_e,0.0730729,0.0
 ade_e,5.99423e-05,0.0
@@ -54,6 +60,7 @@ csn_e,5.94059e-05,0.0
 cu2_e,0.0212653,0.0
 cys__L_e,8.4,0.0
 fe2_e,0.0658293,0.0
+fe3_e,0.0658293,0.0
 fol_e,0.00240283,0.0
 glc__D_e,24.9784,0.0
 gln__L_e,2.7,0.0

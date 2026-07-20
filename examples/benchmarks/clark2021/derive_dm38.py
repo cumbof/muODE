@@ -140,6 +140,23 @@ SKIPPED: dict[str, str] = {
 # Always available in an aqueous medium; GEMs expect them open.
 IMPLICIT: dict[str, float] = {"h2o_e": 1000.0, "h_e": 1000.0}
 
+# A DELIBERATE DEVIATION from the published medium.  DM38's only iron source is
+# FeSO4, so the medium above carries Fe(II) alone -- chemically right for a reducing
+# anaerobic culture.  But reconstructions do not agree on which oxidation state the
+# cell imports: CarveMe and gapseq both build biomass that demands fe3_e/cpd10516,
+# and neither ships a Fe(II)->Fe(III) conversion.  The result is that ALL 26 clark
+# strains score exactly 0.0/h on DM38 in both namespaces -- a medium artefact that
+# looks like 26 biological predictions of no growth.
+#
+# So we expose the SAME iron pool in both oxidation states.  This does not double the
+# iron: 0.0658 mM is the measured total, and it is offered as either form because the
+# GEMs pick a state arbitrarily.  Iron is ~1000x from limiting at this concentration
+# (biomass needs ~1e-5 mmol/gDW), so which form is drawn on cannot shift a flux.
+#
+# Recorded here rather than patched into the CSV so the deviation stays visible: the
+# published medium says Fe(II), muODE feeds Fe(II)+Fe(III), and this comment is why.
+IRON_STATE_DEVIATION: dict[str, str] = {"fe3_e": "fe2_e"}
+
 
 def load_dm38(source: str | Path | None = None) -> list[tuple[str, float]]:
     """Return [(component, mM)] from Supplementary Data 4 (URL or local xlsx)."""
@@ -172,6 +189,10 @@ def to_diet(components: list[tuple[str, float]]) -> tuple[dict[str, float], list
             continue
         for met, mult in MAPPING[name].items():
             conc[met] = conc.get(met, 0.0) + mult * mM
+    # mirror the iron pool into the other oxidation state (see IRON_STATE_DEVIATION)
+    for alias, src in IRON_STATE_DEVIATION.items():
+        if src in conc:
+            conc.setdefault(alias, conc[src])
     return conc, unmapped
 
 
@@ -222,10 +243,16 @@ def main() -> int:
         "# 1.5.  The fix is a CALIBRATED Vmax (examples/benchmarks/clark2021/fit_kinetics.py),",
         "# not an invented dietary bound.",
         "#",
-        "# TRAP: iron is Fe(II) only.  That is chemically right for a reducing anaerobic",
-        "# medium, but any GEM whose biomass demands fe3_e cannot grow on DM38 AT ALL --",
-        "# iJO1366 does not, at any Vmax.  A zero from such a model is a medium artefact,",
-        "# not biology.  Check the strain models for EX_fe3_e before believing a zero.",
+        "# IRON -- A DELIBERATE DEVIATION FROM THE PUBLISHED MEDIUM.  DM38's only iron",
+        "# source is FeSO4, i.e. Fe(II), which is chemically right for a reducing",
+        "# anaerobic culture.  But CarveMe and gapseq both build biomass demanding",
+        "# fe3_e / cpd10516_e0 and ship no Fe(II)->Fe(III) conversion, so on the medium",
+        "# AS PUBLISHED all 26 clark strains score exactly 0.0/h in both namespaces --",
+        "# a medium artefact that reads like 26 biological predictions of no growth.",
+        "# muODE therefore offers the SAME 0.0658 mM iron pool as BOTH fe2_e and fe3_e.",
+        "# The iron is not doubled; it is one pool exposed in two oxidation states,",
+        "# because the GEMs pick a state arbitrarily.  At ~1000x above the biomass",
+        "# requirement iron cannot be limiting, so this cannot shift a predicted flux.",
         f"# {len(components)} components -> {len(conc)} exchange metabolites.",
         "metabolite,concentration,influx",
     ]
