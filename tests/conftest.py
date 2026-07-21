@@ -123,8 +123,29 @@ def probe_sensitivity(ijo, western_gut_probe):
 
 
 @pytest.fixture(scope="session")
-def dm38_diagnosis(ijo):
-    """``diagnose_no_growth`` on iJO1366/DM38 -- ~226 FBAs, so computed once.
+def dm38_nofe3():
+    """DM38 with ferric iron removed -- reconstructs the historical Fe(III) trap.
+
+    DM38 as shipped now supplies ``fe3_e`` (commit 2233c82: the Clark GEMs' biomass
+    demands cytoplasmic Fe(III) and nothing converts fe2->fe3, so the medium offers
+    the same iron pool in both oxidation states).  That deliberately DISARMS the
+    trap -- iJO1366 grows on DM38 now.  But the trap is the canonical case this
+    diagnosis machinery exists for, so we reconstruct it by dropping ``fe3_e``,
+    which is exactly the medium these tests were first written against.
+    """
+    dm38 = load_diet("dm38")
+    return Diet(
+        concentrations={m: c for m, c in dm38.concentrations.items() if m != "fe3_e"},
+        influx=dict(dm38.influx),
+        max_uptake=dict(dm38.max_uptake),
+        source=dict(dm38.source),
+        name="DM38 (fe3 removed -- reconstructs the Fe(III) trap)",
+    )
+
+
+@pytest.fixture(scope="session")
+def dm38_nofe3_diagnosis(ijo, dm38_nofe3):
+    """``diagnose_no_growth`` on iJO1366 / fe3-less DM38 -- ~226 FBAs, computed once.
 
     Five tests in test_no_growth_diagnosis.py interrogate different facets of this
     one report (the verdict, the iron, the nitric-oxide artefact, the menu length,
@@ -132,4 +153,4 @@ def dm38_diagnosis(ijo):
     """
     from muode.qc import diagnose_no_growth
 
-    return diagnose_no_growth(ijo, load_diet("dm38"))
+    return diagnose_no_growth(ijo, dm38_nofe3)

@@ -33,12 +33,31 @@ def test_a_model_that_grows_is_not_diagnosed(ijo):
 
 
 @pytest.mark.slow
-def test_dm38_is_diagnosed_as_a_medium_gap_and_names_the_iron(dm38_diagnosis):
-    """The real case.  iJO1366 scores 0.0 on DM38 -- and that zero is not biology."""
-    d = dm38_diagnosis
+def test_dm38_as_shipped_grows_ijo1366_because_it_now_supplies_ferric_iron(ijo):
+    """The trap is disarmed on purpose.  DM38 ships fe3_e, so E. coli is no longer
+    dead on arrival -- the diagnosis correctly returns ``grows``, not ``medium_gap``.
+
+    This is the counterpart to the reconstructed-trap tests below: it pins the
+    deliberate decision (commit 2233c82) so nobody "re-fixes" the medium by removing
+    the ferric iron the Clark GEMs depend on.
+    """
+    from muode.qc import diagnose_no_growth
+
+    d = diagnose_no_growth(ijo, load_diet("dm38"))
+    assert d["verdict"] == "grows", (
+        "DM38 now supplies fe3_e; iJO1366 should grow on it, not be diagnosed as a gap"
+    )
+    assert "fe3_e" in load_diet("dm38").metabolites()
+
+
+@pytest.mark.slow
+def test_dm38_is_diagnosed_as_a_medium_gap_and_names_the_iron(dm38_nofe3_diagnosis):
+    """The real case, reconstructed: strip fe3 from DM38 and iJO1366 scores 0.0 --
+    and that zero is not biology."""
+    d = dm38_nofe3_diagnosis
 
     assert d["verdict"] == "medium_gap", (
-        "iJO1366 on DM38 is a medium artefact, not a finding about E. coli"
+        "iJO1366 on fe3-less DM38 is a medium artefact, not a finding about E. coli"
     )
     assert "EX_fe3_e" in d["rescued_by_any_of"], (
         f"ferric iron should be on the menu; got {d['rescued_by_any_of']}"
@@ -47,7 +66,7 @@ def test_dm38_is_diagnosed_as_a_medium_gap_and_names_the_iron(dm38_diagnosis):
 
 
 @pytest.mark.slow
-def test_the_menu_exposes_the_artefact_route_instead_of_silently_picking_it(dm38_diagnosis):
+def test_the_menu_exposes_the_artefact_route_instead_of_silently_picking_it(dm38_nofe3_diagnosis):
     """The reason ``rescued_by_any_of`` is a LIST and not a single minimal answer.
 
     iJO1366's only anaerobic route to cytoplasmic Fe(III) other than importing it is
@@ -60,16 +79,16 @@ def test_the_menu_exposes_the_artefact_route_instead_of_silently_picking_it(dm38
     puts both on the table so a person can tell chemistry from damage.  The tool must
     not make that call, but it must not hide it either.
     """
-    d = dm38_diagnosis
+    d = dm38_nofe3_diagnosis
     assert {"EX_fe3_e", "EX_no_e"} <= set(d["rescued_by_any_of"]), (
         "both the honest fix and the artefact fix must be visible, not one of them"
     )
 
 
 @pytest.mark.slow
-def test_the_menu_is_short_enough_to_read(dm38_diagnosis):
+def test_the_menu_is_short_enough_to_read(dm38_nofe3_diagnosis):
     """DM38 leaves dozens of iJO1366's exchanges closed; listing them all says nothing."""
-    d = dm38_diagnosis
+    d = dm38_nofe3_diagnosis
     assert 0 < len(d["rescued_by_any_of"]) < d["n_candidates"] / 4
 
 
@@ -114,7 +133,7 @@ def test_redundant_routes_do_not_make_the_gap_vanish():
 
 
 @pytest.mark.slow
-def test_oxygen_is_never_proposed_as_a_rescue(dm38_diagnosis):
+def test_oxygen_is_never_proposed_as_a_rescue(dm38_nofe3_diagnosis):
     """A diagnosis may complete an environment.  It may not overturn one.
 
     Oxygen rescues almost any GEM, so if it were a candidate it would be the answer
@@ -123,7 +142,7 @@ def test_oxygen_is_never_proposed_as_a_rescue(dm38_diagnosis):
     the environment, and the diagnosis has to respect it.
     """
     assert "o2_e" in FORBIDDEN_RESCUES
-    d = dm38_diagnosis
+    d = dm38_nofe3_diagnosis
     assert "EX_o2_e" not in d["rescued_by_any_of"]
 
 
@@ -143,12 +162,13 @@ def test_a_model_that_cannot_grow_on_anything_exonerates_the_medium():
 
 
 @pytest.mark.slow
-def test_the_pipeline_surfaces_the_verdict_without_being_asked(ijo):
+def test_the_pipeline_surfaces_the_verdict_without_being_asked(ijo, dm38_nofe3):
     """sanity_check_model diagnoses a zero automatically when it is given the diet.
 
-    If this has to be remembered, it will not be remembered.
+    If this has to be remembered, it will not be remembered.  DM38-as-shipped no
+    longer traps iJO1366, so the trap is exercised here on the fe3-less DM38.
     """
-    report = sanity_check_model(ijo, growth_rate=0.0, diet=load_diet("dm38"))
+    report = sanity_check_model(ijo, growth_rate=0.0, diet=dm38_nofe3)
     assert report["no_growth"]["verdict"] == "medium_gap"
     assert "EX_fe3_e" in report["no_growth"]["rescued_by_any_of"]
 

@@ -118,24 +118,29 @@ def test_a_dietary_ceiling_would_make_vmax_unidentifiable(model, dm38_for_ijo):
 
 
 @pytest.mark.slow
-def test_dm38_supplies_ferrous_iron_only_and_iJO1366_starves_on_it(model, dm38_for_ijo):
-    """DM38 has fe2_e and no fe3_e, and iJO1366 needs *cytoplasmic* Fe(III).
+def test_dm38_supplies_iron_in_both_oxidation_states_and_the_ferric_is_load_bearing(
+    model, dm38_for_ijo
+):
+    """DM38 supplies BOTH fe2_e and fe3_e, and the ferric iron is load-bearing.
 
-    Chemically the medium is right -- Fe(III) is not stable in a reducing anaerobic
-    broth -- so this is not a derivation error.  It is a trap: the model is dead on
-    arrival and its zero says nothing about E. coli.
+    iJO1366 needs *cytoplasmic* Fe(III), and there is no fe2->fe3 conversion in these
+    reconstructions.  Left to itself DM38 would be a trap -- Fe(III) is not stable in
+    a reducing anaerobic broth, so a naive derivation ships fe2 only and the model is
+    dead on arrival.  muODE therefore exposes the same iron pool in both oxidation
+    states (see muode/data/diets/dm38.csv, commit 2233c82), which disarms the trap.
 
-    Note the careful claim.  Ferric iron is load-bearing *among the four nutrients
-    supplied here*, which is what this test checks.  It is NOT the only thing that
-    would rescue the model: nitric oxide does too, via FESD2s, by wrecking the cell's
-    own Fe-S clusters to liberate iron.  Naming one nutrient as "the" cause is exactly
-    the mistake muode.qc.diagnose_no_growth exists to prevent -- see
-    tests/test_no_growth_diagnosis.py, which enumerates the whole equivalence class
-    instead of picking a favourite.
+    This test pins the consequence: remove fe3_e and growth collapses.  Ferric iron
+    is load-bearing *among the nutrients supplied here* -- it is NOT the only possible
+    rescue (nitric oxide does it too, via FESD2s, by wrecking the cell's own Fe-S
+    clusters).  Naming one nutrient as "the" cause is the mistake
+    muode.qc.diagnose_no_growth exists to prevent -- see tests/test_no_growth_diagnosis.py,
+    which enumerates the whole equivalence class instead of picking a favourite.
     """
     dm38 = load_diet("dm38")
     assert dm38.initial_concentration("fe2_e") > 0
-    assert "fe3_e" not in dm38.metabolites()
+    assert dm38.initial_concentration("fe3_e") > 0, (
+        "DM38 now ships ferric iron too; if this is gone the Clark GEMs will starve"
+    )
 
     without_fe3 = {m: c for m, c in dm38_for_ijo.items() if m != "fe3_e"}
     assert _growth(model, without_fe3, DEFAULT_VMAX) < 1e-6, (
