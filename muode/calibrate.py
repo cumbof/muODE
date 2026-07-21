@@ -109,11 +109,20 @@ class Identifiability:
         if self.verdict == "identified":
             return f"Vmax identified: {self.best:g} mmol/gDW/h"
         if self.verdict == "bounded_below":
+            if self.plateau_from is not None:
+                return (
+                    f"Vmax NOT identified -- only bounded: >= {self.lower_bound:g} mmol/gDW/h. "
+                    f"Above {self.plateau_from:g} the predictions plateau "
+                    f"({self.sensitivity:.0%} spread), so the endpoint carries no rate "
+                    f"information. Reporting a point estimate here would be fitting noise."
+                )
+            # never plateaued within the sweep: predictions keep moving, but the best
+            # fit sits at a grid edge, so the range does not bracket an interior optimum.
             return (
                 f"Vmax NOT identified -- only bounded: >= {self.lower_bound:g} mmol/gDW/h. "
-                f"Above {self.plateau_from:g} the predictions plateau "
-                f"({self.sensitivity:.0%} spread), so the endpoint carries no rate "
-                f"information. Reporting a point estimate here would be fitting noise."
+                f"Predictions keep moving across the sweep ({self.sensitivity:.0%} spread) "
+                f"but the best fit lies at an edge of the grid, so the data does not "
+                f"bracket an interior optimum. Report the bound, not a point estimate."
             )
         return (
             f"Vmax unidentifiable: predictions vary by only {self.sensitivity:.0%} across "

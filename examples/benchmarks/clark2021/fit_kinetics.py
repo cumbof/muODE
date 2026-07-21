@@ -111,7 +111,9 @@ def main() -> int:
     mono = {o.species[0]: o for o in observed if len(o.species) == 1}
 
     models = {}
-    for path in sorted(args.models.glob("*.xml")) + sorted(args.models.glob("*.sbml")):
+    # the repo ships the GEMs gzip-compressed (*.xml.gz); cobra reads them directly.
+    for path in (sorted(args.models.glob("*.xml")) + sorted(args.models.glob("*.xml.gz"))
+                 + sorted(args.models.glob("*.sbml"))):
         code = path.stem.split(".")[0]
         if code in ck.STRAINS:
             models[code] = path
@@ -130,12 +132,21 @@ def main() -> int:
             print(f"  {code}: no monoculture measurement -- skipped")
             continue
         target = {b: v for b, v in obs.net_metabolites.items()}
-        ident, prof = fit_vmax(
-            make_predictor(models[code], code, diet, args.dt),
-            observed=target,
-            vmax_grid=args.grid,
-            inoculum=INOCULUM,
-        )
+        # One strain's failure must not discard the whole sweep (~30 min of solves):
+        # record it and carry on so the report still gets written.
+        try:
+            ident, prof = fit_vmax(
+                make_predictor(models[code], code, diet, args.dt),
+                observed=target,
+                vmax_grid=args.grid,
+                inoculum=INOCULUM,
+            )
+        except Exception as exc:  # noqa: BLE001 -- log-and-continue over 26 independent fits
+            tally["error"] = tally.get("error", 0) + 1
+            report["strains"][code] = {"species": ck.STRAINS[code].species,
+                                       "verdict": "error", "error": repr(exc)}
+            print(f"  {code}  {ck.STRAINS[code].species:36} ERROR: {exc!r}")
+            continue
         tally[ident.verdict] = tally.get(ident.verdict, 0) + 1
         report["strains"][code] = {
             "species": ck.STRAINS[code].species,
