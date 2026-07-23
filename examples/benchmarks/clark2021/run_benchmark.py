@@ -16,10 +16,14 @@
 Three tiers, reported separately on purpose
 -------------------------------------------
 **Tier 1 -- monoculture phenotype.**  Grow each strain alone on DM38 and ask which
-fermentation products it secretes.  No community dynamics, no abundance
-weighting, no kinetics worth arguing about: a failure here is a *reconstruction*
-failure and nothing downstream can repair it.  A GEM of *B. thetaiotaomicron* that
-secretes butyrate is simply wrong.  Get this right first.
+fermentation products it secretes.  No community dynamics, no abundance weighting,
+no kinetics worth arguing about.  A false *positive* here is a reconstruction failure
+nothing downstream can repair -- a GEM of *B. thetaiotaomicron* that secretes butyrate
+is simply wrong.  A false *negative on acid secretion* is not: max-biomass FBA is
+degenerate on these GEMs and dumps carbon into overflow sinks (acetaldehyde, BCFA)
+instead of the measured acids, so BiGG Tier-1 acid F1 is ~0 for a reason that is a
+property of the method (see ``TIER1_ACID_CAVEAT`` and the README).  This is why the
+quantitative claims rest on tiers 2/3.
 
 **Tier 2 -- pairwise.**  Two strains: does the engine get the interaction?
 
@@ -52,6 +56,28 @@ from muode.organism import CobraOrganism
 
 #: The incubation the measurements came from: 48 h, sealed, anaerobic.
 T_END = 48.0
+
+#: Why a low Tier-1 *acid-secretion* F1 is not a reconstruction failure, attached to
+#: every report so the score cannot travel without its interpretation (README, "A
+#: known limitation").  Diagnosed dynamically 2026-07: the GEMs grow and consume the
+#: right substrates, but the per-step max-biomass LP is free to route fixed carbon
+#: into acetaldehyde and branched-chain overflow -- an alternate-optimal vertex of
+#: identical biomass -- so net production of the measured acids collapses toward zero.
+#: Butyrate is additionally unreachable in the BiGG universe (CarveMe cannot build the
+#: pathway).  Neither is repaired by any clean constraint tested (escape-capping and
+#: per-step pFBA were both falsified in the 48 h dFBA).  muODE's quantitative claims
+#: therefore rest on Tiers 2/3 (composition, abundance, cross-feeding).
+TIER1_ACID_CAVEAT = (
+    "Tier-1 fermentation-acid secretion in the BiGG namespace is confounded by FBA "
+    "alternate-optima: the per-step max-biomass LP may route fixed carbon into "
+    "acetaldehyde / branched-chain overflow at identical optimal biomass, so net "
+    "secretion of the measured acids collapses toward ~0 even though the "
+    "reconstruction grows and consumes substrates correctly. Butyrate is additionally "
+    "unreachable in BiGG. A low Tier-1 acid F1 does NOT indict the reconstruction; it "
+    "is a documented property of max-biomass FBA (escape-capping and per-step pFBA "
+    "were both falsified dynamically). Quantitative claims rest on Tiers 2/3. See "
+    "README 'A known limitation: Tier-1 acid secretion under alternate optima'."
+)
 
 
 def load_models(models_dir: Path) -> dict[str, Path]:
@@ -147,10 +173,12 @@ def main() -> int:
             exch: ck.score_phenotypes(predicted, truth, exch, exclude=skip)
             for exch in mets.values()
         }
+        report["tier1_acid_caveat"] = TIER1_ACID_CAVEAT
         print(f"\n  excluded (did not grow in DM38 in vitro): {list(skip)}")
         for exch, score in report["tier1"].items():
             print(f"  {exch:10} accuracy={score['accuracy']:.2f}  F1={score['f1']:.2f}  "
                   f"(n={score['n_strains']})  wrong: {score['misclassified'] or 'none'}")
+        print(f"\n  NOTE (acid secretion): {TIER1_ACID_CAVEAT}")
 
     # -- tiers 2/3: communities ---------------------------------------------
     if args.tier in ("2", "3", "all"):

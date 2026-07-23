@@ -24,8 +24,12 @@ Three tiers of increasing difficulty, deliberately separable
 ------------------------------------------------------------
 1. **Monoculture phenotype** (`monoculture_phenotypes`) -- does each reconstructed
    GEM secrete the fermentation products its organism actually secretes?  No
-   community dynamics involved, so a failure here is a *reconstruction* failure.
-   This is the cleanest signal in the dataset and the first thing to get right.
+   community dynamics involved, so a *false positive* here is a reconstruction
+   failure.  A *false negative on acid secretion* is not: max-biomass FBA is
+   degenerate on these GEMs and routes carbon into overflow sinks (acetaldehyde,
+   branched-chain acids) rather than the measured acids, so BiGG Tier-1 acid F1 is
+   ~0 for a reason that is a property of the method (see the benchmark README, "A
+   known limitation").  The quantitative claims therefore rest on tiers 2/3.
 2. **Pairwise** -- does the engine predict the interaction between two strains?
 3. **High-richness assembly** -- does it predict composition and butyrate for
    communities of up to 23 species?

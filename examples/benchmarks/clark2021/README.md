@@ -54,9 +54,14 @@ which is the entire diagnostic value of the dataset.
 
 **Tier 1 — monoculture phenotype.** Grow each strain alone on DM38: which
 fermentation products does it secrete? No community dynamics, no abundance
-weighting, no kinetics to argue about. **A failure here is a reconstruction
-failure and nothing downstream can repair it.** A GEM of *B. thetaiotaomicron*
-that secretes butyrate is simply wrong. Get this right first.
+weighting, no kinetics to argue about. A *false positive* here is a reconstruction
+failure nothing downstream can repair — a GEM of *B. thetaiotaomicron* that secretes
+butyrate is simply wrong. A *false negative on acid secretion*, however, is **not**:
+max-biomass FBA is degenerate on these GEMs and routes carbon into overflow sinks
+instead of the measured acids, so it under-reports secretion for a reason that is a
+property of the method, not the reconstruction. See
+[A known limitation](#a-known-limitation-tier-1-acid-secretion-under-alternate-optima)
+— and read Tier-1 with that asymmetry in mind.
 
 The ground truth (derived from the measurements, not asserted from memory):
 
@@ -125,6 +130,48 @@ When a `medium_gap` appears, decide **explicitly**: supply the metabolite (a dep
 from the published medium — say so in the methods) or exclude the strain the way
 `non_growers()` excludes FP. Never let it be scored as a failed prediction. Pinned in
 `tests/test_dm38_bounds.py` and `tests/test_no_growth_diagnosis.py`.
+
+## A known limitation: Tier-1 acid secretion under alternate optima
+
+Tier-1 asks a monoculture GEM which fermentation acids it secretes, and in the BiGG
+namespace muODE scores this **poorly — F1 0.10 for acetate and 0.00 for butyrate,
+lactate and succinate** (`tier1_secretion_report.json`, n=24). That is documented
+here rather than tuned away, because the cause is a property of the *method*, not of
+the reconstructions.
+
+Flux-balance analysis maximises biomass, and for these GEMs on DM38 the optimum is
+massively **degenerate**: many flux distributions give the same maximal growth, and
+the measured fermentation acids are only *one* of them. The per-step max-biomass LP
+in the 48 h dynamic run is free to pick any, and it routes fixed carbon into whichever
+overflow sink the simplex lands on — dominantly **acetaldehyde** (a toxic
+intracellular intermediate, never a real bulk product) and **branched-chain acids**
+(isobutyrate, 2-methylbutyrate, from amino-acid catabolism). Net production of the
+measured acids collapses toward zero.
+
+Traced for *B. adolescentis* (BA): the cells grow normally (0.01 → 0.39 gDW/L by 8 h)
+and consume glucose and maltose, but dump **+45 mM acetaldehyde** and net only
+**0.2 mM acetate**. Acetate flux is positive for only **7 of 481** integration steps —
+early steps land on an acetate-producing vertex, then the LP flips to an
+acetaldehyde-dumping vertex of identical biomass and never returns. Butyrate is a
+separate, harder problem: CarveMe's BiGG universe cannot build the pathway at all, so
+the four measured producers (AC, CC, ER, RI) are **structurally unreachable**.
+
+This is not repairable by any clean, uniform, defensible constraint. Capping the
+escape exchanges (acetaldehyde / BCFA / GABA / ethanol) and per-step parsimonious FBA
+were both **falsified in the 48 h dynamic run** — they lower biomass or reroute to an
+unwatched sink without recovering the acids; the static pFBA signal that suggested
+otherwise does not survive integration. NGAM/ATPM, amino-acid uptake caps and loopless
+FBA likewise do not move the products.
+
+**Consequence for the claims.** muODE's quantitative validation rests on **Tiers 2 and
+3** — community composition, relative abundance and cross-feeding — which is the
+framework's actual contribution, and where the FBA degeneracy is partly broken by
+inter-species competition for shared substrates. Tier-1 acid secretion is reported
+with this caveat attached to every `benchmark_report.json` (the `tier1_acid_caveat`
+field) and read as a **known FBA limitation**, not a muODE or reconstruction defect. A
+namespace with curated fermentation and a butyrate pathway (gapseq/ModelSEED) is the
+route to a positive Tier-1 acid result; it is scaffolded (`--namespace modelseed`) but
+is not part of the headline claims.
 
 ## Kinetics: the endpoint bounds Vmax, it does not identify it
 
