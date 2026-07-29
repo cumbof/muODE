@@ -207,6 +207,19 @@ class CobraOrganism:
     def __init__(self, model, id: Optional[str] = None) -> None:
         self.model = model
         self.id = id or model.id
+        # GLPK's simplex can *cycle indefinitely* on the degenerate LPs that
+        # community GEMs routinely produce -- observed as a single solve pinning
+        # a core for >21 h with no iteration cap.  Presolve collapses most of that
+        # degeneracy, and a per-solve wall-clock ceiling turns any residual
+        # pathological LP into a non-optimal status (handled as zero growth in
+        # ``optimize``) instead of an unbounded hang.  Both are solver-config, so
+        # they ride along through ``model.copy()`` used in the dynamic loop.
+        try:
+            cfg = model.solver.configuration
+            cfg.presolve = True
+            cfg.timeout = 60  # seconds per LP; normal solves are sub-second
+        except Exception:
+            pass
         # Map extracellular metabolite id -> exchange reaction id.
         self._exchanges: Dict[str, str] = {}
         for rxn in model.exchanges:
