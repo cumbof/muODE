@@ -1,0 +1,59 @@
+{
+  "namespace": "bigg",
+  "tier": "all",
+  "t_end_h": 48.0,
+  "community": {
+    "n_communities": 549,
+    "metabolites": {
+      "ac_e": {
+        "metabolite": "ac_e",
+        "net": true,
+        "n": 549,
+        "mae": 22.271754875632883,
+        "rmse": 26.41527117262372,
+        "bias": -22.211619569233022,
+        "observed_mean": 26.001056501214332,
+        "observed_std": 14.972963683756449,
+        "pearson_r": 0.32069685442094753,
+        "spearman_rho": 0.40298286045913523
+      },
+      "but_e": {
+        "metabolite": "but_e",
+        "net": true,
+        "n": 549,
+        "mae": 21.050181003868325,
+        "rmse": 26.29274636011357,
+        "bias": -21.050181003868325,
+        "observed_mean": 21.050181003872844,
+        "observed_std": 15.75431340495384,
+        "pearson_r": -0.04142711915424617,
+        "spearman_rho": 0.05845866325889376
+      },
+      "lac__L_e": {
+        "metabolite": "lac__L_e",
+        "net": true,
+        "n": 549,
+        "mae": 18.619393689472584,
+        "rmse": 23.283096069196734,
+        "bias": -15.084480844049637,
+        "observed_mean": 0.7437400385983178,
+        "observed_std": 16.9375464573254,
+        "pearson_r": 0.33842983228991896,
+        "spearman_rho": 0.36948064289584776
+      },
+      "succ_e": {
+        "metabolite": "succ_e",
+        "net": true,
+        "n": 549,
+        "mae": 11.134650144016602,
+        "rmse": 14.590595311477742,
+        "bias": -11.122933374068163,
+        "observed_mean": 11.15959251062538,
+        "observed_std": 9.428138293549264,
+        "pearson_r": -0.04871696006952367,
+        "spearman_rho": 0.10634969099625619
+      }
+    },
+    "abundance_mae": 0.21023162871669862
+  }
+}
