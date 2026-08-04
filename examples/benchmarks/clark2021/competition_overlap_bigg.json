@@ -1,0 +1,71 @@
+{
+  "namespace": "bigg",
+  "n_strains_profiled": 25,
+  "mean_substrates_taken_per_strain": 38.4,
+  "overlap_vs_muODE_prediction": {
+    "shared_count": {
+      "spearman": 0.136,
+      "spearman_p": 0.0586,
+      "pearson": 0.266,
+      "n": 195
+    },
+    "contested_amount": {
+      "spearman": 0.081,
+      "spearman_p": 0.2598,
+      "pearson": 0.233,
+      "n": 195
+    },
+    "cosine": {
+      "spearman": -0.141,
+      "spearman_p": 0.0493,
+      "pearson": -0.007,
+      "n": 195
+    }
+  },
+  "overlap_vs_measured": {
+    "shared_count": {
+      "spearman": 0.005,
+      "spearman_p": 0.9432,
+      "pearson": 0.016,
+      "n": 195
+    },
+    "contested_amount": {
+      "spearman": -0.14,
+      "spearman_p": 0.0508,
+      "pearson": -0.079,
+      "n": 195
+    },
+    "cosine": {
+      "spearman": -0.159,
+      "spearman_p": 0.0266,
+      "pearson": -0.132,
+      "n": 195
+    }
+  },
+  "overlap_note": "overlap is near-universal (~38/66 substrates per strain) so it cannot discriminate pairs -- weak, inconsistent correlations. The decisive variable is growth dominance.",
+  "growth_dominance": {
+    "muODE_interaction_vs_partner_growth_advantage": {
+      "spearman": -0.813,
+      "spearman_p": 0.0,
+      "pearson": -0.533,
+      "n": 195
+    },
+    "measured_interaction_vs_partner_growth_advantage": {
+      "spearman": -0.043,
+      "spearman_p": 0.5541,
+      "pearson": -0.055,
+      "n": 195
+    },
+    "faster_monoculture_grower_wins_pair": {
+      "muODE": 0.942,
+      "reality": 0.523,
+      "n_pairs": 86
+    },
+    "minority_member_share_median": {
+      "muODE": 0.061,
+      "reality": 0.262,
+      "interpretation": "0 = total exclusion, 0.5 = equal coexistence"
+    }
+  },
+  "conclusion": "muODE's dFBA is a monoculture-growth-rate-ranking machine: it converts a small mono growth advantage into near-total exclusion (spearman ~ -0.8, faster grower wins 94% of pairs, loser crushed to ~6%), and that ranking is ORTHOGONAL to the measured outcome (spearman ~ 0, faster grower wins 52%, real minority ~26%). Reality decouples pairwise dominance from monoculture growth rate; instantaneous max-biomass FBA cannot."
+}
