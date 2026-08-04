@@ -1,0 +1,17 @@
+{
+  "namespace": "bigg",
+  "t_end_h": 48.0,
+  "n_monocultures": 25,
+  "n_measured_pairs": 126,
+  "n_units_simulated": 151,
+  "interaction_stats": {
+    "n": 211,
+    "sign_agreement": 0.5402843601895735,
+    "frac_measured_negative": 0.2559241706161137,
+    "frac_predicted_negative": 0.3933649289099526,
+    "pearson_r": -0.07315958848265289,
+    "pearson_p": 0.29014219051622814,
+    "spearman_r": 0.03637281077145157,
+    "spearman_p": 0.5993184161628207
+  }
+}
