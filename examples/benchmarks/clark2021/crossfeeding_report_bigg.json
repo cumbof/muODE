@@ -1,0 +1,526 @@
+{
+  "namespace": "bigg",
+  "n_monocultures": 25,
+  "hypothesis_A_crossfeeding": {
+    "measured_vs_xfeed_potential": {
+      "spearman": -0.129,
+      "spearman_p": 0.0721,
+      "pearson": 0.02,
+      "n": 195
+    },
+    "measured_vs_xfeed_ferment": {
+      "spearman": -0.127,
+      "spearman_p": 0.0778,
+      "pearson": -0.032,
+      "n": 195
+    },
+    "predicted_vs_xfeed_potential": {
+      "spearman": -0.535,
+      "spearman_p": 0.0,
+      "pearson": -0.393,
+      "n": 195
+    },
+    "residual(pred-meas)_vs_xfeed_potential": {
+      "spearman": -0.288,
+      "spearman_p": 0.0,
+      "pearson": -0.261,
+      "n": 195
+    },
+    "note": "H(A) supported if measured rises with potential (+spearman) while residual falls (-spearman): muODE too-competitive exactly where cross-feeding should occur."
+  },
+  "measured_crossfeeding_crosscheck": {
+    "measured_coexistence_vs_measured_xfeed_potential": {
+      "spearman": -0.289,
+      "spearman_p": 0.0,
+      "pearson": -0.141,
+      "n": 195
+    },
+    "measured_coexistence_vs_donor_acceptor": {
+      "spearman": 0.01,
+      "spearman_p": 0.8906,
+      "pearson": 0.029,
+      "n": 195
+    },
+    "n_pairs_with_genuine_crossfeed": 22,
+    "note": "H(A) as the COMPOSITION-failure driver is refuted if real coexistence does not rise with real cross-feeding: then the system is competition-dominated and fixing muODE's secretion would not fix composition."
+  },
+  "undersecretion_muode_vs_measured_mM": {
+    "AC": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 9.1
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 33.5
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -7.12
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 4.3
+      }
+    },
+    "BA": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 40.44
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 17.74
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 1.14
+      }
+    },
+    "BC": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 20.43
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 1.56
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 25.14
+      }
+    },
+    "BF": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 21.3
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 4.16
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 22.87
+      }
+    },
+    "BH": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 29.33
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.51,
+        "measured": 6.27
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 0.0
+      }
+    },
+    "BL": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 46.61
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 13.02
+      },
+      "Succinate": {
+        "muode": 5.48,
+        "measured": 2.39
+      }
+    },
+    "BO": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 19.18
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -4.06
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 26.18
+      }
+    },
+    "BP": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 52.28
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 24.02
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 0.6
+      }
+    },
+    "BT": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 20.06
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 5.22
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 26.11
+      }
+    },
+    "BU": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 23.4
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 13.9
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 7.58
+      }
+    },
+    "BV": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 19.82
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -6.0
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 28.17
+      }
+    },
+    "BY": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 33.72
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 22.24
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 8.27
+      }
+    },
+    "CA": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 6.89
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 20.67,
+        "measured": 2.49
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 0.64
+      }
+    },
+    "CC": {
+      "Acetate": {
+        "muode": 12.01,
+        "measured": 26.06
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 16.93
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 22.06
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 1.87
+      }
+    },
+    "CG": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 33.96
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 3.12
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 3.58
+      }
+    },
+    "CH": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 15.61
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.24
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -1.5
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 0.73
+      }
+    },
+    "DF": {
+      "Acetate": {
+        "muode": 0.66,
+        "measured": 30.74
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.28
+      },
+      "Lactate": {
+        "muode": 0.57,
+        "measured": -0.83
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 1.55
+      }
+    },
+    "DL": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 43.28
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 7.3
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 1.32
+      }
+    },
+    "DP": {
+      "Acetate": {
+        "muode": 0.64,
+        "measured": 17.73
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.15
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -17.87
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 0.92
+      }
+    },
+    "EL": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 2.4
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -3.82
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 1.52
+      }
+    },
+    "ER": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 5.28
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 19.91
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": 17.31
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 2.86
+      }
+    },
+    "FP": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 2.61
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.38
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -1.45
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 2.12
+      }
+    },
+    "PC": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 23.21
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.25
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -5.84
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 44.31
+      }
+    },
+    "PJ": {
+      "Acetate": {
+        "muode": 0.0,
+        "measured": 17.43
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 0.0
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -5.72
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 23.28
+      }
+    },
+    "RI": {
+      "Acetate": {
+        "muode": 6.04,
+        "measured": 3.8
+      },
+      "Butyrate": {
+        "muode": 0.0,
+        "measured": 19.89
+      },
+      "Lactate": {
+        "muode": 0.0,
+        "measured": -0.77
+      },
+      "Succinate": {
+        "muode": 0.0,
+        "measured": 2.61
+      }
+    }
+  },
+  "secretion_budget": {
+    "BA": 158.2,
+    "AC": 268.6,
+    "BC": 133.8,
+    "BF": 126.3,
+    "BH": 53.3,
+    "BL": 173.2,
+    "BP": 174.0,
+    "BO": 207.4,
+    "BV": 194.8,
+    "BT": 186.3,
+    "CA": 118.6,
+    "BU": 261.1,
+    "BY": 229.7,
+    "CC": 308.9,
+    "CH": 5.1,
+    "CG": 191.9,
+    "DF": 2.2,
+    "DL": 110.3,
+    "EL": 205.0,
+    "DP": 2.6,
+    "ER": 358.9,
+    "PC": 174.5,
+    "FP": 3.8,
+    "RI": 434.2,
+    "PJ": 214.7
+  }
+}
