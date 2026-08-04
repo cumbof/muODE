@@ -1,0 +1,16 @@
+{
+  "dominance_vs_muODE_biomass_spearman": 0.261,
+  "dominance_vs_measured_OD_spearman": 0.584,
+  "muODE_biomass_vs_measured_OD_spearman": 0.19,
+  "pair_winner_accuracy": {
+    "by_measured_OD": 0.791,
+    "by_muODE_biomass": 0.523,
+    "n_pairs": 86
+  },
+  "composition_abundance_MAE": {
+    "uniform_null": 0.164,
+    "measured_OD_weighted": 0.108,
+    "muODE_dFBA_reference": 0.21,
+    "n_communities": 549
+  }
+}
