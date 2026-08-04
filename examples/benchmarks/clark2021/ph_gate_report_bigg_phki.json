@@ -1,0 +1,25 @@
+{
+  "namespace": "bigg",
+  "per_species_ki": true,
+  "n_interactions": 211,
+  "correlation_with_measured": {
+    "baseline_dFBA": {
+      "spearman": 0.036,
+      "pearson": -0.073
+    },
+    "pH_muODE": {
+      "spearman": 0.062,
+      "pearson": -0.072
+    }
+  },
+  "faster_grower_wins_pair": {
+    "baseline": 0.942,
+    "pH_muODE": 0.965,
+    "measured": 0.512
+  },
+  "minority_share_median": {
+    "baseline": 0.061,
+    "pH_muODE": 0.057,
+    "measured": 0.262
+  }
+}
