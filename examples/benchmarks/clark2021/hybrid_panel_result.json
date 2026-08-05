@@ -1,0 +1,223 @@
+{
+  "what": "Hybrid best-reconstruction panel (gapseq for the 9 Bacteroidetes, BiGG for the other 17), each ATP-maintenance-calibrated to its measured monoculture OD. The fast decisive test before the dynamic community gate.",
+  "headline": {
+    "mono_biomass_vs_OD_spearman": {
+      "bigg_only": 0.595,
+      "hybrid": 0.808
+    },
+    "abundance_MAE": {
+      "uniform_null": 0.164,
+      "bigg_only_calibrated": 0.123,
+      "hybrid_calibrated": 0.118,
+      "measured_OD_ceiling": 0.108,
+      "muODE_dFBA_reference": 0.21,
+      "n_communities": 549
+    },
+    "null_to_ceiling_gap_closed": {
+      "bigg_only": 0.732,
+      "hybrid": 0.821
+    }
+  },
+  "calibrator_fixes": {
+    "maintenance_reaction_finder": "gapseq/ModelSEED names ATP maintenance rxn00062_c0, not 'ATPM'; the old name-only check silently disabled the yield knob on every gapseq model. Now found by stoichiometry (atp+h2o->adp+pi+h), namespace-agnostic.",
+    "extended_ATPM_grid": "grid raised 32->512; deep over-growers needed ATPM up to ~81 (BU) / ~70 (FP) to bracket their OD."
+  },
+  "per_strain": {
+    "AC": {
+      "species": "Anaerostipes caccae",
+      "source": "bigg",
+      "od": 1.265,
+      "calibrated_biomass": 1.265,
+      "atpm": 6.72
+    },
+    "BA": {
+      "species": "Bifidobacterium adolescentis",
+      "source": "bigg",
+      "od": 0.899,
+      "calibrated_biomass": 0.39,
+      "atpm": 0.0
+    },
+    "BC": {
+      "species": "Bacteroides caccae",
+      "source": "gapseq",
+      "od": 1.679,
+      "calibrated_biomass": 1.679,
+      "atpm": 19.71
+    },
+    "BF": {
+      "species": "Bacteroides fragilis",
+      "source": "gapseq",
+      "od": 1.183,
+      "calibrated_biomass": 1.183,
+      "atpm": 45.71
+    },
+    "BH": {
+      "species": "Blautia hydrogenotrophica",
+      "source": "bigg",
+      "od": 1.246,
+      "calibrated_biomass": 0.127,
+      "atpm": 0.0
+    },
+    "BL": {
+      "species": "Bifidobacterium longum subsp. infantis",
+      "source": "bigg",
+      "od": 1.602,
+      "calibrated_biomass": 0.642,
+      "atpm": 0.0
+    },
+    "BO": {
+      "species": "Bacteroides ovatus",
+      "source": "gapseq",
+      "od": 1.349,
+      "calibrated_biomass": 1.349,
+      "atpm": 44.83
+    },
+    "BP": {
+      "species": "Bifidobacterium pseudocatenulatum",
+      "source": "bigg",
+      "od": 1.079,
+      "calibrated_biomass": 0.698,
+      "atpm": 0.0
+    },
+    "BT": {
+      "species": "Bacteroides thetaiotaomicron",
+      "source": "gapseq",
+      "od": 1.513,
+      "calibrated_biomass": 1.513,
+      "atpm": 38.64
+    },
+    "BU": {
+      "species": "Bacteroides uniformis",
+      "source": "gapseq",
+      "od": 0.663,
+      "calibrated_biomass": 0.663,
+      "atpm": 80.67
+    },
+    "BV": {
+      "species": "Phocaeicola vulgatus",
+      "source": "gapseq",
+      "od": 1.501,
+      "calibrated_biomass": 1.503,
+      "atpm": 32.0
+    },
+    "BY": {
+      "species": "Bacteroides cellulosilyticus",
+      "source": "gapseq",
+      "od": 0.947,
+      "calibrated_biomass": 0.947,
+      "atpm": 58.52
+    },
+    "CA": {
+      "species": "Collinsella aerofaciens",
+      "source": "bigg",
+      "od": 0.516,
+      "calibrated_biomass": 0.515,
+      "atpm": 17.71
+    },
+    "CC": {
+      "species": "Coprococcus comes",
+      "source": "bigg",
+      "od": 2.226,
+      "calibrated_biomass": 1.728,
+      "atpm": 0.0
+    },
+    "CG": {
+      "species": "Clostridium asparagiforme",
+      "source": "bigg",
+      "od": 1.167,
+      "calibrated_biomass": 1.117,
+      "atpm": 0.0
+    },
+    "CH": {
+      "species": "Clostridium hiranonis",
+      "source": "bigg",
+      "od": 0.381,
+      "calibrated_biomass": 0.041,
+      "atpm": 0.0
+    },
+    "DF": {
+      "species": "Dorea formicigenerans",
+      "source": "bigg",
+      "od": 0.914,
+      "calibrated_biomass": 0.029,
+      "atpm": 0.0
+    },
+    "DL": {
+      "species": "Dorea longicatena",
+      "source": "bigg",
+      "od": 0.981,
+      "calibrated_biomass": 0.642,
+      "atpm": 0.0
+    },
+    "DP": {
+      "species": "Desulfovibrio piger",
+      "source": "bigg",
+      "od": 0.229,
+      "calibrated_biomass": 0.023,
+      "atpm": 0.0
+    },
+    "EL": {
+      "species": "Eggerthella lenta",
+      "source": "bigg",
+      "od": 0.148,
+      "calibrated_biomass": 0.148,
+      "atpm": 37.67
+    },
+    "ER": {
+      "species": "Eubacterium rectale",
+      "source": "bigg",
+      "od": 0.787,
+      "calibrated_biomass": 0.787,
+      "atpm": 44.91
+    },
+    "FP": {
+      "species": "Faecalibacterium prausnitzii",
+      "source": "bigg",
+      "od": 0.026,
+      "calibrated_biomass": 0.026,
+      "atpm": 69.7
+    },
+    "HB": {
+      "species": "Holdemanella biformis",
+      "source": "bigg",
+      "od": 0.0,
+      "calibrated_biomass": 0.058,
+      "atpm": 32.0
+    },
+    "PC": {
+      "species": "Prevotella copri",
+      "source": "gapseq",
+      "od": 1.844,
+      "calibrated_biomass": 1.843,
+      "atpm": 0.24
+    },
+    "PJ": {
+      "species": "Parabacteroides johnsonii",
+      "source": "gapseq",
+      "od": 0.909,
+      "calibrated_biomass": 0.909,
+      "atpm": 56.29
+    },
+    "RI": {
+      "species": "Roseburia intestinalis",
+      "source": "bigg",
+      "od": 0.492,
+      "calibrated_biomass": 0.492,
+      "atpm": 42.53
+    }
+  },
+  "still_under_grows_in_BOTH_reconstructions": [
+    "BA",
+    "BH",
+    "BL",
+    "CH",
+    "DF",
+    "DP"
+  ],
+  "caveats": [
+    "Static OD-weighting proxy -- partly circular (calibrates biomass->OD, predicts by OD-weighting). Necessary, not sufficient; the dynamic community gate is the real proof.",
+    "MAE gain over BiGG-only is modest (0.123->0.118); the large, meaningful win is the yield-ranking spearman 0.60->0.81 -- yields are now mechanistically right, which the static proxy masks but the dynamic gate will not.",
+    "6 strains (BL,BH,DF,BA,CH,DP: Bifido/Blautia/Dorea/C.hiranonis/Desulfovibrio) under-grow in BOTH gapseq and BiGG -- the next reconstruction frontier, unsolved.",
+    "Community gate still needs BiGG<->gapseq namespace harmonization (deferred)."
+  ]
+}

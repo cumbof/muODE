@@ -41,8 +41,33 @@ from muode.kinetics import KineticParameters              # noqa: E402
 from muode.organism import CobraOrganism                  # noqa: E402
 from run_benchmark import T_END, load_models              # noqa: E402
 
-ATPM_GRID = [0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
+ATPM_GRID = [0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0, 512.0]
 _G: dict = {}
+
+# ATP-maintenance (non-growth ATP hydrolysis) reaction, by namespace-agnostic
+# stoichiometry: atp + h2o -> adp + pi (+ h). BiGG calls it "ATPM"; ModelSEED/
+# gapseq calls it "rxn00062_c0" and never uses the id "ATPM", so a name-only check
+# silently disables the yield knob on every gapseq model (all over-growers stay at
+# their raw overshoot). Matching the stoichiometry fixes both.
+_ATP = {"atp", "cpd00002"}
+_H2O = {"h2o", "cpd00001"}
+_ADP = {"adp", "cpd00008"}
+_PI = {"pi", "cpd00009"}
+_H = {"h", "cpd00067"}
+
+
+def _maint_rxn(model):
+    """Return the id of the ATP-maintenance reaction, or None."""
+    if any(r.id == "ATPM" for r in model.reactions):
+        return "ATPM"
+    base = lambda mid: mid.rsplit("_", 1)[0]
+    for r in model.reactions:
+        reac = {base(m.id) for m, v in r.metabolites.items() if v < 0}
+        prod = {base(m.id) for m, v in r.metabolites.items() if v > 0}
+        if (reac and reac <= (_ATP | _H2O) and (reac & _ATP) and (reac & _H2O)
+                and prod <= (_ADP | _PI | _H) and (prod & _ADP) and (prod & _PI)):
+            return r.id
+    return None
 
 
 def _init(namespace, model_paths, target_od, atpm=None):
@@ -60,8 +85,9 @@ def _init(namespace, model_paths, target_od, atpm=None):
 
 def _organism(code, atpm_value):
     model = cobra.io.read_sbml_model(str(_G["paths"][code]))
-    if "ATPM" in [r.id for r in model.reactions]:
-        model.reactions.ATPM.lower_bound = float(atpm_value)
+    rid = _maint_rxn(model)
+    if rid:
+        model.reactions.get_by_id(rid).lower_bound = float(atpm_value)
     return CobraOrganism(model, id=code)
 
 
@@ -77,12 +103,13 @@ def _calibrate_one(code):
     until the target OD is bracketed, then interpolate. Biomass is monotone-down
     in ATPM, so an early stop at the first point below target is exact enough."""
     model = cobra.io.read_sbml_model(str(_G["paths"][code]))
-    has_atpm = "ATPM" in [r.id for r in model.reactions]
+    maint = _maint_rxn(model)
+    has_atpm = maint is not None
     target = _G["target"].get(code, 0.0)
 
     def biomass(a):
         if has_atpm:
-            model.reactions.ATPM.lower_bound = a
+            model.reactions.get_by_id(maint).lower_bound = a
         org = CobraOrganism(model, id=code)
         comm = Community([org], abundances={code: 1.0}, total_biomass=0.01)
         res = DynamicFBA(t_end=T_END, dt=0.1, n_jobs=1).run(comm, _G["diet"], _G["kin"])
