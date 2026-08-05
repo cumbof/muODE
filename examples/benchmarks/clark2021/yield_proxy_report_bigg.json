@@ -1,0 +1,14 @@
+{
+  "mono_biomass_vs_OD_spearman": {
+    "raw": 0.19,
+    "calibrated": 0.543
+  },
+  "abundance_MAE": {
+    "uniform_null": 0.164,
+    "raw_muODE_biomass": 0.157,
+    "ATPM_calibrated": 0.131,
+    "measured_OD_ceiling": 0.108,
+    "muODE_dFBA_reference": 0.21,
+    "n_communities": 549
+  }
+}
