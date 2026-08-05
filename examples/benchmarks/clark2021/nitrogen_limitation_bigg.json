@@ -1,0 +1,13 @@
+{
+  "corrects": "nucleotide_starvation (81a6344) -- that diagnosis was WRONG",
+  "dm38_nitrogen_mM": {"nh4_e": 9.347, "no3_e": 0.109},
+  "DF_dynamic_biomass": {
+    "real_dm38": 0.029,
+    "nucleobase_free": 0.030,
+    "nitrate_free": 0.010,
+    "nitrate_boosted_20mM": 1.988,
+    "ammonium_boosted_50mM": 0.029
+  },
+  "DF_N_assimilation_reactions_present": ["EX_nh4_e","NH4tex","NH4tpp","GLNS","GLUDy","GLUN","ASPT","NO3abc"],
+  "conclusion": "Under-growers cap on the TRACE nitrate pool (0.11 mM), not nucleobases. Removing nucleobases does nothing; removing nitrate abolishes growth; boosting nitrate alone gives 68x. DM38 has abundant ammonium (9.35 mM) and the GEM has ammonium-assimilation enzymes, but boosting ammonium does nothing -- the GEM has an artifactual hard dependence on nitrate and cannot grow on ammonium. Confirmed dynamically for DF; the earlier reduced-cost signal (no3_e ranking high) indicates the same for PC/BH/BA/BC but that is not yet dynamically verified. The 89x 'nucleotide rescue' in 81a6344 was an artifact: that boost list also raised no3_e, so nitrate did the work and was misattributed to the nucleobases."
+}
