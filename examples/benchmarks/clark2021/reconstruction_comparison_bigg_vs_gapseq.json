@@ -1,0 +1,92 @@
+{
+  "tested_subset": {
+    "DF": {
+      "taxon": "Firmicutes/other",
+      "measured_od": 0.91,
+      "bigg_biomass": 0.029,
+      "gapseq_biomass": 0.048
+    },
+    "PC": {
+      "taxon": "Bacteroidetes",
+      "measured_od": 1.84,
+      "bigg_biomass": 0.385,
+      "gapseq_biomass": 1.872
+    },
+    "BH": {
+      "taxon": "Firmicutes/other",
+      "measured_od": 1.25,
+      "bigg_biomass": 0.127,
+      "gapseq_biomass": 0.045
+    },
+    "BA": {
+      "taxon": "Bifido",
+      "measured_od": 0.9,
+      "bigg_biomass": 0.39,
+      "gapseq_biomass": 0.05
+    },
+    "BL": {
+      "taxon": "Bifido",
+      "measured_od": 1.6,
+      "bigg_biomass": 0.642,
+      "gapseq_biomass": 0.049
+    },
+    "BC": {
+      "taxon": "Bacteroidetes",
+      "measured_od": 1.68,
+      "bigg_biomass": 0.832,
+      "gapseq_biomass": 2.665
+    },
+    "BT": {
+      "taxon": "Bacteroidetes",
+      "measured_od": 1.51,
+      "bigg_biomass": 1.063,
+      "gapseq_biomass": 2.479
+    },
+    "BV": {
+      "taxon": "Bacteroidetes",
+      "measured_od": 1.5,
+      "bigg_biomass": 0.93,
+      "gapseq_biomass": 2.503
+    },
+    "BF": {
+      "taxon": "Bacteroidetes",
+      "measured_od": 1.18,
+      "bigg_biomass": 0.579,
+      "gapseq_biomass": 2.49
+    },
+    "AC": {
+      "taxon": "Firmicutes/other",
+      "measured_od": 1.27,
+      "bigg_biomass": 1.479,
+      "gapseq_biomass": 0.11
+    },
+    "ER": {
+      "taxon": "Firmicutes/other",
+      "measured_od": 0.79,
+      "bigg_biomass": 2.062,
+      "gapseq_biomass": 0.12
+    }
+  },
+  "finding": "CarveMe/BiGG and gapseq/ModelSEED have COMPLEMENTARY taxonomic strengths on anaerobic DM38.",
+  "gapseq_grows_all_5_Bacteroidetes_tested": [
+    "PC",
+    "BC",
+    "BT",
+    "BV",
+    "BF"
+  ],
+  "gapseq_fails_Firmicutes_Bifido": [
+    "DF",
+    "BH",
+    "BA",
+    "BL",
+    "AC",
+    "ER"
+  ],
+  "bigg_grows_some_Firmicutes": [
+    "AC(1.48)",
+    "ER(2.06 over)"
+  ],
+  "recipe": "per-strain best reconstruction: gapseq for Bacteroidetes (the community dominators BiGG starves), BiGG (+ anaerobic-isoform fixes e.g. NAD-DHOD for DF) for Firmicutes; then ATPM yield calibration to measured OD to tame overshoots. Then re-run yield gate toward the 0.108 ceiling.",
+  "df_worked_example": "DF (Dorea) under-grows in BOTH; its BiGG block is a mis-assigned respiratory (Class-2) dihydroorotate dehydrogenase -- adding the anaerobic NAD-linked (Class-1) DHOD lifts BiGG DF 0.029->0.575 dynamically (20x)."
+}
