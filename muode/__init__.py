@@ -18,6 +18,7 @@ from muode.annotate import call as call_traits, guilds, read_traits_tsv
 from muode.bile import BileAcidInhibition, BileAcidTransform
 from muode.markers import TRAITS, FunctionalTrait
 from muode.community import Community
+from muode.density import LogisticCarryingCapacity
 from muode.dfba import DynamicFBA, SimulationResult
 from muode.diet import Diet
 from muode.ecology import EcologyLayer, EcologyModel
@@ -46,6 +47,7 @@ __all__ = [
     "EcologyLayer",
     "EcologyModel",
     "WeakAcidInhibition",
+    "LogisticCarryingCapacity",
     "BileAcidTransform",
     "FunctionalTrait",
     "TRAITS",
