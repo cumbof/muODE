@@ -1,0 +1,37 @@
+{
+  "what": "Dynamic community gate on the harmonized hybrid panel (gapseq-derived Bacteroidetes namespace-translated to BiGG + native BiGG Firmicutes, all ATPM-yield-calibrated, sharing ONE BiGG DM38 pool). 25 monos + 126 pairs.",
+  "answers": "Does correct yield fix muODE's dynamic competition, or is per-step max-biomass FBA structurally winner-take-all regardless? -> PARTIALLY: fixes WHO wins (direction), only half-fixes HOW MUCH coexistence (magnitude).",
+  "scores": {
+    "namespace": "bigg",
+    "n_interactions": 211,
+    "n_pairs": 86,
+    "interaction_corr_with_measured": {
+      "baseline_dFBA": 0.036,
+      "yield_calibrated": 0.246
+    },
+    "pair_winner_accuracy": {
+      "baseline_dFBA": 0.523,
+      "yield_calibrated": 0.733,
+      "OD_ceiling": 0.791
+    },
+    "minority_share_median": {
+      "baseline_dFBA": 0.061,
+      "yield_calibrated": 0.133,
+      "measured": 0.262
+    }
+  },
+  "headline": {
+    "pair_winner_0.52_to_0.73_ceiling_0.79": "near the yield ceiling; was coin-flip",
+    "interaction_corr_0.04_to_0.25": "from ~zero (orig gate -0.07) to real signal",
+    "minority_share_0.06_to_0.13_measured_0.26": "coexistence doubled but still ~2x too exclusionary"
+  },
+  "harmonization": {
+    "method": "boundary translation gapseq->BiGG via embedded bigg.metabolite / metanetx.chemical annotations; internal cpd network untouched",
+    "invariance_test": "9/9 Bacteroidetes: native ModelSEED biomass == harmonized BiGG biomass, ratio 1.00 -- translation is exact"
+  },
+  "caveats": [
+    "Pairwise gate only (monos+126 pairs); full 549-community composition MAE (dynamic) is the next stage, not yet run.",
+    "Residual winner-take-all: minority share 0.13 vs measured 0.26 -- the max-biomass LP still over-excludes; a moderated-objective (e.g. pFBA / enzyme-pool / not-quite-max-growth) is the candidate next mechanism.",
+    "6 strains still under-grow in both reconstructions (BL,BH,DF,BA,CH,DP)."
+  ]
+}
