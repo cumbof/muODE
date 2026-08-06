@@ -1,0 +1,50 @@
+{
+  "question": "Does moderating the winner's growth-rate advantage restore the over-excluded minority? (minority-share diagnostic said the gap is DYNAMICS, not yields; enzyme-pool turned out blocked/mismatched for this substrate-limited regime.)",
+  "method": "Cap every organism's per-step growth at an absolute ceiling mu_cap (biomass reaction upper bound, folded into the dFBA baseline), sweep mu_cap on pure-dynamics over-excluded pairs. Fast, binding, no LP bloat.",
+  "result_4_of_6_pairs": {
+    "CA-ER": {
+      "measured": 0.47,
+      "caps": {
+        "none": 0.078,
+        "0.5": 0.444,
+        "0.3": 0.441,
+        "0.2": 0.485,
+        "0.1": 0.442
+      }
+    },
+    "AC-CA": {
+      "measured": 0.41,
+      "caps": {
+        "none": 0.032,
+        "0.5": 0.214,
+        "0.3": 0.258,
+        "0.2": 0.291,
+        "0.1": 0.395
+      }
+    },
+    "AC-BP": {
+      "measured": 0.44,
+      "caps": {
+        "none": 0.102,
+        "0.5": 0.479,
+        "0.3": 0.455,
+        "0.2": 0.449,
+        "0.1": 0.484
+      }
+    },
+    "ER-PC": {
+      "measured": 0.42,
+      "caps": {
+        "none": 0.088,
+        "0.5": 0.198,
+        "0.3": 0.206,
+        "0.2": 0.251,
+        "0.1": 0.297
+      }
+    }
+  },
+  "note_incomplete": "BO-ER, AC-BT not scored: the probe hit a pathological degenerate LP on BO-ER (GLPK cycling, per-LP 60s timeout x480 steps). Verdict already unanimous across the 4 diverse pairs (incl. cross-namespace ER-PC with a Bacteroidetes).",
+  "verdict": "CONFIRMED: rate-moderation restores coexistence. Baseline minority 0.03-0.10 (winner-take-all) -> capped 0.20-0.49, climbing toward the measured 0.41-0.47. Every pair improves 2.5-6x; CA-ER/AC-BP hit measured with even a mild cap then plateau; AC-CA/ER-PC monotone up. So the winner-take-all is a GROWTH-RATE phenomenon; the substrate-allocation pivot is NOT needed.",
+  "enzyme_pool_finding": "muode.enzyme is present but UNPARAMETERIZED (0 kcats); the uniform-flux-budget proxy referenced the bare model's 99/h unlimited-uptake flux -> non-binding in the diet-limited community (flat result); and it triples the LP. Blocked and conceptually mismatched to a substrate-limited batch.",
+  "recommended_principled_implementation": "A uniform absolute cap is a crude stand-in that only PROVES the mechanism. The principled version = per-organism DENSITY-DEPENDENT (logistic) self-limitation in muODE's ecology layer, each strain's carrying capacity set from its calibrated monoculture OD (the OD *is* the carrying capacity). That reproduces the ~yield-proportional coexistence reality shows (diagnostic: measured minority 0.26 ~ OD-proportional 0.35), uses data we already have, and is exactly what muODE's ecology layer is for. Then re-run the hybrid gate."
+}
