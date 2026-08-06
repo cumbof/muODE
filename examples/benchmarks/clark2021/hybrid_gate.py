@@ -42,7 +42,7 @@ BACT_GENERA = ("Prevotella", "Parabacteroides", "Phocaeicola", "Bacteroides")
 _G: dict = {}
 
 
-def _init(paths, atpm):
+def _init(paths, atpm, capacity=None):
     try:
         import swiglpk
         swiglpk.glp_term_out(swiglpk.GLP_OFF)
@@ -54,6 +54,7 @@ def _init(paths, atpm):
     _G["kin"] = KineticParameters()
     _G["paths"] = paths
     _G["atpm"] = atpm
+    _G["capacity"] = capacity or {}         # per-strain carrying capacity (= measured OD)
 
 
 def _organism(code):
@@ -64,10 +65,23 @@ def _organism(code):
     return CobraOrganism(model, id=code)
 
 
+def _ecology(codes):
+    """Density-dependent self-limitation keyed to measured OD, if capacities given."""
+    if not _G.get("capacity"):
+        return None
+    from muode.density import LogisticCarryingCapacity
+    from muode.ecology import EcologyModel
+    cap = {c: _G["capacity"][c] for c in codes if c in _G["capacity"]}
+    if not cap:
+        return None
+    return EcologyModel([LogisticCarryingCapacity(capacity=cap)])
+
+
 def _gate_one(codes):
     orgs = [_organism(c) for c in codes]
     comm = Community(orgs, abundances={c: 1.0 / len(codes) for c in codes}, total_biomass=0.01)
-    res = DynamicFBA(t_end=T_END, dt=0.1, n_jobs=1).run(comm, _G["diet"], _G["kin"])
+    res = DynamicFBA(t_end=T_END, dt=0.1, n_jobs=1).run(
+        comm, _G["diet"], _G["kin"], ecology=_ecology(codes))
     return codes, {c: float(v) for c, v in res.biomass.iloc[-1].to_dict().items()}
 
 
@@ -97,6 +111,8 @@ def main() -> int:
     ap.add_argument("--harm-models", type=Path, default=Path("examples/benchmarks/clark2021/gems_gapseq_bigg"))
     ap.add_argument("--outdir", type=Path, default=Path("results/clark2021/benchmark"))
     ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--logistic", action="store_true",
+                    help="add density-dependent self-limitation, capacity = measured OD")
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
 
@@ -110,7 +126,16 @@ def main() -> int:
                     if o.richness == 2 and all(s in paths for s in o.species)})
     units = [[c] for c in monos] + [list(p) for p in pairs]
 
-    ckpt = args.outdir / "hybrid_gate_biomass.jsonl"
+    # carrying capacity K_i = measured monoculture OD (only when --logistic)
+    capacity = None
+    tag = ""
+    if args.logistic:
+        capacity = {o.species[0]: max(0.0, o.od) for o in obs
+                    if o.richness == 1 and o.species[0] in paths}
+        tag = "_logistic"
+        print(f"logistic layer ON: {len(capacity)} OD carrying capacities", flush=True)
+
+    ckpt = args.outdir / f"hybrid_gate_biomass{tag}.jsonl"
     done = {}
     if ckpt.exists():
         for l in ckpt.read_text().splitlines():
@@ -123,7 +148,8 @@ def main() -> int:
 
     if todo:
         with open(ckpt, "a") as fh, ProcessPoolExecutor(
-                max_workers=workers, initializer=_init, initargs=(paths, atpm)) as ex:
+                max_workers=workers, initializer=_init,
+                initargs=(paths, atpm, capacity)) as ex:
             futs = {ex.submit(_gate_one, list(u)): u for u in todo}
             for k, fut in enumerate(as_completed(futs), 1):
                 codes, bio = fut.result()
@@ -135,8 +161,7 @@ def main() -> int:
 
     # score with the bigg measured-interaction reference (namespace-independent data)
     rep = score_gate(done, "bigg", args.outdir)
-    # relabel the output so it is not mistaken for the BiGG-only gate
-    (args.outdir / "hybrid_gate_report.json").write_text(json.dumps(rep, indent=2))
+    (args.outdir / f"hybrid_gate_report{tag}.json").write_text(json.dumps(rep, indent=2))
     return 0
 
 
