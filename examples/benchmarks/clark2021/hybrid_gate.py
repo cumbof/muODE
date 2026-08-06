@@ -42,7 +42,7 @@ BACT_GENERA = ("Prevotella", "Parabacteroides", "Phocaeicola", "Bacteroides")
 _G: dict = {}
 
 
-def _init(paths, atpm, capacity=None):
+def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None):
     try:
         import swiglpk
         swiglpk.glp_term_out(swiglpk.GLP_OFF)
@@ -55,6 +55,8 @@ def _init(paths, atpm, capacity=None):
     _G["paths"] = paths
     _G["atpm"] = atpm
     _G["capacity"] = capacity or {}         # per-strain carrying capacity (= measured OD)
+    _G["mumax"] = mumax                      # physiological max growth-rate ceiling (1/h)
+    _G["lp_timeout"] = lp_timeout            # per-LP wall-clock cap (s); guards degenerate LPs
 
 
 def _organism(code):
@@ -62,7 +64,20 @@ def _organism(code):
     rid = _maint_rxn(model)
     if rid:
         model.reactions.get_by_id(rid).lower_bound = float(_G["atpm"].get(code, 0.0))
-    return CobraOrganism(model, id=code)
+    # physiological max-growth-rate cap: bound the objective (biomass) reaction so a
+    # fast grower cannot run away and monopolize shared substrate. Set BEFORE building
+    # CobraOrganism so it is snapshotted into the baseline the dFBA resets to each step.
+    if _G.get("mumax") is not None:
+        for r in model.reactions:
+            if getattr(r, "objective_coefficient", 0.0) != 0.0 and r.upper_bound > _G["mumax"]:
+                r.upper_bound = float(_G["mumax"])
+    org = CobraOrganism(model, id=code)
+    if _G.get("lp_timeout") is not None:      # tighter than the 60 s default -> degenerate
+        try:                                  # LPs fail fast (zero growth) instead of hanging
+            org.model.solver.configuration.timeout = float(_G["lp_timeout"])
+        except Exception:
+            pass
+    return org
 
 
 def _ecology(codes):
@@ -113,6 +128,11 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--logistic", action="store_true",
                     help="add density-dependent self-limitation, capacity = measured OD")
+    ap.add_argument("--mumax", type=float, default=None,
+                    help="physiological max growth-rate ceiling (1/h) on the biomass reaction")
+    ap.add_argument("--lp-timeout", type=float, default=None,
+                    help="per-LP wall-clock cap (s); use with --mumax to guard degenerate LPs")
+    ap.add_argument("--only", default=None, help="comma-separated pair subset e.g. BO-ER,AC-BT (debug)")
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
 
@@ -134,6 +154,14 @@ def main() -> int:
                     if o.richness == 1 and o.species[0] in paths}
         tag = "_logistic"
         print(f"logistic layer ON: {len(capacity)} OD carrying capacities", flush=True)
+    if args.mumax is not None:
+        tag = f"_mumax{args.mumax:g}"
+        print(f"mu_max cap ON: {args.mumax}/h ceiling on the biomass reaction", flush=True)
+
+    if args.only:                             # debug: restrict to named pairs/monos
+        want = {tuple(sorted(p.split("-"))) for p in args.only.split(",")}
+        units = [u for u in units if tuple(sorted(u)) in want]
+        tag += "_only"
 
     ckpt = args.outdir / f"hybrid_gate_biomass{tag}.jsonl"
     done = {}
@@ -149,7 +177,7 @@ def main() -> int:
     if todo:
         with open(ckpt, "a") as fh, ProcessPoolExecutor(
                 max_workers=workers, initializer=_init,
-                initargs=(paths, atpm, capacity)) as ex:
+                initargs=(paths, atpm, capacity, args.mumax, args.lp_timeout)) as ex:
             futs = {ex.submit(_gate_one, list(u)): u for u in todo}
             for k, fut in enumerate(as_completed(futs), 1):
                 codes, bio = fut.result()
@@ -159,6 +187,11 @@ def main() -> int:
                 if k % 10 == 0 or k == len(todo):
                     print(f"  {k}/{len(todo)}", flush=True)
 
+    if args.only:                             # debug subset: just report endpoints, no scoring
+        for u in units:
+            k = "-".join(sorted(u))
+            print(f"  {k}: {done.get(k, {}).get('biomass')}", flush=True)
+        return 0
     # score with the bigg measured-interaction reference (namespace-independent data)
     rep = score_gate(done, "bigg", args.outdir)
     (args.outdir / f"hybrid_gate_report{tag}.json").write_text(json.dumps(rep, indent=2))
