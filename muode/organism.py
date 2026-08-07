@@ -204,9 +204,20 @@ class CobraOrganism:
     ``cobra`` is imported lazily, so importing :mod:`muode` never requires it.
     """
 
-    def __init__(self, model, id: Optional[str] = None) -> None:
+    def __init__(self, model, id: Optional[str] = None, parsimonious: bool = False) -> None:
         self.model = model
         self.id = id or model.id
+        # Standard FBA leaves the growth rate unique but the *flux distribution*
+        # degenerate (a whole optimal face); the solver returns an arbitrary vertex
+        # whose choice depends on pivoting/presolve/float rounding, so it differs
+        # across platforms (aarch64 vs x86_64) and makes the dFBA trajectory --
+        # which is driven by the uptake/secretion fluxes -- non-reproducible for
+        # alternate-optima strains.  ``parsimonious=True`` switches the per-step LP
+        # to pFBA (maximise growth, then minimise total flux at that growth), which
+        # collapses the optimal face to a near-unique minimal-flux point: same
+        # growth rate, deterministic fluxes across solvers/platforms, and fluxes
+        # that match measurements better (Lewis et al. 2010).  Costs one extra LP.
+        self._parsimonious = bool(parsimonious)
         # GLPK's simplex can *cycle indefinitely* on the degenerate LPs that
         # community GEMs routinely produce -- observed as a single solve pinning
         # a core for >21 h with no iteration cap.  Presolve collapses most of that
@@ -227,6 +238,10 @@ class CobraOrganism:
             if len(mets) == 1:
                 self._exchanges[mets[0].id] = rxn.id
         self._base_bounds = {r.id: (r.lower_bound, r.upper_bound) for r in model.reactions}
+        # cache the objective (biomass) reaction(s) so pFBA can read the growth rate
+        # off the flux vector (pFBA's objective_value is the total flux, not growth)
+        from cobra.util import linear_reaction_coefficients
+        self._obj = [(r.id, float(c)) for r, c in linear_reaction_coefficients(model).items()]
 
     @classmethod
     def from_file(cls, path: str, id: Optional[str] = None) -> "CobraOrganism":
@@ -289,8 +304,10 @@ class CobraOrganism:
         new = CobraOrganism.__new__(CobraOrganism)
         new.model = self.model.copy()
         new.id = self.id
+        new._parsimonious = self._parsimonious
         new._exchanges = dict(self._exchanges)
         new._base_bounds = dict(self._base_bounds)
+        new._obj = list(self._obj)
         return new
 
     def apply_enzyme_constraints(self, kinetics, organism_id: Optional[str] = None,
@@ -318,6 +335,8 @@ class CobraOrganism:
         return report
 
     def optimize(self) -> OrganismSolution:
+        if self._parsimonious:
+            return self._optimize_pfba()
         sol = self.model.optimize()
         if sol.status != "optimal":
             return OrganismSolution(0.0, {m: 0.0 for m in self._exchanges}, sol.status)
@@ -326,3 +345,19 @@ class CobraOrganism:
             met: float(sol.fluxes.get(rxn, 0.0)) for met, rxn in self._exchanges.items()
         }
         return OrganismSolution(growth, ex, "optimal")
+
+    def _optimize_pfba(self) -> OrganismSolution:
+        """pFBA: max growth, then min total flux at that growth -> deterministic flux."""
+        from cobra.flux_analysis import pfba
+        try:
+            sol = pfba(self.model)
+        except Exception:
+            # infeasible / solver error (incl. the wall-clock ceiling) -> no growth
+            return OrganismSolution(0.0, {m: 0.0 for m in self._exchanges}, "infeasible")
+        if sol.status != "optimal":
+            return OrganismSolution(0.0, {m: 0.0 for m in self._exchanges}, sol.status)
+        # growth = flux through the objective (biomass) reaction(s); pFBA's
+        # objective_value is the minimised total flux, NOT the growth rate.
+        growth = sum(float(sol.fluxes.get(rid, 0.0)) * c for rid, c in self._obj)
+        ex = {met: float(sol.fluxes.get(rxn, 0.0)) for met, rxn in self._exchanges.items()}
+        return OrganismSolution(float(growth), ex, "optimal")

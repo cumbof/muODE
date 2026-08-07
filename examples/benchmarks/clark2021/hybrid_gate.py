@@ -78,7 +78,7 @@ class MuMaxCapped:
         return getattr(self._inner, name)
 
 
-def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None):
+def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None, pfba=False):
     try:
         import swiglpk
         swiglpk.glp_term_out(swiglpk.GLP_OFF)
@@ -93,6 +93,7 @@ def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None):
     _G["capacity"] = capacity or {}         # per-strain carrying capacity (= measured OD)
     _G["mumax"] = mumax                      # physiological max growth-rate ceiling (1/h)
     _G["lp_timeout"] = lp_timeout            # per-LP wall-clock cap (s); guards degenerate LPs
+    _G["pfba"] = pfba                        # parsimonious FBA -> deterministic fluxes
 
 
 def _organism(code):
@@ -100,7 +101,7 @@ def _organism(code):
     rid = _maint_rxn(model)
     if rid:
         model.reactions.get_by_id(rid).lower_bound = float(_G["atpm"].get(code, 0.0))
-    org = CobraOrganism(model, id=code)
+    org = CobraOrganism(model, id=code, parsimonious=_G.get("pfba", False))
     # physiological max-growth-rate cap, applied POST-solve (see MuMaxCapped) so a
     # fast grower cannot run away and monopolize shared substrate -- without the
     # degenerate-LP blowup that a biomass-ub cap causes.
@@ -161,6 +162,8 @@ def main() -> int:
                     help="physiological max growth-rate ceiling (1/h) on the biomass reaction")
     ap.add_argument("--lp-timeout", type=float, default=None,
                     help="per-LP wall-clock cap (s); use with --mumax to guard degenerate LPs")
+    ap.add_argument("--pfba", action="store_true",
+                    help="parsimonious FBA per step -> deterministic fluxes across platforms")
     ap.add_argument("--only", default=None, help="comma-separated pair subset e.g. BO-ER,AC-BT (debug)")
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
@@ -186,6 +189,9 @@ def main() -> int:
     if args.mumax is not None:
         tag = f"_mumax{args.mumax:g}"
         print(f"mu_max cap ON: {args.mumax}/h ceiling on the biomass reaction", flush=True)
+    if args.pfba:
+        tag += "_pfba"
+        print("pFBA ON: parsimonious flux (deterministic across platforms)", flush=True)
 
     if args.only:                             # debug: restrict to named pairs/monos
         want = {tuple(sorted(p.split("-"))) for p in args.only.split(",")}
@@ -206,7 +212,7 @@ def main() -> int:
     if todo:
         with open(ckpt, "a") as fh, ProcessPoolExecutor(
                 max_workers=workers, initializer=_init,
-                initargs=(paths, atpm, capacity, args.mumax, args.lp_timeout)) as ex:
+                initargs=(paths, atpm, capacity, args.mumax, args.lp_timeout, args.pfba)) as ex:
             futs = {ex.submit(_gate_one, list(u)): u for u in todo}
             for k, fut in enumerate(as_completed(futs), 1):
                 codes, bio = fut.result()
