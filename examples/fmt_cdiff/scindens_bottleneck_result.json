@@ -1,0 +1,22 @@
+{
+  "question": "Is the western_gut medium the artifact behind C. scindens under-growth (0.0008/h) that under-powers the bile arm?",
+  "answer": "NO. The bounds are the PUBLISHED VMH/AGORA western-gut dietary fluxes (MICOM media, Diener 2020; median 0.1 mmol/gDW/h) -- cited and physiological, not a mis-calibration (they FIXED muODE's old uniform-Vmax=10 bug).",
+  "diagnosis": {
+    "reconstruction_ok": "C. scindens grows 84/h with uptake fully open -> GEM is fine, no network gap (my first 'NETWORK-GAP' call was a set_medium bug).",
+    "growth_on_western_gut": 0.0008,
+    "all_substrates_relaxed_to_-10": 15.03,
+    "amino_acids_relaxed": "no effect (0.0008) -> NOT a Stickland/amino-acid limit",
+    "single_substrate": "no single lever -> distributed limitation across the diet's tight published fluxes"
+  },
+  "key_observation": "The TWO slow-growers on western_gut are C. scindens AND F. prausnitzii (both 0.0008/h; the other 3 members 0.035-0.042). Both are notoriously FASTIDIOUS in reality (F.p. O2-sensitive/hard-to-culture; C.s. slow keystone) -> their low growth on a published western diet may be biologically appropriate, not a bug.",
+  "conclusion": "The bile arm is under-powered because C. scindens is a genuine low-abundance KEYSTONE, which exposes a real framework limitation: muODE ties functional output (bile) to BIOMASS, but keystone biology is 'rare cell, huge effect' -- stoichiometry alone can't produce that. The keystone's per-cell effector rate must live in the ECOLOGY LAYER (BileAcidTransform), grounded in literature (bai operon activity), not the FBA.",
+  "levers": [
+    "ground the deoxycholate production rate per C. scindens biomass in the BileAcidTransform layer from measured bai activity (principled, not a dial)",
+    "accept as an honest limitation: muODE recovers the MECHANISM (bile load-bearing) but not the MAGNITUDE of a keystone effect"
+  ],
+  "not_the_fix": [
+    "medium bounds (published/correct)",
+    "C. scindens reconstruction (grows 84/h open)",
+    "turning up C. diff's bile Ki (manufactures the result)"
+  ]
+}
