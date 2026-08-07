@@ -78,7 +78,7 @@ class MuMaxCapped:
         return getattr(self._inner, name)
 
 
-def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None, pfba=False):
+def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None, pfba=False, mumax_map=None):
     try:
         import swiglpk
         swiglpk.glp_term_out(swiglpk.GLP_OFF)
@@ -91,7 +91,8 @@ def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None, pfba=False):
     _G["paths"] = paths
     _G["atpm"] = atpm
     _G["capacity"] = capacity or {}         # per-strain carrying capacity (= measured OD)
-    _G["mumax"] = mumax                      # physiological max growth-rate ceiling (1/h)
+    _G["mumax"] = mumax                      # uniform physiological max growth-rate ceiling (1/h)
+    _G["mumax_map"] = mumax_map or {}        # per-strain mu_max (e.g. genome-derived, gRodon)
     _G["lp_timeout"] = lp_timeout            # per-LP wall-clock cap (s); guards degenerate LPs
     _G["pfba"] = pfba                        # parsimonious FBA -> deterministic fluxes
 
@@ -104,9 +105,11 @@ def _organism(code):
     org = CobraOrganism(model, id=code, parsimonious=_G.get("pfba", False))
     # physiological max-growth-rate cap, applied POST-solve (see MuMaxCapped) so a
     # fast grower cannot run away and monopolize shared substrate -- without the
-    # degenerate-LP blowup that a biomass-ub cap causes.
-    if _G.get("mumax") is not None:
-        org = MuMaxCapped(org, _G["mumax"])
+    # degenerate-LP blowup that a biomass-ub cap causes. Per-strain (genome-derived)
+    # value overrides the uniform one when a mumax_map is supplied.
+    mm = _G.get("mumax_map", {}).get(code, _G.get("mumax"))
+    if mm is not None:
+        org = MuMaxCapped(org, mm)
     return org
 
 
@@ -159,7 +162,11 @@ def main() -> int:
     ap.add_argument("--logistic", action="store_true",
                     help="add density-dependent self-limitation, capacity = measured OD")
     ap.add_argument("--mumax", type=float, default=None,
-                    help="physiological max growth-rate ceiling (1/h) on the biomass reaction")
+                    help="uniform physiological max growth-rate ceiling (1/h) on the biomass reaction")
+    ap.add_argument("--mumax-file", type=Path, default=None,
+                    help="JSON {code: mumax} per-strain ceilings (e.g. genome-derived gRodon)")
+    ap.add_argument("--mumax-scale", type=float, default=1.0,
+                    help="multiply every per-strain mumax by this (rescale absolute level)")
     ap.add_argument("--lp-timeout", type=float, default=None,
                     help="per-LP wall-clock cap (s); use with --mumax to guard degenerate LPs")
     ap.add_argument("--pfba", action="store_true",
@@ -186,7 +193,15 @@ def main() -> int:
                     if o.richness == 1 and o.species[0] in paths}
         tag = "_logistic"
         print(f"logistic layer ON: {len(capacity)} OD carrying capacities", flush=True)
-    if args.mumax is not None:
+    mumax_map = {}
+    if args.mumax_file:
+        raw = json.loads(args.mumax_file.read_text())
+        mumax_map = {c: float(v) * args.mumax_scale for c, v in raw.items()}
+        tag = f"_mumaxfile{('x%g' % args.mumax_scale) if args.mumax_scale != 1 else ''}"
+        import statistics as _st
+        print(f"per-strain mu_max ON ({args.mumax_file.name}, x{args.mumax_scale}): "
+              f"{len(mumax_map)} strains, median {_st.median(mumax_map.values()):.3f}/h", flush=True)
+    elif args.mumax is not None:
         tag = f"_mumax{args.mumax:g}"
         print(f"mu_max cap ON: {args.mumax}/h ceiling on the biomass reaction", flush=True)
     if args.pfba:
@@ -212,7 +227,7 @@ def main() -> int:
     if todo:
         with open(ckpt, "a") as fh, ProcessPoolExecutor(
                 max_workers=workers, initializer=_init,
-                initargs=(paths, atpm, capacity, args.mumax, args.lp_timeout, args.pfba)) as ex:
+                initargs=(paths, atpm, capacity, args.mumax, args.lp_timeout, args.pfba, mumax_map)) as ex:
             futs = {ex.submit(_gate_one, list(u)): u for u in todo}
             for k, fut in enumerate(as_completed(futs), 1):
                 codes, bio = fut.result()
