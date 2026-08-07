@@ -1,0 +1,25 @@
+{
+  "question": "How much composition signal does muODE keep with NO benchmark data (taxon-prior reconstructions + uniform mu_max + uniform literature ATPM, no per-strain OD calibration)? -- the FMT-feasibility test.",
+  "pairwise": {
+    "raw_dFBA": {
+      "pair_winner": 0.523,
+      "minority": 0.061
+    },
+    "data_free": {
+      "pair_winner": 0.57,
+      "minority": 0.298
+    },
+    "calibrated": {
+      "pair_winner": 0.767,
+      "minority": 0.294
+    },
+    "measured_minority": 0.262
+  },
+  "composition_MAE_matched_subset": {
+    "note": "same 171 high-richness (R11-23) communities; 549-run killed early (busy shared box) so full-panel MAE not computed -- but the matched comparison controls for the richness-easiness bias.",
+    "calibrated": 0.0677,
+    "data_free": 0.0791
+  },
+  "verdict": "CLEAN DECOMPOSITION: coexistence magnitude is DATA-FREE (from the uniform mu_max cap -> minority 0.298 = calibrated 0.294 = measured 0.262); dominance / who-wins / exact composition NEEDS yield data (winner collapses 0.767->0.57 ~ chance; MAE degrades). Degradation is small on high-richness communities (richness buffers MAE) but severe on low-richness pairs.",
+  "implication_for_FMT": "FMT/C.diff = colonization RESISTANCE (suppression), which lives on the coexistence/dynamics axis muODE gets right data-free -> feasible as a MECHANISTIC case study (lean on the bile-acid ecology layer; SCFA is secretion-limited). Quantitative composition needs yields (calibration library / partial data / enzyme-constrained models). NOT a data-free composition predictor."
+}
