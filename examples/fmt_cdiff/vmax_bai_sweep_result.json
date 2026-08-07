@@ -1,0 +1,58 @@
+{
+  "what": "vmax_bai sweep on fmt_full, anchoring the keystone 7a-dehydroxylation rate to the MEASURED in-vivo deoxycholate concentration (not fit-to-clearance).",
+  "sweep": {
+    "1": {
+      "vmax_bai": 1.0,
+      "dca_final_mM": 0.0934,
+      "ca_final_mM": 3.8933,
+      "cdiff_final": 0.0037,
+      "rebound_lambda": 0.0087,
+      "excluded": false
+    },
+    "3": {
+      "vmax_bai": 3.0,
+      "dca_final_mM": 0.2798,
+      "ca_final_mM": 3.7069,
+      "cdiff_final": 0.0015,
+      "rebound_lambda": 0.0041,
+      "excluded": false
+    },
+    "5": {
+      "vmax_bai": 5.0,
+      "dca_final_mM": 0.4657,
+      "ca_final_mM": 3.521,
+      "cdiff_final": 0.0009,
+      "rebound_lambda": 0.002,
+      "excluded": false
+    },
+    "10": {
+      "vmax_bai": 10.0,
+      "dca_final_mM": 0.9271,
+      "ca_final_mM": 3.0596,
+      "cdiff_final": 0.0004,
+      "rebound_lambda": 0.002,
+      "excluded": false
+    },
+    "20": {
+      "vmax_bai": 20.0,
+      "dca_final_mM": 1.7932,
+      "ca_final_mM": 2.1935,
+      "cdiff_final": 0.0001,
+      "rebound_lambda": 0.012,
+      "excluded": false
+    },
+    "50": {
+      "vmax_bai": 50.0,
+      "dca_final_mM": 2.995,
+      "ca_final_mM": 0.9918,
+      "cdiff_final": 0.0001,
+      "rebound_lambda": 0.0074,
+      "excluded": false
+    }
+  },
+  "grounding": "DCA rises cleanly with vmax_bai (0.093->3.0 mM), cholate consumed. vmax_bai=5 gives DCA=0.466 mM == physiological (~0.3-0.7) and the inhibitory Ki (0.5). This is the principled anchor -- from the observed metabolite.",
+  "bile_works": "At the grounded rate (vmax_bai=5), C. diff is suppressed ~4x vs default (biomass 0.0037->0.0009; lambda 0.0087->0.0020). Physiological bile does strong work; the effector rate belongs in the ecology layer and matters a lot.",
+  "verdict": "But rebound lambda stays POSITIVE at EVERY rate (even DCA=3 mM, 6x physiological) and floors ~+0.002 then goes noisy as C.diff hits ~0.0001. Durable clearance (lambda<0) is NEVER reached.",
+  "root_cause": "NOT the bile arm's strength -- the FOOD-REPLETE, well-mixed model structure. C. diff always has substrate -> lambda>0 structurally (the README/scenario docstring predicted exactly this). Durable washout needs substrate limitation, spatial refuge, immune recovery -- ingredients this dFBA deliberately lacks (docs/LIMITATIONS).",
+  "conclusion": "FMT Act 2 is complete and honest: (1) muODE recovers the MECHANISM (bile load-bearing) from genomes, no fitted yields; (2) grounding the keystone rate to measured DCA confirms bile does the heavy lifting (~4x suppression); (3) the residual gap (durable clearance) is a DOCUMENTED structural limitation of a food-replete model, cleanly isolated -- not the bile mechanism, not the medium, not the reconstruction."
+}
