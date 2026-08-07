@@ -1,0 +1,51 @@
+{
+  "what": "FMT/rCDI mechanism-decomposition: 7 ablation arms on a 5-member gapseq community (4 donors + C. difficile 630), raw yields (no dials), western_gut ModelSEED medium, 120h dFBA. Ran in parallel on ts-02.",
+  "arms": {
+    "untreated": {
+      "cdiff_final": 0.332,
+      "min_veg": 0.05,
+      "rebound_lambda": 0.0109,
+      "cleared_flag": false
+    },
+    "abx_only": {
+      "cdiff_final": 0.038,
+      "min_veg": 0.0003,
+      "rebound_lambda": 0.0115,
+      "cleared_flag": true
+    },
+    "fmt_only": {
+      "cdiff_final": 0.145,
+      "min_veg": 0.05,
+      "rebound_lambda": 0.0042,
+      "cleared_flag": false
+    },
+    "fmt_full": {
+      "cdiff_final": 0.022,
+      "min_veg": 0.0003,
+      "rebound_lambda": 0.0087,
+      "cleared_flag": true
+    },
+    "fmt_no_bile": {
+      "cdiff_final": 0.039,
+      "min_veg": 0.0003,
+      "rebound_lambda": 0.0119,
+      "cleared_flag": true
+    },
+    "fmt_no_ph": {
+      "cdiff_final": 0.022,
+      "min_veg": 0.0003,
+      "rebound_lambda": 0.0087,
+      "cleared_flag": true
+    },
+    "fmt_competition": {
+      "cdiff_final": 0.039,
+      "min_veg": 0.0003,
+      "rebound_lambda": 0.0119,
+      "cleared_flag": true
+    }
+  },
+  "metric_note": "rebound_lambda (>0 = pathogen regrowing) is the durability metric; the 'cleared' flag is the vegetative-min snapshot and reads dormancy as cure -- misleading.",
+  "verdict_qualitative": "CLEAN ablation recovers Buffie 2015: removing pH changes nothing (lambda 0.0087->0.0087, INERT); removing bile raises lambda (0.0087->0.0119, ~28% faster rebound) -> SECONDARY BILE ACIDS are the sole load-bearing arm; nutrient competition alone (fmt_competition == fmt_no_bile) does nothing here. From genomes + stoichiometry, no fitted yields.",
+  "honest_limitation": "NO arm achieves durable clearance (lambda>0 everywhere -> C.diff always rebounds; bile only SLOWS it). Root cause: C. scindens grows 0.0008/h on this medium -> under-establishes -> under-produces deoxycholate -> bile arm under-powered. SAME reconstruction/yield bottleneck as the Clark under-growers.",
+  "throughline": "muODE gets the MECHANISM right in both acts (competition ranking in Clark, bile effector in FMT) but the QUANTITATIVE strength in both is limited by reconstruction/yield quality. Clark fixed it via OD calibration; C.scindens has no such correction. The yield/reconstruction lever is the UNIFYING problem."
+}
