@@ -172,10 +172,15 @@ def main() -> int:
     ap.add_argument("--pfba", action="store_true",
                     help="parsimonious FBA per step -> deterministic fluxes across platforms")
     ap.add_argument("--only", default=None, help="comma-separated pair subset e.g. BO-ER,AC-BT (debug)")
+    ap.add_argument("--uniform-atpm", type=float, default=None,
+                    help="override per-strain calibrated ATPM with one literature value "
+                         "(mmol/gDW/h) -> DATA-FREE yields (no OD calibration)")
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
 
     paths, source, atpm = build_panel(args.bigg_models, args.harm_models)
+    if args.uniform_atpm is not None:                    # data-free: drop the OD calibration
+        atpm = {c: args.uniform_atpm for c in paths}
     workers = args.workers or default_workers()
 
     obs = ck.observations(ck.load(str(args.outdir / "MasterDF.csv")),
@@ -204,6 +209,10 @@ def main() -> int:
     elif args.mumax is not None:
         tag = f"_mumax{args.mumax:g}"
         print(f"mu_max cap ON: {args.mumax}/h ceiling on the biomass reaction", flush=True)
+    if args.uniform_atpm is not None:
+        tag += f"_uatpm{args.uniform_atpm:g}"
+        print(f"DATA-FREE: uniform ATPM {args.uniform_atpm} for all strains "
+              "(no OD calibration)", flush=True)
     if args.pfba:
         tag += "_pfba"
         print("pFBA ON: parsimonious flux (deterministic across platforms)", flush=True)

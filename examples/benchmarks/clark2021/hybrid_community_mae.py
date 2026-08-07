@@ -47,10 +47,17 @@ def main() -> int:
     ap.add_argument("--pfba", action="store_true", default=True)
     ap.add_argument("--no-pfba", dest="pfba", action="store_false")
     ap.add_argument("--workers", type=int, default=None)
+    ap.add_argument("--uniform-atpm", type=float, default=None,
+                    help="override calibrated ATPM with one literature value -> DATA-FREE yields")
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
 
     paths, source, atpm = HG.build_panel(args.bigg_models, args.harm_models)
+    utag = ""
+    if args.uniform_atpm is not None:
+        atpm = {c: args.uniform_atpm for c in paths}
+        utag = f"_uatpm{args.uniform_atpm:g}"
+        print(f"DATA-FREE: uniform ATPM {args.uniform_atpm} for all strains (no OD calibration)", flush=True)
     workers = args.workers or HG.default_workers()
 
     obs = ck.observations(ck.load(str(args.outdir / "MasterDF.csv")),
@@ -63,7 +70,7 @@ def main() -> int:
     print(f"community MAE: {len(qual)} scorable observations, {len(unique)} unique "
           f"species sets | mumax={args.mumax} pfba={args.pfba} workers={workers}", flush=True)
 
-    ckpt = args.outdir / f"community_biomass_mumax{args.mumax:g}{'_pfba' if args.pfba else ''}.jsonl"
+    ckpt = args.outdir / f"community_biomass_mumax{args.mumax:g}{utag}{'_pfba' if args.pfba else ''}.jsonl"
     done: dict = {}
     if ckpt.exists():
         for l in ckpt.read_text().splitlines():
@@ -114,7 +121,7 @@ def main() -> int:
                       "static_hybrid_proxy": 0.118, "measured_OD_ceiling": 0.108},
         "config": {"mumax": args.mumax, "pfba": args.pfba},
     }
-    (args.outdir / f"community_mae_report_mumax{args.mumax:g}{'_pfba' if args.pfba else ''}.json"
+    (args.outdir / f"community_mae_report_mumax{args.mumax:g}{utag}{'_pfba' if args.pfba else ''}.json"
      ).write_text(json.dumps(rep, indent=2))
     print("\n=== DYNAMIC COMMUNITY COMPOSITION MAE ===")
     print(json.dumps(rep, indent=2))
