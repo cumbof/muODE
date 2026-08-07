@@ -1,0 +1,49 @@
+{
+  "what": "FINAL dynamic community gate: harmonized hybrid panel + ATPM yield calibration + physiological mu_max=0.6/h growth-rate cap (post-solve flux-scaling). 25 monos + 126 measured pairs, one shared BiGG DM38 pool.",
+  "the_arc": {
+    "raw_dFBA": {
+      "pair_winner": 0.523,
+      "minority": 0.061,
+      "corr": 0.036
+    },
+    "hybrid_no_cap": {
+      "pair_winner": 0.733,
+      "minority": 0.133,
+      "corr": 0.246
+    },
+    "hybrid_mumax0.6": {
+      "pair_winner": 0.767,
+      "minority": 0.301,
+      "corr": 0.181
+    },
+    "targets": {
+      "pair_winner_OD_ceiling": 0.791,
+      "minority_measured": 0.262
+    }
+  },
+  "verdict": "mu_max cap closes the mechanism arc: coexistence RESTORED (minority 0.13->0.30 ~ measured 0.26) AND directionality IMPROVED (pair-winner 0.733->0.767 ~ ceiling 0.791) SIMULTANEOUSLY -- which no prior config achieved. Minor cost: interaction corr 0.246->0.181.",
+  "raw_report": {
+    "namespace": "bigg",
+    "n_interactions": 211,
+    "n_pairs": 86,
+    "interaction_corr_with_measured": {
+      "baseline_dFBA": 0.036,
+      "yield_calibrated": 0.181
+    },
+    "pair_winner_accuracy": {
+      "baseline_dFBA": 0.523,
+      "yield_calibrated": 0.767,
+      "OD_ceiling": 0.791
+    },
+    "minority_share_median": {
+      "baseline_dFBA": 0.061,
+      "yield_calibrated": 0.301,
+      "measured": 0.262
+    }
+  },
+  "caveats": [
+    "minority 0.301 marginally over measured 0.262 on the 86-pair scorable set (123-pair running median was 0.230 -- brackets measured); mu_max=0.6 well-tuned.",
+    "dFBA endpoints are platform-dependent for FBA alternate-optima strains (aarch64 local vs x86_64: PC mono 1.795 vs 1.556; AC/BC/ER identical). pFBA would make flux distributions deterministic -- a reproducibility improvement for publication, not yet done.",
+    "Next: full 549-community DYNAMIC composition MAE vs static proxy 0.118 / ceiling 0.108 (the parked last step)."
+  ]
+}
