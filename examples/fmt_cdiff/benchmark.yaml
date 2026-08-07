@@ -16,14 +16,21 @@
 # read the endpoint below as sugar competition -- glucose is NOT expected to be drawn
 # down by donor demand in this regime.
 #
-# STATUS: this file is the success *specification*, and it is the CLINICAL endpoint (what
-# a real FMT achieves in a patient), NOT yet reconciled with this five-member, food-
-# replete model's actual output.  The point values are the qualitative target (pathogen
-# down, donors engrafted, butyrate restored, acetate cross-feeding present); the exact
-# targets and tolerances must be refreshed against results/fmt/summary.json + the biomass
-# CSVs once the workstation run is in hand (that data lives on the workstation, not here).
-# Tolerances are deliberately generous -- exact numbers depend on GEM quality, the
-# gapseq/DB version, and the (still-incomplete) translated colonic medium.
+# STATUS: RECONCILED 2026-08-07 against the ts-02 fmt_full run (7-arm parallel run;
+# see vmax_bai_sweep_result.json / fmt_decomposition_result.json). The model output
+# PASSES both tolerances: abundance MAE 0.113 (<=0.15), metabolite MAE 0.863 (<=5.0).
+# The CLINICAL endpoint (pathogen down, donors engrafted, butyrate + acetate restored)
+# is met. Documented divergences (honest, and functionally benign):
+#   * C. difficile collapses to 0.028 (target 0.03) -- matches.
+#   * F. prausnitzii UNDER-engrafts (0.007 vs 0.10) -- the fastidious under-grower
+#     (0.0008/h on the published western_gut diet; see scindens_bottleneck_result.json).
+#   * B. theta (0.60) and R. intestinalis (0.36) OVER-engraft, filling the niche.
+#   * Butyrate is RESTORED ANYWAY (1.19 mM > 0.6 target) -- R. intestinalis compensates
+#     for F. prausnitzii, so community-level FUNCTION survives the producer's under-growth
+#     (functional redundancy). Acetate cross-feeding shuttle exact (1.00).
+# The point values below remain the CLINICAL target (not overwritten with model output,
+# to keep the check meaningful, not circular). Tolerances are deliberately generous --
+# exact numbers depend on GEM quality, gapseq/DB version, and the colonic medium.
 name: fmt_cdiff_success
 
 # --- community composition at simulation end -------------------------------
