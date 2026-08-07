@@ -1,0 +1,41 @@
+{
+  "what": "THE FLAGSHIP RESULT: muODE's dynamic dFBA reproduces Clark 2021 community composition end-to-end. Full mechanism (hybrid gapseq/BiGG panel + ATPM yield calibration + physiological mu_max=0.6 cap + pFBA determinism) run dynamically on all 549 measured communities (richness 2-25), scored as composition MAE.",
+  "headline_MAE": {
+    "dynamic_full_community": 0.114,
+    "uniform_null": 0.164,
+    "raw_muODE_dFBA": 0.21,
+    "static_hybrid_proxy": 0.118,
+    "measured_OD_ceiling": 0.108
+  },
+  "interpretation": "Dynamic MAE 0.114 BEATS the null (0.164), the old raw dFBA (0.210, where we started -- worse than null), AND the static OD-weighting proxy (0.118), landing within 0.006 of the theoretical OD ceiling (0.108). The dynamics don't just preserve the yield signal -- with the mu_max cap they slightly improve on it.",
+  "the_full_arc": {
+    "tier1_monoculture": "ATPM yield calibration -> mono biomass tracks measured OD (spearman 0.60->0.81 hybrid vs BiGG-only)",
+    "tier2_pairwise": "pair-winner 0.52->0.767 (~OD ceiling 0.791); minority/coexistence 0.06->0.294 (measured 0.262)",
+    "tier3_assembly_549": "dynamic composition MAE 0.114 (null 0.164, ceiling 0.108)"
+  },
+  "mechanism_chain": "reconstruction fix (gapseq Bacteroidetes, namespace-harmonized) -> ATPM yield calibration to measured OD -> physiological mu_max rate cap (post-solve flux-scaling) -> pFBA for cross-platform determinism. ONE global mu_max parameter (vs gLV's ~n^2 fitted interactions).",
+  "reproducibility": "pFBA makes fluxes deterministic across platforms (aarch64==x86_64 to 4 decimals); run on ts-02 (224-core x86_64), ~hours.",
+  "config": {
+    "mumax": 0.6,
+    "pfba": true
+  },
+  "raw_report": {
+    "n_observations_scored": 549,
+    "n_unique_communities": 542,
+    "dynamic_community_MAE": 0.114,
+    "reference": {
+      "uniform_null": 0.164,
+      "muODE_raw_dFBA": 0.21,
+      "static_hybrid_proxy": 0.118,
+      "measured_OD_ceiling": 0.108
+    },
+    "config": {
+      "mumax": 0.6,
+      "pfba": true
+    }
+  },
+  "remaining_caveats": [
+    "6 strains (BL,BH,DF,BA,CH,DP) under-grow in BOTH reconstructions -- next frontier.",
+    "mu_max=0.6 is one global value (data is endpoint-only; per-strain would need genome-derived rates e.g. gRodon -- discussed, deferred)."
+  ]
+}
