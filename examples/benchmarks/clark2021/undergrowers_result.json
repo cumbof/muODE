@@ -1,0 +1,523 @@
+{
+  "question": "Why do BL,BA,BH,DF,CH,DP under-grow in BOTH reconstructions (the residual gap after the hybrid panel: dynamic MAE 0.114 vs ceiling 0.108)?",
+  "method": "FBA triage (DM38 vs all-open) + dynamic mono instrumentation (peak mu, stall time) + depleted-substrate-at-stall + nitrate-isolation rescue.",
+  "finding": "NOT a hard network gap or DM38-missing auxotrophy -- all 6 grow 0.7-1.95/h in static FBA on DM38. The under-growth is DYNAMIC, and splits into two mechanisms:",
+  "fast_stallers": {
+    "strains": [
+      "DF",
+      "CH",
+      "DP"
+    ],
+    "pattern": "grow ~1.8/h for <1h then STALL; deplete the trace 0.11 mM nitrate (no3_e) -- the respiratory / terminal-electron-acceptor artifact (CarveMe/BiGG use nitrate as e-acceptor; can't switch to abundant ammonium). Nucleobases co-deplete but are a red herring (DF grows nucleobase-free, dies nitrate-free).",
+    "nitrate_isolation_rescue": {
+      "DF": "0.029->2.039 (69.8x)",
+      "DP": "0.023->1.256 (53.9x)",
+      "CH": "0.041->0.280 (6.9x)"
+    },
+    "proper_fix": "per-strain anaerobic-isoform curation (add the fermentative/NAD-linked isoform of the respiratory biosynthesis step forcing the acceptor dependence). PROVEN for DF: anaerobic NAD-DHOD lifts 0.029->0.575. NOT adding nitrate to the medium (unphysiological -- DM38 has 0.11 mM)."
+  },
+  "slow_stallers": {
+    "strains": [
+      "BL",
+      "BA",
+      "BH"
+    ],
+    "pattern": "grow normally, stall at 7-9.5h on CARBON exhaustion -> moderate biomass short of OD. Complex-carbohydrate specialists (Bifido bifid-shunt, Blautia acetogen) under-yielding on DM38's simpler sugars (oligosaccharide rescuers in FBA). A yield/carbon-utilization issue, distinct from nitrate.",
+    "fix": "harder -- carbon utilization/yield; not a single reaction."
+  },
+  "bottom_line": "The residual gap is a RECONSTRUCTION-QUALITY artifact (respiratory nitrate-dependence + carbon under-yield), fully characterized -- NOT a muODE mechanism failure. muODE's dynamic MAE (0.114) already sits within 0.006 of the OD ceiling (0.108), so fixing these 6 has small aggregate payoff; the value is per-strain accuracy + completeness for the paper.",
+  "raw_fba_triage": {
+    "BL": {
+      "species": "Bifidobacterium longum subsp. infantis",
+      "measured_OD": 1.602,
+      "bigg": {
+        "g_dm38": 0.7147,
+        "g_open": 14.5965,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            2.573,
+            "malthp_e"
+          ],
+          [
+            2.287,
+            "malthx_e"
+          ],
+          [
+            2.287,
+            "glucan6_e"
+          ],
+          [
+            1.715,
+            "maltttr_e"
+          ],
+          [
+            1.715,
+            "glucan4_e"
+          ],
+          [
+            1.429,
+            "malttr_e"
+          ],
+          [
+            1.286,
+            "xylan4_e"
+          ],
+          [
+            1.217,
+            "o2_e"
+          ]
+        ]
+      },
+      "gapseq": {
+        "g_dm38": 2.149,
+        "g_open": 37.5751,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            7.515,
+            "cpd90020_e0"
+          ],
+          [
+            7.515,
+            "cpd90008_e0"
+          ],
+          [
+            7.515,
+            "cpd90006_e0"
+          ],
+          [
+            7.515,
+            "cpd90004_e0"
+          ],
+          [
+            7.515,
+            "cpd90003_e0"
+          ],
+          [
+            6.256,
+            "cpd90005_e0"
+          ],
+          [
+            5.731,
+            "cpd15494_e0"
+          ],
+          [
+            5.414,
+            "cpd90022_e0"
+          ]
+        ]
+      }
+    },
+    "BA": {
+      "species": "Bifidobacterium adolescentis",
+      "measured_OD": 0.899,
+      "bigg": {
+        "g_dm38": 1.5039,
+        "g_open": 23.2405,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            3.472,
+            "malthp_e"
+          ],
+          [
+            3.169,
+            "malthx_e"
+          ],
+          [
+            3.169,
+            "glucan6_e"
+          ],
+          [
+            2.546,
+            "glucan4_e"
+          ],
+          [
+            2.44,
+            "xylan4_e"
+          ],
+          [
+            2.233,
+            "malttr_e"
+          ],
+          [
+            2.056,
+            "raffin_e"
+          ],
+          [
+            2.052,
+            "sucr_e"
+          ]
+        ]
+      },
+      "gapseq": {
+        "g_dm38": 1.9838,
+        "g_open": 40.7441,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            7.515,
+            "cpd90021_e0"
+          ],
+          [
+            7.515,
+            "cpd90020_e0"
+          ],
+          [
+            7.515,
+            "cpd90008_e0"
+          ],
+          [
+            7.515,
+            "cpd90004_e0"
+          ],
+          [
+            7.515,
+            "cpd90003_e0"
+          ],
+          [
+            6.878,
+            "cpd90006_e0"
+          ],
+          [
+            5.562,
+            "cpd90005_e0"
+          ],
+          [
+            5.095,
+            "cpd15494_e0"
+          ]
+        ]
+      }
+    },
+    "BH": {
+      "species": "Blautia hydrogenotrophica",
+      "measured_OD": 1.246,
+      "bigg": {
+        "g_dm38": 0.7718,
+        "g_open": 8.6579,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            2.449,
+            "malthp_e"
+          ],
+          [
+            2.155,
+            "malthx_e"
+          ],
+          [
+            1.346,
+            "malttr_e"
+          ],
+          [
+            1.327,
+            "raffin_e"
+          ],
+          [
+            1.173,
+            "dextrin_e"
+          ],
+          [
+            1.15,
+            "tre_e"
+          ],
+          [
+            1.15,
+            "sucr_e"
+          ],
+          [
+            1.15,
+            "lcts_e"
+          ]
+        ]
+      },
+      "gapseq": {
+        "g_dm38": 3.4862,
+        "g_open": 30.0601,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            7.515,
+            "cpd90020_e0"
+          ],
+          [
+            7.515,
+            "cpd90008_e0"
+          ],
+          [
+            7.515,
+            "cpd90007_e0"
+          ],
+          [
+            7.515,
+            "cpd90006_e0"
+          ],
+          [
+            7.515,
+            "cpd90005_e0"
+          ],
+          [
+            7.515,
+            "cpd90004_e0"
+          ],
+          [
+            7.515,
+            "cpd90003_e0"
+          ],
+          [
+            7.515,
+            "cpd15494_e0"
+          ]
+        ]
+      }
+    },
+    "DF": {
+      "species": "Dorea formicigenerans",
+      "measured_OD": 0.914,
+      "bigg": {
+        "g_dm38": 1.9512,
+        "g_open": 9.7883,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            3.316,
+            "malthp_e"
+          ],
+          [
+            3.205,
+            "malthx_e"
+          ],
+          [
+            2.832,
+            "maltttr_e"
+          ],
+          [
+            2.623,
+            "malttr_e"
+          ],
+          [
+            2.539,
+            "cellb_e"
+          ],
+          [
+            2.413,
+            "tre_e"
+          ],
+          [
+            2.413,
+            "sucr_e"
+          ],
+          [
+            2.329,
+            "dextrin_e"
+          ]
+        ]
+      },
+      "gapseq": {
+        "g_dm38": 3.1455,
+        "g_open": 30.0601,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            7.515,
+            "cpd90008_e0"
+          ],
+          [
+            7.515,
+            "cpd90006_e0"
+          ],
+          [
+            7.515,
+            "cpd90005_e0"
+          ],
+          [
+            7.515,
+            "cpd90004_e0"
+          ],
+          [
+            7.515,
+            "cpd90003_e0"
+          ],
+          [
+            7.037,
+            "cpd15494_e0"
+          ],
+          [
+            6.664,
+            "cpd90007_e0"
+          ],
+          [
+            5.334,
+            "cpd11976_e0"
+          ]
+        ]
+      }
+    },
+    "CH": {
+      "species": "Clostridium hiranonis",
+      "measured_OD": 0.381,
+      "bigg": {
+        "g_dm38": 1.8603,
+        "g_open": 21.7083,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            4.329,
+            "malthx_e"
+          ],
+          [
+            3.938,
+            "galman6_e"
+          ],
+          [
+            3.061,
+            "malttr_e"
+          ],
+          [
+            3.059,
+            "raffin_e"
+          ],
+          [
+            2.671,
+            "tre_e"
+          ],
+          [
+            2.671,
+            "sucr_e"
+          ],
+          [
+            2.671,
+            "cellb_e"
+          ],
+          [
+            2.534,
+            "man1p_e"
+          ]
+        ]
+      },
+      "gapseq": {
+        "g_dm38": 1.3428,
+        "g_open": 8.8899,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            2.55,
+            "cpd00076_e0"
+          ],
+          [
+            2.02,
+            "cpd00276_e0"
+          ],
+          [
+            2.02,
+            "cpd00138_e0"
+          ],
+          [
+            2.02,
+            "cpd00082_e0"
+          ],
+          [
+            1.99,
+            "cpd00122_e0"
+          ],
+          [
+            1.95,
+            "cpd00588_e0"
+          ],
+          [
+            1.95,
+            "cpd00314_e0"
+          ],
+          [
+            1.87,
+            "cpd00832_e0"
+          ]
+        ]
+      }
+    },
+    "DP": {
+      "species": "Desulfovibrio piger",
+      "measured_OD": 0.229,
+      "bigg": {
+        "g_dm38": 1.2052,
+        "g_open": 12.5154,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            1.921,
+            "o2_e"
+          ],
+          [
+            1.915,
+            "glcur_e"
+          ],
+          [
+            1.755,
+            "tre6p_e"
+          ],
+          [
+            1.693,
+            "tet_e"
+          ],
+          [
+            1.585,
+            "tre_e"
+          ],
+          [
+            1.55,
+            "tton_e"
+          ],
+          [
+            1.543,
+            "h2o2_e"
+          ],
+          [
+            1.517,
+            "galur_e"
+          ]
+        ]
+      },
+      "gapseq": {
+        "g_dm38": 1.1235,
+        "g_open": 5.9811,
+        "verdict": "AUXOTROPHY",
+        "top_rescuers": [
+          [
+            2.161,
+            "cpd00138_e0"
+          ],
+          [
+            2.161,
+            "cpd00082_e0"
+          ],
+          [
+            1.805,
+            "cpd00007_e0"
+          ],
+          [
+            1.776,
+            "cpd00154_e0"
+          ],
+          [
+            1.626,
+            "cpd00025_e0"
+          ],
+          [
+            1.548,
+            "cpd00448_e0"
+          ],
+          [
+            1.548,
+            "cpd00100_e0"
+          ],
+          [
+            1.53,
+            "cpd00139_e0"
+          ]
+        ]
+      }
+    }
+  }
+}
