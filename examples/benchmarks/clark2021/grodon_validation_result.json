@@ -1,0 +1,23 @@
+{
+  "question": "Does genome-derived per-strain mu_max (gRodon) improve on the tuned uniform mu_max=0.6 cap? -- the validation-on-Clark of genome priors.",
+  "result": {
+    "uniform_mumax_0.6": {
+      "pair_winner": 0.767,
+      "minority": 0.294,
+      "corr": 0.181
+    },
+    "grodon_absolute_med0.235": {
+      "pair_winner": 0.674,
+      "minority": 0.209,
+      "corr": -0.037
+    },
+    "grodon_rescaled_med0.6": {
+      "pair_winner": 0.686,
+      "minority": 0.202,
+      "corr": -0.013
+    }
+  },
+  "verdict": "NEGATIVE: per-strain gRodon mu_max is WORSE than a uniform cap on both metrics, even rescaled to the same median -- the per-strain PATTERN hurts (interaction corr goes slightly negative).",
+  "mechanism": "gRodon predicts the Bacteroidetes as the SLOWEST growers (BT 0.086, BY 0.099, BC 0.107 -- weak codon bias), but they are exactly the DM38 DOMINATORS (highest OD/yield). A per-strain cap throttles the real dominators hardest, inverting the competitive structure. Clark composition is YIELD-driven, not growth-RATE-driven; gRodon predicts optimal-condition growth RATE, which here ANTI-correlates with competitive success -- so it is the wrong prior for this regime. The uniform cap wins because it moderates the winner-take-all INSTABILITY without imposing a wrong per-strain rate ranking.",
+  "implication": "For data-free generalization, the transferable knob is a UNIFORM physiological mu_max (~0.5-0.6/h, a defensible gut-anaerobe default), NOT per-strain genome growth-rate predictions. gRodon does not help in a yield-driven community. (gRodon may still matter in rate-limited/ chemostat regimes -- untested here.)"
+}
