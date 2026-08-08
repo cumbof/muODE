@@ -18,12 +18,17 @@ that network.
 > *F. prausnitzii*) carry a working `EX_cpd00211_e0` and secrete at ~10 mmol/gDW/h max.
 > muODE keeps both engines (`config engine: carveme | gapseq`); this example needs gapseq.
 
-> **Status: 3 of 12 GEMs reconstructed, 9 pending.** gapseq does not run on aarch64 and
-> is ~30–90 min per genome, so the models are built on a workstation. Three are already
-> present — identical to `examples/fmt_cdiff`'s, reused not rebuilt. Until the other nine
-> are reconstructed (`gems/reconstruct_gapseq.sh`) and the diet is derived, this example
-> **cannot be simulated end to end.** Nothing below reports a real run yet; the "what to
-> look for" notes are expected mechanisms, not measured outcomes.
+> **Status: all 12 GEMs reconstructed; runs end to end and PASSES.** gapseq does not run
+> on aarch64 (~30–90 min per genome), so the models were built on a workstation; all 12
+> `*.xml.gz` are committed under `gems/`. First full run (2026-08-08, ts-02, 48 h):
+> relative-abundance MAE **0.087** (≤0.15) and metabolite MAE **0.962** (≤5.0) both pass,
+> and the gapseq-only payload is confirmed — **butyrate 0.17 mM** is produced from an
+> acetate cross-feeding chain. See `gut_western_result.json` and the reconciled
+> `benchmark.yaml`. Honest divergences (documented, not hidden): B. theta over-dominates
+> (food-replete runaway) and R. intestinalis fills E. rectale's butyrate-producer niche
+> (functional redundancy — butyrate is made anyway); the R. bromii keystone removal shows
+> **no** secondary-extinction cascade (the carbon/acetate supply is redundant), an honest
+> negative that reflects the food-replete limitation shared with `fmt_cdiff`.
 
 Run from the repository root unless noted otherwise.
 

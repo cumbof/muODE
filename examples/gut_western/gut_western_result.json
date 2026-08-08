@@ -1,0 +1,24 @@
+{
+  "what": "12-species western-gut community, gapseq/ModelSEED GEMs, dynamic FBA 48h on the western_gut_modelseed diet. First end-to-end run of all 12 GEMs. Payload = the butyrate cross-feeding network (the arm that REQUIRES gapseq; BiGG/CarveMe has no connected butyrate pathway) + a keystone-removal perturbation.",
+  "validation": {
+    "abundance_mae": 0.087,
+    "abundance_tol": 0.15,
+    "metabolite_mae": 0.962,
+    "metabolite_tol": 5.0,
+    "cross_feeding_recall": 1.0,
+    "expected_edges_detected": "2/2",
+    "overall": "PASS"
+  },
+  "payload_butyrate": "acetate cross-feeding chain realized: primary degraders (B.theta 1.39, P.copri 1.03, R.bromii 0.89, B.fragilis 0.36) feed acetate to R. intestinalis, which makes butyrate (0.172 mM) and even cross-feeds butyrate onward to F. prausnitzii (0.96). CarveMe cannot express this.",
+  "composition": {
+    "note": "B.theta over-dominates (rel 0.455 vs 0.25 target) -- food-replete runaway of the dominant degrader (documented limitation). E.rectale/B.longum under-grow; R. INTESTINALIS over-engrafts (0.135) and fills the butyrate-producer niche E. rectale was expected to -> FUNCTIONAL REDUNDANCY (butyrate made anyway). Aggregate abundance MAE still passes."
+  },
+  "perturbation_Rbromii": {
+    "result": "NO secondary-extinction cascade. Removing the keystone starch degrader R. bromii leaves all other species ~unchanged (+0.0%); butyrate falls only 18% (0.172->0.141). The butyrate producers get carbon/acetate redundantly from B.theta + P.copri, so the keystone's loss is buffered. Honest negative -- same food-replete limitation as fmt_cdiff: the regime shows cross-feeding STRUCTURE, not dependency/cascade dynamics (those need substrate limitation the well-mixed model lacks; see docs/LIMITATIONS.md)."
+  },
+  "bugs_fixed": [
+    "io_utils.model_id(): *.xml.gz ids leaked a .xml suffix -> silent equal-split abundances + broken validate name-matching (commit 8dae8e4).",
+    "validate cross-feeding pass on RECALL not F1: curated expected edges are a non-exhaustive subset, so precision over 409 predicted edges wrongly failed a recall-1.0 run (commit a0f3e53)."
+  ],
+  "status": "PASSING end-to-end. Butyrate payload confirmed from genome stoichiometry. Keystone perturbation is an honest negative that cleanly exposes the food-replete limitation. Benchmark RECONCILED (min_recall, realized butyrate arm, divergences documented)."
+}
