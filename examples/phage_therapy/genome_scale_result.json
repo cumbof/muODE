@@ -1,0 +1,20 @@
+{
+  "what": "Genome-scale phage therapy: real CarveMe GEMs -- K. pneumoniae (pathobiont host, 3180 rxns) + E. coli (commensal competitor, 2897 rxns) on a defined glucose medium, with a lytic Klebsiella phage (PhageInfection layer, not a GEM) in one arm. genome_scale.py on ts-02, 48h. Two arms differ ONLY by phage presence.",
+  "arms": {
+    "no_phage": {
+      "K_pneumoniae": 0.3905,
+      "E_coli": 0.4519
+    },
+    "with_phage": {
+      "K_pneumoniae": 0.0,
+      "E_coli": 0.7998
+    }
+  },
+  "predation_dynamics": {
+    "host_crash": "K. pneumoniae 0.01 -> 0.0 by t=8h, stays cleared (fixed host range, no resistance -> complete clearance).",
+    "phage_amplifies": "titer 0.5 (dose) -> 0.62 at t8 (ABOVE dose -> genuine replication on the host, i.e. predation not coincidence) -> decays to 0.011 once the host is gone (no host -> phage washes out; the documented no-coexistence-oscillation behavior).",
+    "commensal_release": "E. coli grows only AFTER the host clears (t8+): 0.01 -> 0.80 by t24. The rebound (0.45 no-phage -> 0.80 +phage, +77%) is genuine competitive release -- E. coli was glucose-suppressed by K. pneumoniae; removing it frees the carbon."
+  },
+  "verdict": "CLEANEST genome-scale result of all examples. BOTH mechanisms emerge correctly from real stoichiometry: (1) interference/predation (phage crashes host) via the ecology layer, AND (2) resource release (commensal inherits the freed glucose) via the shared-pool metabolic competition. Unlike strain_competition, the metabolic-competition arm WORKS here because the two GEMs are genuinely different organisms (not near-equivalent strains) competing for a limiting resource. No caveats beyond the documented no-evolution / well-mixed scope.",
+  "status": "COMPLETE + clean. Toy (phage_scenario.py) pinned by tests/test_phage.py; genome-scale confirms the same crash-and-release on real GEMs. No benchmark.yaml (mechanism demo). Phage params literature-scale (burst ~80, latent ~0.5h) -- ASSUMED, set the tempo; the claim (phage -> host down, commensal up) is robust to their values."
+}

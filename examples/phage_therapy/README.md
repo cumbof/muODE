@@ -43,9 +43,23 @@ snakemake --use-conda --cores 8 --configfile examples/phage_therapy/config.yaml
 python examples/phage_therapy/genome_scale.py --models examples/phage_therapy/results/refined
 ```
 
-> **Status.** Toy + genome-scale scaffold are done and verified locally (the scenario
-> logic runs on a real BiGG model). The only reconstruction step is the two CarveMe GEMs
-> (a reconstruction host); their growth on `gut_glucose.csv` is verified there.
+> **Status: runs end to end on real GEMs; both mechanisms emerge.** Full genome-scale run
+> (2026-08-08, ts-02, 48 h; `genome_scale_result.json`) — final biomass, gDW/L:
+>
+> ```
+>             K_pneumoniae   E_coli
+> no phage          0.391    0.452
+> + phage           0.000    0.800
+> ```
+>
+> The phage **crashes the host completely** (K. pneumoniae 0.01 → 0 by t≈8 h) and
+> **releases the commensal** (E. coli 0.45 → 0.80, +77%). It is genuine predation, not
+> coincidence: the phage titer **amplifies above its dose** (0.5 → 0.62 at t8) on the host,
+> then washes out once the host is gone (0.62 → 0.01 — fixed host range, no coexistence
+> oscillation). The commensal rebound is a real competitive release — E. coli grows only
+> *after* the host clears, inheriting the freed glucose. Both the interference (phage) and
+> the resource-release (metabolic competition) arms come out of the real stoichiometry.
+> Only the two CarveMe GEMs need a reconstruction host.
 
 ## Honest scope
 
