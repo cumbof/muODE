@@ -1,0 +1,27 @@
+{
+  "what": "Genome-scale strain competition: 3 REAL CarveMe E. coli strain GEMs (glc_specialist, colicinogenic, arabinose_user), 3 competition modes, defined glucose medium (niche arm adds L-arabinose). genome_scale.py on ts-02, 48h.",
+  "gems_differ": "Real, non-identical reconstructions: 2897/3059/2954 rxns, 92-265 rxns unique per pair. But metabolically near-equivalent ON GLUCOSE (see mode 1).",
+  "modes": {
+    "1_resource": {
+      "glc_specialist": 0.281,
+      "colicinogenic": 0.28,
+      "arabinose_user": 0.284,
+      "read": "3-WAY NEUTRAL TIE. Glucose IS drawn to limitation (min 0.0) yet the three split it equally -> identical R*, no competitive exclusion. The toy's clean 'specialist wins' does NOT reproduce: CarveMe smooths accessory-genome differences into near-equivalent central metabolism."
+    },
+    "2_colicin": {
+      "glc_specialist": 0.032,
+      "colicinogenic": 0.366,
+      "arabinose_user": 0.371,
+      "read": "INTERFERENCE WINS CLEANLY. The Bacteriocin layer suppresses its target (glc_specialist 0.28->0.032); the other two take over. Ecology-layer mechanism is robust and GEM-independent -- the paper-worthy genome-scale result."
+    },
+    "3_arabinose": {
+      "glc_specialist": 0.04,
+      "colicinogenic": 0.363,
+      "arabinose_user": 0.369,
+      "read": "NO NICHE EFFECT (mode 3 ~= mode 2). Arabinose is NOT private -- all 3 GEMs carry EX_arab__L_e + ARABDI (two carry ARABR), so adding it differentiates nobody. Coexistence-via-private-niche does not express on real E. coli. Documented caveat."
+    }
+  },
+  "headline": "Of the 3 classic competition mechanisms, only INTERFERENCE (colicin, an ecology layer) robustly decides a winner at genome scale. RESOURCE and NICHE are degenerate because CarveMe reconstructs near-metabolically-equivalent strains (identical glucose R*, shared arabinose catabolism). This is the honest counterpart to the toy's clean 3-mechanism separation, and it matches the README's stated caveats (closely related strains -> near-identical GEMs; most E. coli catabolise arabinose).",
+  "same_pattern": "Consistent with the other examples: the ECOLOGY-LAYER mechanisms (colicin here; phage/bile/O2 elsewhere) are robust and paper-worthy; the metabolic-competition/dependency mechanisms are limited by FBA/GEM degeneracy and the food-replete well-mixed regime. Toy (mechanistic_demo.py) shows all 3 cleanly and runs anywhere.",
+  "status": "COMPLETE + honest. Interference arm is the genome-scale result; resource/niche honestly expose CarveMe strain-degeneracy (a citable limitation of strain-resolved GEM competition). No benchmark.yaml here (mechanism-ordering demo, not a composition MAE)."
+}

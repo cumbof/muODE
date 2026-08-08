@@ -98,10 +98,26 @@ python examples/strain_competition/genome_scale.py \
 
 `genome_scale.py` runs the same three modes as the toy on the real GEMs, over the defined
 `defined_medium.csv` (glucose; the niche arm adds L-arabinose). It **reports what the GEMs
-actually do** rather than the toy's assigned outcome — verified locally: the scenario
-logic runs on a real BiGG model, the colicin (interference) layer suppresses its target,
-and identical GEMs make the resource mode degenerate (the caveat below, made concrete).
-Only the three CarveMe GEMs need a reconstruction host.
+actually do** rather than the toy's assigned outcome. Full run (2026-08-08, ts-02, 48 h;
+`genome_scale_result.json`) — final biomass, gDW/L:
+
+```
+mode                    specialist  colicin    niche
+----------------------------------------------------
+1. resource                  0.281    0.280    0.284   3-way neutral tie
+2. + colicin                 0.032    0.366    0.371   interference wins
+3. + arabinose niche         0.040    0.363    0.369   ~= mode 2 (no niche effect)
+```
+
+Only the **interference** mechanism reproduces at genome scale. In mode 1 glucose *is*
+drawn to limitation (min 0.0 mM) yet the three strains split it equally — the real GEMs
+have **identical glucose R\***, so competitive exclusion cannot occur (the toy's "specialist
+wins" does not survive real stoichiometry). In mode 3 arabinose changes nothing: all three
+GEMs carry `EX_arab__L_e` + `ARABDI`, so it is **not a private niche**. Both are the
+caveats below, now measured — CarveMe smooths accessory-genome differences into
+near-equivalent central metabolism, so of the three classic mechanisms only the
+ecology-layer colicin robustly decides a winner. Only the three CarveMe GEMs need a
+reconstruction host.
 
 **Prerequisite — strain-resolved genomes.** This only works if the inputs are
 genuinely different strains. Do **not** source them from the dereplicated

@@ -20,6 +20,7 @@ htmlcov/
 # muODE working dirs / heavy artifacts
 results/
 results_perturb_*/
+results_gs/
 models/draft_gems/
 models/kinetic_gems/
 simulation_env/
