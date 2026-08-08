@@ -207,7 +207,7 @@ def assemble(
     coverage: Optional[float] = typer.Option(None, help="Keep the fewest top MAGs reaching this cumulative abundance (e.g. 0.95)."),
 ) -> None:
     """Phase 4a -- write a community manifest (models + abundances + diet)."""
-    from muode.io_utils import list_models, read_abundance
+    from muode.io_utils import list_models, model_id, read_abundance
 
     outdir.mkdir(parents=True, exist_ok=True)
     files = [str(p) for p in list_models(models)]
@@ -217,13 +217,13 @@ def assemble(
     if abundance:
         abund = read_abundance(abundance)
     else:
-        abund = {Path(f).stem: 1.0 for f in files}
+        abund = {model_id(f): 1.0 for f in files}
 
     # abundance-aware subsampling for very large communities
     if any(v is not None for v in (max_species, min_abundance, coverage)):
         from muode.subsample import select_by_abundance
 
-        stem_to_file = {Path(f).stem: f for f in files}
+        stem_to_file = {model_id(f): f for f in files}
         present = {s: abund.get(s, 0.0) for s in stem_to_file}
         keep = select_by_abundance(present, top_n=max_species,
                                    min_abundance=min_abundance, coverage=coverage)
@@ -235,7 +235,7 @@ def assemble(
 
     manifest = {
         "models": files,
-        "abundances": {Path(f).stem: abund.get(Path(f).stem, 0.0) for f in files},
+        "abundances": {model_id(f): abund.get(model_id(f), 0.0) for f in files},
         "diet": diet,
         "total_biomass": total_biomass,
     }
@@ -267,8 +267,10 @@ def _community_from_manifest(path: Path):
     from muode.community import Community
     from muode.organism import CobraOrganism
 
+    from muode.io_utils import model_id
+
     manifest = json.loads(Path(path).read_text())
-    organisms = [CobraOrganism.from_file(p, id=Path(p).stem) for p in manifest["models"]]
+    organisms = [CobraOrganism.from_file(p, id=model_id(p)) for p in manifest["models"]]
     comm = Community(organisms, manifest.get("abundances", {}),
                      total_biomass=manifest.get("total_biomass", 0.01))
     return comm, manifest.get("diet", "western_gut"), _injections_from_manifest(manifest)

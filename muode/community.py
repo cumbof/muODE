@@ -98,6 +98,7 @@ class Community:
         Requires the ``cobra`` extra.  The organism id is the file stem, which
         must match the ids used in the abundance profile.
         """
+        from muode.io_utils import model_id
         from muode.organism import CobraOrganism
 
         model_dir = Path(model_dir)
@@ -105,7 +106,7 @@ class Community:
         if not paths:
             raise FileNotFoundError(f"no models matching {pattern} in {model_dir}")
         organisms: List[OrganismModel] = [
-            CobraOrganism.from_file(p, id=p.stem) for p in paths
+            CobraOrganism.from_file(p, id=model_id(p)) for p in paths
         ]
         return cls(organisms, dict(abundance or {}), total_biomass)
 

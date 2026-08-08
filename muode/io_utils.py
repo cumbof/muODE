@@ -58,6 +58,27 @@ def list_models(model_dir: str | Path, patterns: tuple[str, ...] = ("*.xml", "*.
     return out
 
 
+def model_id(path: str | Path) -> str:
+    """Stable organism id from a GEM filename.
+
+    ``Path.stem`` strips only the last extension, so ``B_theta.xml.gz`` -> ``B_theta.xml``
+    -- a trailing ``.xml`` then leaks into biomass columns and abundance keys and breaks
+    the match against a clean ``abundance.tsv`` / ``benchmark.yaml``. Strip a compression
+    suffix (``.gz``/``.bz2``/``.zip``) and then the model suffix (``.xml``/``.sbml``/
+    ``.json``/``.mat``) so ``B_theta.xml.gz`` and ``B_theta.xml`` both give ``B_theta``.
+    """
+    name = Path(path).name
+    for comp in (".gz", ".bz2", ".zip"):
+        if name.lower().endswith(comp):
+            name = name[: -len(comp)]
+            break
+    for ext in (".xml", ".sbml", ".json", ".mat"):
+        if name.lower().endswith(ext):
+            name = name[: -len(ext)]
+            break
+    return name
+
+
 def write_manifest(path: str | Path, **fields) -> None:
     """Write a small JSON manifest describing a pipeline step's output."""
     Path(path).write_text(json.dumps(fields, indent=2, default=str))
