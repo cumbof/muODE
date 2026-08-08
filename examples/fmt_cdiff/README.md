@@ -23,9 +23,9 @@ recorded in `tests/test_provenance.py`).
 
 > **This is a workstation study, not a `muode` CLI walkthrough.** The community is
 > five genome-scale LPs integrated over ~4 simulated days; a full run is ~30 min per
-> arm × 5 arms. The reconstruction step needs gapseq (not available on aarch64). The
-> scenario *logic* — readiness, per-member verification, the ablation arms — is
-> covered by `tests/test_fmt_scenario.py` and the fast subset runs anywhere.
+> arm × 5 arms. The reconstruction step needs gapseq. The scenario *logic* —
+> readiness, per-member verification, the ablation arms — is covered by
+> `tests/test_fmt_scenario.py` and the fast subset runs anywhere.
 
 ---
 

@@ -80,7 +80,8 @@ muODE. It reads a special tag in the MAG's first FASTA header
 licence.
 
 **Use case:** validate the Snakemake DAG and the whole pipeline logic on any
-machine, including aarch64 or a laptop, before scaling out on a cluster.
+machine — including a laptop with no bioinformatics stack — before scaling out
+on a cluster.
 
 ```bash
 snakemake --cores 4 --configfile config/config.demo.yaml
@@ -145,8 +146,8 @@ Before spending compute on reconstruction, low-quality MAG bins can be filtered
 out by CheckM2 completeness and contamination scores.
 
 CheckM2 is **always part of the pipeline** but is **off by default** (`run_checkm2:
-false`) because it requires a Diamond database and cannot run on every
-architecture (e.g. aarch64). Enable it on a capable machine:
+false`) because it requires a Diamond database and a bioinformatics stack that is
+not present in every environment. Enable it on a capable machine:
 
 ```yaml
 # config/config.yaml

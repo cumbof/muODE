@@ -3,7 +3,7 @@
 This is the one example that is **deliberately not science**. It exists to prove the
 *whole* Snakemake DAG — reconstruct → refine → QC → assemble → simulate → validate —
 executes end to end on **any** machine, including ones where CarveMe, gapseq and
-CheckM2 cannot run (aarch64, no solver licence, no bioinformatics stack).
+CheckM2 cannot run (no solver licence, no bioinformatics stack).
 
 `data/mags/` holds two toy MAGs, `fermenter.fna` and `consumer.fna`, tagged
 `[muode-stub:<role>]` in their FASTA headers. The dependency-free `stub`

@@ -43,8 +43,8 @@ snakemake --use-conda --cores 8 --configfile examples/phage_therapy/config.yaml
 python examples/phage_therapy/genome_scale.py --models examples/phage_therapy/results/refined
 ```
 
-> **Status: runs end to end on real GEMs; both mechanisms emerge.** Full genome-scale run
-> (2026-08-08, ts-02, 48 h; `genome_scale_result.json`) — final biomass, gDW/L:
+> **Status: runs end to end on real GEMs; both mechanisms emerge.** Over a 48 h
+> genome-scale simulation (`genome_scale_result.json`) — final biomass, gDW/L:
 >
 > ```
 >             K_pneumoniae   E_coli

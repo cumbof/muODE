@@ -85,7 +85,7 @@ for another's.
 ```bash
 # 0. build a sample sheet from your run directory (e.g. an SRA project download)
 python scripts/make_samplesheet.py \
-    /home/cumbof/isilon/cumbof/git/muODE-results/PRJNA426573 \
+    /path/to/reads/PRJNA426573 \
     > config/samples.tsv
 
 # 1. edit config/config.yaml: set the reference-DB paths for the tracks you want
@@ -315,9 +315,9 @@ wire them into muODE's `PhageInfection` ecology layer (host, burst size, etc.).
   GTDB placeholder names like `sp900066885` handled, unknown species rejected), and
   the download+unzip path driven against a **real NCBI genome archive**. The four
   accessions the resolver selected were confirmed to exist at NCBI.
-  **Not run here:** the heavy bioinformatics tools themselves, MetaPhlAn and the
-  `datasets` CLI included — they need the reference DBs and a capable x86_64 host
-  (the muODE dev box is aarch64). In particular the exact MetaPhlAn CLI flags and
-  the `*_SGB2GTDB.tsv` filename have **not** been executed against a real DB. Do a
-  `snakemake -n` dry run on your cluster first, then a single-sample real run
-  before launching the whole cohort.
+  **Not exercised in CI:** the heavy bioinformatics tools themselves, MetaPhlAn and
+  the `datasets` CLI included — they need the reference DBs and a full bioinformatics
+  stack. In particular the exact MetaPhlAn CLI flags and the `*_SGB2GTDB.tsv`
+  filename have **not** been executed against a real DB. Do a `snakemake -n` dry run
+  on your cluster first, then a single-sample real run before launching the whole
+  cohort.

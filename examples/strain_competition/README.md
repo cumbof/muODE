@@ -98,8 +98,8 @@ python examples/strain_competition/genome_scale.py \
 
 `genome_scale.py` runs the same three modes as the toy on the real GEMs, over the defined
 `defined_medium.csv` (glucose; the niche arm adds L-arabinose). It **reports what the GEMs
-actually do** rather than the toy's assigned outcome. Full run (2026-08-08, ts-02, 48 h;
-`genome_scale_result.json`) — final biomass, gDW/L:
+actually do** rather than the toy's assigned outcome. Over a 48 h simulation
+(`genome_scale_result.json`) — final biomass, gDW/L:
 
 ```
 mode                    specialist  colicin    niche

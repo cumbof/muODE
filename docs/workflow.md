@@ -31,7 +31,7 @@ snakemake --use-conda --cores 8 --configfile config/config.yaml
 # full pipeline with SLURM (edit profiles/slurm/config.yaml first):
 snakemake --use-conda --profile profiles/slurm --configfile config/config.yaml
 
-# local smoke-test — no CarveMe, no CheckM2, any architecture (aarch64 OK):
+# local smoke-test — no CarveMe, no CheckM2, no bioinformatics stack required:
 snakemake --cores 4 --configfile config/config.demo.yaml
 ```
 

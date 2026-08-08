@@ -112,10 +112,13 @@ scavenges).
 **The phage — no GEM.** Declare a `PhageInfection(host="K_pneumoniae", …)` layer with its
 adsorption rate, burst size and latent period (as in `mechanistic_demo.py`).
 
-> **Status.** The fungus route is done and verified locally; the two bacterial GEMs are
-> the only reconstruction step, and CarveMe growth on `mucosal_aerobic.csv` is verified
-> there (if a strain starves, `muode.qc`'s no-growth diagnosis names the missing nutrient
-> — supplement it in the methods).
+> **Status: runs end to end (toy and genome-scale).** All three GEMs are committed (the
+> two bacteria via CarveMe, the fungus via a harmonized Yeast8 model). Over a 48 h
+> genome-scale simulation (`genome_scale_result.json`) both cross-kingdom mechanisms
+> emerge: the phage crashes the Klebsiella pathobiont (0.507 → 0.000), and the fungus's
+> O₂ respiration keeps the lumen anoxic and protects the anaerobe (~1.25× — modest and
+> apt for *B. theta*'s aerotolerance). If a strain starves, `muode.qc`'s no-growth
+> diagnosis names the missing nutrient — supplement it in the methods.
 
 ## What is *not* modelled
 

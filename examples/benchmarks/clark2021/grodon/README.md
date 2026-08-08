@@ -4,7 +4,7 @@ Predicts each Clark strain's physiological maximum growth rate from its genome a
 (codon usage of ribosomal proteins) -- the data-free source for muODE's mu_max cap,
 so the Clark mechanism can transfer to scenarios without measured OD/composition.
 
-Pipeline (run on ts-02; genomes = data/clark2021/genomes/*.fna):
+Pipeline (genomes = data/clark2021/genomes/*.fna):
 1. `fetch_ref.py`         -- E. coli K-12 ribosomal proteins (UniProt) as the HE-gene reference.
 2. `annotate_ribosomal.py` -- pyrodigal gene-call + pyhmmer(phmmer) vs the reference ->
    tag ribosomal genes in each genome's CDS (~54/genome).
@@ -12,4 +12,5 @@ Pipeline (run on ts-02; genomes = data/clark2021/genomes/*.fna):
    minimal doubling time -> mu_max = ln(2)/d.
 
 Result: `../grodon_mumax.json` (median ~0.235/h; range 0.086-0.668).
-Envs: muode-run (pyrodigal, pyhmmer); grodon (r-base, bioconductor-cordon/biostrings, gRodon2).
+Dependencies: Python (pyrodigal, pyhmmer) for steps 1-2; R (r-base,
+bioconductor-cordon/biostrings, gRodon2) for step 3.

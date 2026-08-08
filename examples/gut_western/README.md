@@ -18,13 +18,13 @@ that network.
 > *F. prausnitzii*) carry a working `EX_cpd00211_e0` and secrete at ~10 mmol/gDW/h max.
 > muODE keeps both engines (`config engine: carveme | gapseq`); this example needs gapseq.
 
-> **Status: all 12 GEMs reconstructed; runs end to end and PASSES.** gapseq does not run
-> on aarch64 (~30–90 min per genome), so the models were built on a workstation; all 12
-> `*.xml.gz` are committed under `gems/`. First full run (2026-08-08, ts-02, 48 h):
-> relative-abundance MAE **0.087** (≤0.15) and metabolite MAE **0.962** (≤5.0) both pass,
-> and the gapseq-only payload is confirmed — **butyrate 0.17 mM** is produced from an
-> acetate cross-feeding chain. See `gut_western_result.json` and the reconciled
-> `benchmark.yaml`. Honest divergences (documented, not hidden): B. theta over-dominates
+> **Status: all 12 GEMs reconstructed; runs end to end and PASSES.** gapseq reconstruction
+> is compute-heavy (~30–90 min per genome), so the models are built on a workstation; all
+> 12 `*.xml.gz` are committed under `gems/`. Over a 48 h simulation, relative-abundance MAE
+> **0.087** (≤0.15) and metabolite MAE **0.962** (≤5.0) both pass, and the gapseq-only
+> payload is confirmed — **butyrate 0.17 mM** is produced from an acetate cross-feeding
+> chain. See `gut_western_result.json` and the reconciled `benchmark.yaml`. Honest
+> divergences (documented, not hidden): B. theta over-dominates
 > (food-replete runaway) and R. intestinalis fills E. rectale's butyrate-producer niche
 > (functional redundancy — butyrate is made anyway); the R. bromii keystone removal shows
 > **no** secondary-extinction cascade (the carbon/acetate supply is redundant), an honest
@@ -40,24 +40,24 @@ The 12 species cover the dominant phyla and metabolic guilds of the human gut. T
 relative abundances (`abundance.tsv`) reflect the published western-gut pattern:
 Bacteroides dominance, reduced butyrate producers, low Akkermansia and Prevotella.
 
-| MAG ID | Organism | Guild | Secretes | Abund. | GEM |
-|--------|----------|-------|----------|-------:|-----|
-| `B_thetaiotaomicron_VPI5482` | *B. thetaiotaomicron* VPI-5482 | primary carbohydrate degrader (PULs) | acetate + succinate | 0.22 | **ready** |
-| `B_fragilis_NCTC9343` | *B. fragilis* NCTC 9343 | capsular polysaccharide | propionate + acetate | 0.13 | pending |
-| `E_rectale_ATCC33656` | *E. rectale* ATCC 33656 | **butyrate producer** (acetyl-CoA) | butyrate | 0.12 | pending |
-| `R_intestinalis_L182` | *R. intestinalis* L1-82 | **butyrate producer**; cross-feeds succinate | butyrate | 0.09 | **ready** |
-| `Bl_obeum_A2162` | *Blautia obeum* A2-162 | H₂-consuming acetogen | acetate | 0.08 | pending |
-| `F_prausnitzii_A2165` | *F. prausnitzii* A2-165 | **butyrate producer**; gut-health marker | butyrate | 0.08 | **ready** |
-| `R_bromii_L263` | *R. bromii* L2-63 | **keystone** resistant-starch degrader | glucose/maltose | 0.07 | pending |
-| `B_longum_NCC2705` | *B. longum* NCC2705 | oligosaccharide fermenter | acetate + lactate | 0.07 | pending |
-| `P_copri_DSM18205` | *P. copri* DSM 18205 | plant-polysaccharide degrader | — | 0.04 | pending |
-| `A_muciniphila_BAA835` | *A. muciniphila* BAA-835 | mucin degrader | propionate + acetate | 0.04 | pending |
-| `L_acidophilus_NCFM` | *L. acidophilus* NCFM | lactate from simple sugars | lactate | 0.03 | pending |
-| `C_comes_ATCC27758` | *C. comes* ATCC 27758 | **butyrate producer** (lactate → butyrate) | butyrate | 0.03 | pending |
+| MAG ID | Organism | Guild | Secretes | Abund. |
+|--------|----------|-------|----------|-------:|
+| `B_thetaiotaomicron_VPI5482` | *B. thetaiotaomicron* VPI-5482 | primary carbohydrate degrader (PULs) | acetate + succinate | 0.22 |
+| `B_fragilis_NCTC9343` | *B. fragilis* NCTC 9343 | capsular polysaccharide | propionate + acetate | 0.13 |
+| `E_rectale_ATCC33656` | *E. rectale* ATCC 33656 | **butyrate producer** (acetyl-CoA) | butyrate | 0.12 |
+| `R_intestinalis_L182` | *R. intestinalis* L1-82 | **butyrate producer**; cross-feeds succinate | butyrate | 0.09 |
+| `Bl_obeum_A2162` | *Blautia obeum* A2-162 | H₂-consuming acetogen | acetate | 0.08 |
+| `F_prausnitzii_A2165` | *F. prausnitzii* A2-165 | **butyrate producer**; gut-health marker | butyrate | 0.08 |
+| `R_bromii_L263` | *R. bromii* L2-63 | **keystone** resistant-starch degrader | glucose/maltose | 0.07 |
+| `B_longum_NCC2705` | *B. longum* NCC2705 | oligosaccharide fermenter | acetate + lactate | 0.07 |
+| `P_copri_DSM18205` | *P. copri* DSM 18205 | plant-polysaccharide degrader | — | 0.04 |
+| `A_muciniphila_BAA835` | *A. muciniphila* BAA-835 | mucin degrader | propionate + acetate | 0.04 |
+| `L_acidophilus_NCFM` | *L. acidophilus* NCFM | lactate from simple sugars | lactate | 0.03 |
+| `C_comes_ATCC27758` | *C. comes* ATCC 27758 | **butyrate producer** (lactate → butyrate) | butyrate | 0.03 |
 
-Four butyrate producers (E. rectale, R. intestinalis, F. prausnitzii, C. comes); two of
-them are reconstructed and verified to export butyrate. See
-[`gems/PROVENANCE.md`](gems/PROVENANCE.md) for accessions, sha256 and the gapseq version.
+Four butyrate producers (E. rectale, R. intestinalis, F. prausnitzii, C. comes), each with
+a working butyrate export reaction. See [`gems/PROVENANCE.md`](gems/PROVENANCE.md) for
+accessions, sha256 and the gapseq version.
 
 ### Cross-feeding network (expected, ModelSEED ids)
 
@@ -107,9 +107,10 @@ conda activate muode                      # muODE itself (+ cobra)
 
 ---
 
-## Step 1 — reconstruct the GEMs (workstation, gapseq)
+## Step 1 — reconstruct the GEMs (gapseq)
 
-The three ready models are committed under `gems/`. Build the other nine:
+All 12 models are committed under `gems/`, so this step is optional. To rebuild them from
+the genomes yourself:
 
 ```bash
 bash examples/gut_western/gems/reconstruct_gapseq.sh   # ~30–90 min per genome × 9
@@ -164,7 +165,7 @@ muode simulate \
 Outputs: `biomass.csv`, `metabolites.csv`, `cross_feeding.csv`, `meta.json`, and the
 matching PNGs.
 
-### What to look for (expected mechanisms — not yet a measured run)
+### What to look for
 
 - **Composition:** *B. thetaiotaomicron* and *B. fragilis* dominant (Bacteroides tilt of
   a western diet); butyrate producers bloom after a lag, once primary fermenters have
@@ -192,16 +193,16 @@ muode validate \
 ```
 
 Checks Bacteroides dominance, the acetate/glucose dynamics, and at least one expected
-cross-feeding edge. **The targets in `benchmark.yaml` are a qualitative spec pending a
-real run** — refresh them against `results/` once all 12 GEMs are built.
+cross-feeding edge. `benchmark.yaml` is reconciled against the full run and passes
+(abundance MAE 0.087, metabolite MAE 0.962, cross-feeding recall 1.0); its header
+documents the divergences.
 
 ---
 
 ## Step 6 — perturbation: keystone-species removal
 
 *R. bromii* is a keystone resistant-starch degrader: it breaks starch into
-oligosaccharides other species depend on. (It is one of the 9 pending GEMs, so this
-needs the workstation reconstruction first.)
+oligosaccharides other species depend on.
 
 ```bash
 muode perturb \
@@ -233,7 +234,7 @@ the perturbation arm by uncommenting the `perturbation:` block in `config.yaml`.
 
 ## Reproducing / auditing
 
-- **GEM provenance** (accessions, gapseq version, sha256, which are ready vs pending):
+- **GEM provenance** (accessions, gapseq version, sha256):
   [`gems/PROVENANCE.md`](gems/PROVENANCE.md).
 - **The honest caveats** (what dynamic FBA and this community cannot represent):
   [LIMITATIONS.md](../../docs/LIMITATIONS.md). Every output is a mechanistic hypothesis,
