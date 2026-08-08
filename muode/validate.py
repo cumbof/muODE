@@ -14,7 +14,9 @@ Metrics
 * **Metabolites** -- mean absolute error (mmol/L) and Spearman correlation over
   the expected metabolites (e.g. acetate/butyrate/propionate).
 * **Cross-feeding** -- precision / recall / F1 of the predicted producer→
-  metabolite→consumer edges against the expected ones.
+  metabolite→consumer edges against the expected ones. Pass/fail is on RECALL:
+  the expected list is a curated, non-exhaustive subset of known edges, so a model
+  that predicts additional real edges is not penalised on precision.
 
 Only the components an expectation actually specifies are scored and gated.
 """
@@ -40,20 +42,28 @@ class BenchmarkExpectation:
     #: tolerances (component is "passed" at or below/above these)
     abundance_mae: float = 0.1        # max mean abs error of relative abundance
     metabolite_mae: float = 5.0       # max mean abs error (mmol/L)
-    min_f1: float = 0.5               # min cross-feeding edge F1
+    #: min cross-feeding RECALL of the (curated, non-exhaustive) expected edges. The
+    #: expected list is a hand-picked subset of known edges, not ground truth, so a model
+    #: that predicts many *more* real edges must not be penalised on precision -- the
+    #: pass criterion is recall ("were the expected edges detected"). ``min_f1`` is kept
+    #: as a back-compat alias supplying this threshold when ``min_recall`` is absent.
+    min_recall: float = 0.5
+    min_f1: float = 0.5
     name: str = "benchmark"
 
     @classmethod
     def from_dict(cls, data: dict) -> "BenchmarkExpectation":
         edges = [tuple(e) for e in data.get("cross_feeding", [])]
         tol = data.get("tolerances", {})
+        min_f1 = float(tol.get("min_f1", 0.5))
         return cls(
             relative_abundances={str(k): float(v) for k, v in data.get("relative_abundances", {}).items()},
             metabolites={str(k): float(v) for k, v in data.get("metabolites", {}).items()},
             cross_feeding=edges,  # type: ignore[arg-type]
             abundance_mae=float(tol.get("abundance_mae", 0.1)),
             metabolite_mae=float(tol.get("metabolite_mae", 5.0)),
-            min_f1=float(tol.get("min_f1", 0.5)),
+            min_recall=float(tol.get("min_recall", min_f1)),  # min_f1 = back-compat alias
+            min_f1=min_f1,
             name=str(data.get("name", "benchmark")),
         )
 
@@ -158,8 +168,11 @@ def compare(
     if expectation.cross_feeding:
         scores = _edge_scores({tuple(e) for e in predicted_edges},
                               {tuple(e) for e in expectation.cross_feeding})
-        ok = scores["f1"] >= expectation.min_f1
-        scores.update({"tolerance": expectation.min_f1, "passed": ok})
+        # Pass on RECALL of the curated expected edges, not F1: the expected list is a
+        # non-exhaustive subset, so extra predicted edges are not false positives.
+        ok = scores["recall"] >= expectation.min_recall
+        scores.update({"criterion": "recall", "tolerance": expectation.min_recall,
+                       "passed": ok})
         metrics["cross_feeding"] = scores
         passed = passed and ok
 
