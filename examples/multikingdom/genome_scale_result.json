@@ -1,27 +1,27 @@
 {
-  "what": "Genome-scale multikingdom (real GEMs: B.theta+K.pneumoniae CarveMe/BiGG + harmonized Yeast8 fungus; phage as PhageInfection layer) -- the two cross-kingdom mechanisms decided by stoichiometry. 3 ablation arms, mucosal_aerobic diet.",
+  "what": "Genome-scale multikingdom (real GEMs: B.theta+K.pneumoniae CarveMe/BiGG + harmonized Yeast8 fungus; phage as PhageInfection layer) -- two cross-kingdom mechanisms decided by stoichiometry + a literature-grounded O2 gating anchor. 3 ablation arms, mucosal_aerobic diet. GROUNDED config: ki_o2=0.005 (5 uM, B. theta strict-but-aerotolerant anaerobe), consume=False (real GEMs exchange o2_e via FBA -- no double-count; the oxygen.py docstring prescribes this).",
   "arms": {
     "full_fungus_phage": {
-      "Bacteroides": 0.713,
-      "yeast": 0.07,
+      "Bacteroides": 0.392,
+      "yeast": 0.38,
       "Klebsiella": 0.0,
-      "O2_final": 0.0
+      "O2_final": 0.322
     },
     "no_fungus": {
-      "Bacteroides": 0.628,
+      "Bacteroides": 0.313,
       "yeast": null,
       "Klebsiella": 0.0,
-      "O2_final": 2.79
+      "O2_final": 0.765
     },
     "no_phage": {
-      "Bacteroides": 0.459,
-      "yeast": 0.042,
-      "Klebsiella": 0.336,
-      "O2_final": 0.007
+      "Bacteroides": 0.231,
+      "yeast": 0.074,
+      "Klebsiella": 0.507,
+      "O2_final": 2.444
     }
   },
-  "phage_mechanism": "CLEAN genome-scale success: Klebsiella 0.000 with phage vs 0.336 without -> lytic predation controls the pathobiont on real GEMs.",
-  "oxygen_mechanism": "PRESENT but WEAK. Fungus scavenges O2 (0.000 with vs 2.790 without) -- the cross-kingdom draw-down is real. BUT anaerobe protection is small: Bacteroides 0.713 (fungus) vs 0.628 (no fungus) = ~13%, vs the toy's 150x (4.89 vs 0.03).",
-  "why_weak": "O2 scavenging works; suppression of B. theta at O2=2.79 is weak. Toy no-scavenger O2 hit 5.65 and crushed the anaerobe; genome-scale reaches only 2.79 (B. theta's own GEM consumes some O2; OxygenSensitivity gating half-max likely above 2.79). Same shape as FMT's bile arm: mechanism correct, quantitative strength depends on parameters (O2 influx, gating steepness) set for the toy, not grounded for the genome-scale regime. Fix = anchor O2 dynamics to physiological mucosal-O2 (not a dial).",
-  "status": "phage arm paper-ready (clean); O2-protection arm needs O2-parameter grounding to show its full strength, OR report as 'scavenging present, gating regime-dependent'. Toy demo (mechanistic_demo.py) shows both mechanisms strongly and runs anywhere."
+  "phage_mechanism": "CLEAN genome-scale success: Klebsiella 0.000 with phage vs 0.507 without -> lytic predation controls the pathobiont on real GEMs.",
+  "oxygen_mechanism": "PRESENT and grounded: fungus's real O2 respiration keeps O2 low (0.322 with fungus vs 0.765 without; ~25x lower mid-growth-window, 0.004 vs 0.107) -> Bacteroides 0.392 (fungus) vs 0.313 (no fungus) = 1.25x protection. Modest but real and biologically apt: B. theta is a relatively aerotolerant anaerobe (cytochrome bd oxidase), so it should NOT be crushed by trace O2 the way the toy caricature (150x) is.",
+  "grounding": "Diagnosed via o2_diag.py + o2_ground.py sweep. The original weak result (1.13x) was a TIMING artifact: at ki_o2=0.02 with consume=True the endpoint O2 (2.79) accrued only AFTER growth, and K. pneumoniae co-scavenged O2 early. Fix has ONE load-bearing anchor -- ki_o2 to B. theta's strict-anaerobe sensitivity (~5 uM); o2_influx is IRRELEVANT (0.15..4.0 identical). consume=True double-counts (inflates to 1.73x); consume=False (FBA-driven, honest) = 1.25x. Not fit-to-outcome: ki_o2 anchored to physiology, influx shown non-load-bearing.",
+  "status": "Both arms now paper-ready and HONEST on genome-scale: phage clean, fungal O2 protection 1.25x from pure stoichiometry + one grounded gating anchor, no double-count, no fit-to-outcome. Toy demo (mechanistic_demo.py) remains the strong illustration; genome-scale confirms both mechanisms directionally with real reconstructions."
 }

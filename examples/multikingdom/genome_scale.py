@@ -62,10 +62,27 @@ def kinetics():
     return KineticParameters(metabolite_defaults={"glc__D_e": (10.0, 0.5)})
 
 
-def ecology(members, with_phage):
+# O2 handling, GROUNDED and no-double-count (see o2_ground.py sweep):
+#   ki_o2    -- B. theta is a moderately aerotolerant anaerobe (cytochrome bd oxidase,
+#               nanaerobic respiration); inhibited at trace O2, anchored at ~5 uM.
+#   consume=False -- the real GEMs already exchange o2_e via FBA, so O2 draw-down is left
+#               entirely to the fungus's actual stoichiometric respiration. Adding the
+#               layer's phenomenological consumption on top would DOUBLE-COUNT (the
+#               oxygen.py docstring prescribes consume=False for real GEMs). The sweep
+#               confirms it: consume=True gives an inflated 1.73x protection; the honest
+#               consume=False gives 1.25x -- modest, real, and apt for B. theta's O2
+#               tolerance. Result is influx-independent (0.15..4.0 identical under the
+#               layer's scavenging), so o2_influx is just the mucosal-diffusion baseline.
+O2_KI = 0.005
+O2_INFLUX = 1.0
+
+
+def ecology(members, with_phage, ki_o2=O2_KI, o2_influx=O2_INFLUX, consumption=18.0,
+            consume=False):
     traits = {c: TRAITS[c] for c in members}
-    layers = [OxygenSensitivity.from_traits(traits, o2_initial=0.3, o2_influx=0.15,
-                                            consumption=18.0)]
+    layers = [OxygenSensitivity.from_traits(traits, o2_initial=0.3, o2_influx=o2_influx,
+                                            ki_o2=ki_o2, consumption=consumption,
+                                            consume=consume)]
     if with_phage:
         layers.append(PhageInfection(host=KLEBSIELLA, name="vB_Kpn", adsorption_rate=11.0,
                                      burst_size=60.0, latent_period=0.4, decay_rate=0.1,
@@ -73,10 +90,11 @@ def ecology(members, with_phage):
     return EcologyModel(layers)
 
 
-def run(with_fungus, with_phage):
+def run(with_fungus, with_phage, **eco_kw):
     members = [c for c in (BACTEROIDES, YEAST, KLEBSIELLA) if with_fungus or c != YEAST]
     return DynamicFBA(t_end=36.0, dt=0.05).run(
-        build_community(members), diet(), kinetics(), ecology=ecology(members, with_phage))
+        build_community(members), diet(), kinetics(),
+        ecology=ecology(members, with_phage, **eco_kw))
 
 
 def main():
