@@ -328,6 +328,7 @@ def simulate(
     death_rate: float = typer.Option(0.0, help="First-order biomass death (1/h)."),
     dilution_rate: float = typer.Option(0.0, help="Chemostat dilution D (1/h)."),
     jobs: int = typer.Option(1, "--jobs", "-j", help="Worker threads for the per-step FBA solves (1=sequential, -1=all cores). Identical results; speeds up genome-scale runs."),
+    solver: str = typer.Option("glpk", "--solver", help="LP solver for the per-step FBA: 'glpk' (default) or 'scipy' (HiGHS). GLPK holds the GIL, so --jobs gives no speedup with it; 'scipy' releases the GIL AND is faster per solve, so --jobs actually parallelises -- use it for large (many-member) communities."),
     total_biomass: float = typer.Option(0.01, help="Total community biomass (gDW/L)."),
     default_vmax: float = typer.Option(10.0, help="Default Vmax (mmol/gDW/h)."),
     default_km: float = typer.Option(0.01, help="Default Km (mmol/L)."),
@@ -342,6 +343,18 @@ def simulate(
     from muode.community import Community
     from muode.dfba import DynamicFBA
     from muode.io_utils import read_abundance
+
+    # Set the LP solver BEFORE any model is loaded, so every model picks it up as its
+    # default. GLPK holds the GIL (thread pool gives no speedup); 'scipy' (HiGHS) releases
+    # it and is faster per solve -- the difference between a tractable and an intractable
+    # many-member community run. Fail clearly if the requested solver is unavailable.
+    import cobra as _cobra
+    try:
+        _cobra.Configuration().solver = solver
+    except Exception as exc:  # pragma: no cover - depends on installed solvers
+        raise typer.BadParameter(f"solver '{solver}' unavailable: {exc}")
+    if solver != "glpk":
+        console.print(f"[green]Per-step FBA solver: {solver}.[/green]")
 
     base_injections: list = []
     if community:
