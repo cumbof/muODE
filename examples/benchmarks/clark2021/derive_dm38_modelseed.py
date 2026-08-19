@@ -84,7 +84,7 @@ def main() -> int:
                     help=f"output CSV (default: {DEFAULT_OUT})")
     args = ap.parse_args()
 
-    from muode.benchmarks import clark2021 as ck
+    import clark2021 as ck
     from muode.diet import _dm38
     from muode.media import (
         build_bigg_to_modelseed,

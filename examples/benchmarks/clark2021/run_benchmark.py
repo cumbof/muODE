@@ -35,7 +35,7 @@ which is the entire diagnostic value of the dataset.
 Honesty rails built in
 ----------------------
 * Metabolites are scored as **net production** against the DM38 baseline, because
-  the medium already contains 28.3 mM lactate (see `muode.benchmarks.clark2021`).
+  the medium already contains 28.3 mM lactate (see the clark2021 harness (examples/benchmarks/clark2021/clark2021.py)).
 * Strains that did not grow in DM38 in vitro (FP) are excluded from tier 1 *by
   name*, and the exclusion is printed in the report rather than applied quietly.
 * Communities whose members have no GEM are skipped and **counted**, so a
@@ -48,7 +48,7 @@ import argparse
 import json
 from pathlib import Path
 
-from muode.benchmarks import clark2021 as ck
+import clark2021 as ck
 from muode.community import Community
 from muode.dfba import DynamicFBA
 from muode.kinetics import KineticParameters

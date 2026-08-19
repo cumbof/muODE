@@ -114,7 +114,7 @@ def _biomass(model, diet, kin):
 def main() -> int:
     import warnings
     warnings.filterwarnings("ignore")
-    from muode.benchmarks import clark2021 as ck
+    import clark2021 as ck
     from muode.kinetics import KineticParameters
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

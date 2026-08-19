@@ -243,7 +243,7 @@ def _dm38() -> Diet:
     composition, and it is the medium in which 1,850 synthetic gut communities
     were actually measured.  It is therefore the medium to use whenever the point
     is to compare a prediction against those measurements
-    (:mod:`muode.benchmarks.clark2021`).
+    (the clark2021 benchmark harness at examples/benchmarks/clark2021/clark2021.py).
 
     Anaerobic batch culture: no oxygen, and no influx of anything.  Note that it
     supplies 28.3 mM L-lactate, so lactate is a substrate here as well as a

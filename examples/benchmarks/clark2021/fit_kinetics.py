@@ -53,7 +53,7 @@ import json
 import warnings
 from pathlib import Path
 
-from muode.benchmarks import clark2021 as ck
+import clark2021 as ck
 from muode.calibrate import fit_vmax
 from muode.community import Community
 from muode.dfba import DynamicFBA

@@ -28,7 +28,7 @@ import cobra
 warnings.filterwarnings("ignore")
 logging.disable(logging.CRITICAL)
 
-from muode.benchmarks import clark2021 as ck                       # noqa: E402
+import clark2021 as ck                       # noqa: E402
 
 UNDERGROWERS = ["BL", "BA", "BH", "DF", "CH", "DP"]
 UPTAKE = 10.0     # uniform uptake bound for the diagnostic (mmol/gDW/h)

@@ -131,7 +131,7 @@ MISLABELLED_AS_FOOD = (
 #:    dietary flux would start the vessel at 48 mM acetate -- roughly the colonic
 #:    steady-state concentration the community is supposed to *produce*.  Scoring
 #:    SCFA output against a medium that already contains the SCFAs is the same trap
-#:    as lactate in DM38 (see muode/benchmarks/clark2021.py): a model that predicts
+#:    as lactate in DM38 (see examples/benchmarks/clark2021/clark2021.py): a model that predicts
 #:    nothing happens would look accurate.
 #: 2. **Cross-feeding must not be throttled by dietary availability.**  A butyrate
 #:    producer eats acetate made by *another species*, not acetate from food.

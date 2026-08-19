@@ -11,13 +11,16 @@ exercised.  They guard the things that would quietly corrupt the benchmark:
 * penalising a model for not growing a strain that did not grow in vitro either.
 """
 
+import sys
 from pathlib import Path
 
 import pytest
 
 pytest.importorskip("pandas")
 
-from muode.benchmarks import clark2021 as ck  # noqa: E402
+# the clark2021 harness lives with its benchmark scripts (not shipped in the package)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "benchmarks" / "clark2021"))
+import clark2021 as ck  # noqa: E402
 
 DATA = Path(__file__).parent / "data" / "clark2021_excerpt.csv"
 

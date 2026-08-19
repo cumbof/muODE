@@ -35,7 +35,7 @@ import logging
 logging.disable(logging.CRITICAL)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from muode.benchmarks import clark2021 as ck                # noqa: E402
+import clark2021 as ck                # noqa: E402
 from muode.community import Community                        # noqa: E402
 from muode.dfba import DynamicFBA                            # noqa: E402
 from muode.enzyme import _is_internal, apply_protein_pool_constraint  # noqa: E402

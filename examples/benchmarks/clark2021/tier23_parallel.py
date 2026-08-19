@@ -30,7 +30,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from muode.benchmarks import clark2021 as ck            # noqa: E402
+import clark2021 as ck            # noqa: E402
 from muode.kinetics import KineticParameters             # noqa: E402
 from run_benchmark import T_END, load_models, simulate   # noqa: E402
 

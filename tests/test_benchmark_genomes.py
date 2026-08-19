@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "bench
 
 from fetch_genomes import _norm, strains_match  # noqa: E402
 
-from muode.benchmarks.clark2021 import STRAINS  # noqa: E402
+from clark2021 import STRAINS  # noqa: E402
 
 
 def test_strain_designations_normalise_across_punctuation():

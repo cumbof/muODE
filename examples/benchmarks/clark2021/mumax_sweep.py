@@ -31,7 +31,7 @@ import logging
 logging.disable(logging.CRITICAL)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from muode.benchmarks import clark2021 as ck                # noqa: E402
+import clark2021 as ck                # noqa: E402
 import hybrid_gate as HG                                    # noqa: E402
 
 OUT = Path("results/clark2021/benchmark")

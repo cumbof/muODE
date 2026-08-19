@@ -41,7 +41,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from muode.benchmarks.clark2021 import STRAINS
+from clark2021 import STRAINS
 
 API = "https://api.ncbi.nlm.nih.gov/datasets/v2alpha"
 

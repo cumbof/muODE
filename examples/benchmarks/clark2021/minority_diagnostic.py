@@ -31,7 +31,7 @@ from pathlib import Path
 
 import numpy as np
 
-from muode.benchmarks import clark2021 as ck
+import clark2021 as ck
 
 OUT = Path("results/clark2021/benchmark")
 
