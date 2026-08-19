@@ -31,7 +31,6 @@ import json
 import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Mapping
 
@@ -39,10 +38,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from muode.benchmarks import clark2021 as ck              # noqa: E402
 from muode.community import Community                      # noqa: E402
 from muode.dfba import DynamicFBA                          # noqa: E402
-from muode.ecology import EcologyLayer, EcologyModel       # noqa: E402
+from muode.ecology import EcologyModel                    # noqa: E402
 from muode.kinetics import KineticParameters              # noqa: E402
 from muode.organism import CobraOrganism                  # noqa: E402
 from muode.ph import WeakAcidInhibition                    # noqa: E402
+from muode.secretion import GrowthCoupledSecretion        # noqa: E402
 from run_benchmark import T_END, load_models              # noqa: E402
 
 DT = 0.1
@@ -69,38 +69,6 @@ ACID_TOLERANCE = {
     "CG": KI_INTERMEDIATE, "CH": KI_INTERMEDIATE, "EL": KI_INTERMEDIATE,
     "HB": KI_INTERMEDIATE,
 }
-
-
-@dataclass
-class GrowthCoupledAcid(EcologyLayer):
-    """Produce each species' acids in proportion to its growth increment.
-
-    ``yields[species][acid]`` = mM acid per unit biomass, calibrated so a
-    monoculture reaches its measured endpoint acid. Tracks per-species biomass
-    between steps and releases yield * dX each step (a controlled stand-in for
-    the fermentation the FBA fails to route to secretion).
-    """
-
-    name: str = "growth_coupled_acid"
-    yields: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    dt: float = DT
-    _last: Dict[str, float] = field(default_factory=dict)
-
-    def reset(self, community) -> None:
-        self._last = {o.id: 0.0 for o in community.organisms}
-
-    def metabolite_rates(self, t, M, X) -> Dict[str, float]:
-        rates: Dict[str, float] = {}
-        for sp, y in self.yields.items():
-            if sp not in X:
-                continue
-            dX = X[sp] - self._last.get(sp, 0.0)
-            self._last[sp] = X[sp]
-            if dX <= 0:
-                continue
-            for acid, k in y.items():
-                rates[acid] = rates.get(acid, 0.0) + k * dX / self.dt   # *dt in engine
-        return rates
 
 
 def measured_yields(namespace: str, mono_biomass: Mapping[str, float]):
@@ -144,7 +112,7 @@ def _ecology(codes):
         acid_layer = WeakAcidInhibition(ki=ki)
     else:
         acid_layer = WeakAcidInhibition()
-    return EcologyModel([GrowthCoupledAcid(yields=y, dt=DT), acid_layer])
+    return EcologyModel([GrowthCoupledSecretion(yields=y, dt=DT), acid_layer])
 
 
 def sim_biomass_ph(codes):

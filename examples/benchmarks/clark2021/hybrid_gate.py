@@ -34,48 +34,12 @@ from muode.benchmarks import clark2021 as ck                # noqa: E402
 from muode.community import Community                        # noqa: E402
 from muode.dfba import DynamicFBA                            # noqa: E402
 from muode.kinetics import KineticParameters                # noqa: E402
-from muode.organism import CobraOrganism, OrganismSolution  # noqa: E402
+from muode.organism import CobraOrganism, MuMaxCapped  # noqa: E402
 from run_benchmark import T_END                             # noqa: E402
 from yield_calibrate import _maint_rxn, score_gate, measured_od, default_workers  # noqa: E402
 
 BACT_GENERA = ("Prevotella", "Parabacteroides", "Phocaeicola", "Bacteroides")
 _G: dict = {}
-
-
-class MuMaxCapped:
-    """Wraps an organism to impose a physiological max growth-rate ceiling POST-solve.
-
-    Capping the biomass reaction's upper bound (the obvious way) makes the LP
-    degenerate at the cap -- GLPK cycles among the alternate optima and each step
-    can hit the wall-clock timeout, so a single pair dFBA blew out to ~8 min. This
-    instead solves the LP UNCAPPED (one clean, non-degenerate solve) and, when the
-    growth rate exceeds mu_max, scales the growth rate AND every exchange flux by
-    mu_max/growth. Fluxes scale ~linearly with growth in the growth-limited regime,
-    so this keeps uptake substrate-consistent (a capped grower takes up less) while
-    slowing the winner's substrate capture exactly as the biomass-ub cap did --
-    without the degeneracy. Delegates every other organism method to the inner one.
-    """
-
-    def __init__(self, inner, mumax: float):
-        self._inner = inner
-        self._mumax = float(mumax)
-        self.id = inner.id
-
-    def optimize(self) -> OrganismSolution:
-        sol = self._inner.optimize()
-        g = sol.growth_rate
-        if sol.feasible and g > self._mumax > 0.0:
-            s = self._mumax / g
-            return OrganismSolution(self._mumax,
-                                    {m: v * s for m, v in sol.exchange_fluxes.items()},
-                                    sol.status)
-        return sol
-
-    def copy(self) -> "MuMaxCapped":
-        return MuMaxCapped(self._inner.copy(), self._mumax)
-
-    def __getattr__(self, name):           # delegate reset_bounds/set_uptake_bound/etc.
-        return getattr(self._inner, name)
 
 
 def _init(paths, atpm, capacity=None, mumax=None, lp_timeout=None, pfba=False, mumax_map=None):
