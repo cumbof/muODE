@@ -361,3 +361,52 @@ class CobraOrganism:
         growth = sum(float(sol.fluxes.get(rid, 0.0)) * c for rid, c in self._obj)
         ex = {met: float(sol.fluxes.get(rxn, 0.0)) for met, rxn in self._exchanges.items()}
         return OrganismSolution(float(growth), ex, "optimal")
+
+
+class MuMaxCapped:
+    """Wrap an :class:`OrganismModel` to impose a max growth-rate ceiling POST-solve.
+
+    A physiological maximum growth rate (``mumax``, 1/h) keeps a fast grower from
+    running away and monopolising the shared substrate pool -- the structural cause of
+    the winner-take-all behaviour dynamic community FBA otherwise shows.
+
+    Capping the biomass reaction's upper bound (the obvious way) makes the LP
+    *degenerate* at the cap: the solver cycles among the alternate optima on the
+    capped face, which is slow and can hit a per-solve wall-clock ceiling.  This
+    wrapper instead solves the LP **uncapped** (one clean, non-degenerate solve) and,
+    when the growth rate exceeds ``mumax``, scales the growth rate **and every exchange
+    flux** by ``mumax / growth``.  Fluxes scale ~linearly with growth in the
+    growth-limited regime, so a capped grower correspondingly takes up less substrate --
+    the same substrate-throttling a biomass-ub cap gives, without the degeneracy.
+
+    Unlike :mod:`muode.enzyme` (a kcat-based proteome cap), this needs no kcat data, so
+    it works on any GEM -- including ModelSEED/gapseq reconstructions that carry none.
+
+    Every other method (``exchange_metabolites``, ``set_uptake_bound``, ``reset_bounds``,
+    ...) delegates to the wrapped organism.  ``mumax <= 0`` disables the cap.
+    """
+
+    def __init__(self, inner: "OrganismModel", mumax: float) -> None:
+        self._inner = inner
+        self._mumax = float(mumax)
+        self.id = inner.id
+
+    def optimize(self) -> OrganismSolution:
+        sol = self._inner.optimize()
+        g = sol.growth_rate
+        if sol.feasible and g > self._mumax > 0.0:
+            s = self._mumax / g
+            return OrganismSolution(
+                self._mumax,
+                {m: v * s for m, v in sol.exchange_fluxes.items()},
+                sol.status,
+            )
+        return sol
+
+    def copy(self) -> "MuMaxCapped":
+        return MuMaxCapped(self._inner.copy(), self._mumax)
+
+    def __getattr__(self, name):
+        # only reached for attributes not set on the wrapper -> delegate to the inner
+        # organism (reset_bounds, set_uptake_bound, exchange_metabolites, reaction_ids, ...)
+        return getattr(self._inner, name)

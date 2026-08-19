@@ -28,8 +28,9 @@ from muode.lifecycle import SporeForming
 from muode.oxygen import OxygenSensitivity
 from muode.ph import WeakAcidInhibition
 from muode.phage import PhageInfection
-from muode.organism import LinprogOrganism, OrganismModel, OrganismSolution
+from muode.organism import LinprogOrganism, MuMaxCapped, OrganismModel, OrganismSolution
 from muode.perturb import Perturbation
+from muode.secretion import GrowthCoupledSecretion
 from muode.traits import Domain, MicrobeTraits, OxygenTolerance, reconstruction_route
 from muode.predict import HeuristicPredictor, refine_kinetics
 from muode.spatial import SpatialDynamicFBA, SpatialResult
@@ -65,8 +66,10 @@ __all__ = [
     "OxygenTolerance",
     "reconstruction_route",
     "LinprogOrganism",
+    "MuMaxCapped",
     "OrganismModel",
     "OrganismSolution",
+    "GrowthCoupledSecretion",
     "Perturbation",
     "HeuristicPredictor",
     "refine_kinetics",
