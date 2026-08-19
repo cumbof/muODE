@@ -336,7 +336,7 @@ def cdi_diet(diet: Optional[Diet] = None,
                 source=dict(base.source), name="modelseed_western_gut+bile")
 
 
-def cdi_ecology(ablate: str = "", vmax_bai=None):
+def cdi_ecology(ablate: str = "", vmax_bai=None, vmax_bsh=None):
     """The mechanistic stack.  ``ablate`` selects which arms are present.
 
     There are two kinds of number here, and the distinction is the point.
@@ -385,7 +385,11 @@ def cdi_ecology(ablate: str = "", vmax_bai=None):
     if "bile" not in ablate:
         # vmax_bai default (1.0) is a library INVENTED param; an override lets us anchor
         # it to the measured in-vivo deoxycholate concentration rather than assert it.
-        bat_kw = {} if vmax_bai is None else {"vmax_bai": float(vmax_bai)}
+        bat_kw = {}
+        if vmax_bai is not None:
+            bat_kw["vmax_bai"] = float(vmax_bai)
+        if vmax_bsh is not None:            # ablate the BSH deconjugation guild too (antibiotic:
+            bat_kw["vmax_bsh"] = float(vmax_bsh)   # taurocholate stops being deconjugated -> elevates)
         layers.append(BileAcidTransform(bai_producers=set(BAI_GUILD),
                                         bsh_producers=set(BSH_GUILD), **bat_kw))
         layers.append(BileAcidInhibition(targets={PATHOGEN}))
@@ -404,7 +408,7 @@ def cdi_ecology(ablate: str = "", vmax_bai=None):
 
 def build_scenario(fmt: bool, ablate: str = "", t_end: float = 120.0, dt: float = 0.05,
                    fmt_time: float = 12.0, fmt_biomass: float = 0.05,
-                   dilution_rate: float = DILUTION_RATE, vmax_bai=None):
+                   dilution_rate: float = DILUTION_RATE, vmax_bai=None, vmax_bsh=None):
     """Run the rCDI/FMT scenario on the real gapseq community.
 
     The recipient carries the (bloomed) pathogen; the four donors are members from t=0
@@ -441,7 +445,7 @@ def build_scenario(fmt: bool, ablate: str = "", t_end: float = 120.0, dt: float 
             fmt_time, {d: 1.0 / len(DONORS) for d in DONORS},
             total_biomass=fmt_biomass, name="FMT")]
 
-    ecology = cdi_ecology(ablate, vmax_bai=vmax_bai)
+    ecology = cdi_ecology(ablate, vmax_bai=vmax_bai, vmax_bsh=vmax_bsh)
     # The SAME dilution rate must reach the diet: the bile influx is derived from it so
     # the pool holds at the physiological concentration. Passing one and defaulting the
     # other would put the germinant at the wrong steady state, silently.
