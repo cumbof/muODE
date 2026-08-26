@@ -1,0 +1,133 @@
+{
+  "specificity": {
+    "ref_bile_on": {
+      "label": "ref_bile_on",
+      "lam": 0.00875,
+      "cdiff_veg": 0.00366,
+      "cdiff_spores": 0.01829,
+      "cdiff_total": 0.02195,
+      "dca_final": 0.0934,
+      "ca_final": 3.8933,
+      "scindens_seeded": true,
+      "donors": [
+        "R_intestinalis_L182",
+        "F_prausnitzii_A2165",
+        "B_thetaiotaomicron_VPI5482",
+        "C_scindens_ATCC35704"
+      ],
+      "ablate": "",
+      "dilution_rate": 0.025,
+      "vmax_bai": null,
+      "fmt_biomass": 0.05,
+      "fmt_time": 12.0,
+      "latched": {}
+    },
+    "ref_bile_off": {
+      "label": "ref_bile_off",
+      "lam": 0.01188,
+      "cdiff_veg": 0.03887,
+      "cdiff_spores": 0.00023,
+      "cdiff_total": 0.0391,
+      "dca_final": 0.0,
+      "ca_final": 2.0,
+      "scindens_seeded": true,
+      "donors": [
+        "R_intestinalis_L182",
+        "F_prausnitzii_A2165",
+        "B_thetaiotaomicron_VPI5482",
+        "C_scindens_ATCC35704"
+      ],
+      "ablate": "bile",
+      "dilution_rate": 0.025,
+      "vmax_bai": null,
+      "fmt_biomass": 0.05,
+      "fmt_time": 12.0,
+      "latched": {}
+    },
+    "loo_R_intestinalis_L182": {
+      "label": "loo_R_intestinalis_L182",
+      "lam": 0.01073,
+      "cdiff_veg": 0.01737,
+      "cdiff_spores": 0.00367,
+      "cdiff_total": 0.02104,
+      "dca_final": 0.1239,
+      "ca_final": 2.4784,
+      "scindens_seeded": true,
+      "donors": [
+        "F_prausnitzii_A2165",
+        "B_thetaiotaomicron_VPI5482",
+        "C_scindens_ATCC35704"
+      ],
+      "ablate": "",
+      "dilution_rate": 0.025,
+      "vmax_bai": null,
+      "fmt_biomass": 0.05,
+      "fmt_time": 12.0,
+      "latched": {}
+    },
+    "loo_F_prausnitzii_A2165": {
+      "label": "loo_F_prausnitzii_A2165",
+      "lam": 0.00603,
+      "cdiff_veg": 0.00435,
+      "cdiff_spores": 0.01658,
+      "cdiff_total": 0.02094,
+      "dca_final": 0.1244,
+      "ca_final": 3.8658,
+      "scindens_seeded": true,
+      "donors": [
+        "R_intestinalis_L182",
+        "B_thetaiotaomicron_VPI5482",
+        "C_scindens_ATCC35704"
+      ],
+      "ablate": "",
+      "dilution_rate": 0.025,
+      "vmax_bai": null,
+      "fmt_biomass": 0.05,
+      "fmt_time": 12.0,
+      "latched": {}
+    },
+    "loo_B_thetaiotaomicron_VPI5482": {
+      "label": "loo_B_thetaiotaomicron_VPI5482",
+      "lam": 0.01119,
+      "cdiff_veg": 0.00178,
+      "cdiff_spores": 0.02087,
+      "cdiff_total": 0.02265,
+      "dca_final": 0.1245,
+      "ca_final": 3.8623,
+      "scindens_seeded": true,
+      "donors": [
+        "R_intestinalis_L182",
+        "F_prausnitzii_A2165",
+        "C_scindens_ATCC35704"
+      ],
+      "ablate": "",
+      "dilution_rate": 0.025,
+      "vmax_bai": null,
+      "fmt_biomass": 0.05,
+      "fmt_time": 12.0,
+      "latched": {}
+    },
+    "loo_C_scindens_ATCC35704": {
+      "label": "loo_C_scindens_ATCC35704",
+      "lam": 0.01638,
+      "cdiff_veg": 0.00462,
+      "cdiff_spores": 0.01994,
+      "cdiff_total": 0.02456,
+      "dca_final": 0.0,
+      "ca_final": 3.9906,
+      "scindens_seeded": false,
+      "donors": [
+        "R_intestinalis_L182",
+        "F_prausnitzii_A2165",
+        "B_thetaiotaomicron_VPI5482"
+      ],
+      "ablate": "",
+      "dilution_rate": 0.025,
+      "vmax_bai": null,
+      "fmt_biomass": 0.05,
+      "fmt_time": 12.0,
+      "latched": {}
+    }
+  },
+  "sign_stable_all": false
+}
