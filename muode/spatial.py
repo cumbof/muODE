@@ -159,6 +159,42 @@ class SpatialDynamicFBA:
     min_biomass: float = 1e-12
     record_every: int = 1
     n_jobs: int = 1
+    #: optional batch LP backend (``muode.backends``): all (cell, species) LPs of a step
+    #: are solved in one call, each cell being an ensemble member for warm starts.
+    #: ``None`` keeps the historical per-cell path.
+    backend: Optional[object] = None
+
+    def _solve_cells_batched(self, cells, org_ids, orgs, X, M, env_mets, kinetics, diet):
+        """All populated cells' LPs in one backend call (same bounds and update rules)."""
+        from muode.backends import SolveRequest
+
+        reqs, keys = [], []
+        nx = self.nx
+        for (i, j) in cells:
+            for oid in org_ids:
+                xij = X[oid][i, j]
+                if xij <= self.min_biomass:
+                    continue
+                uptake = {}
+                for m in env_mets:
+                    conc = M[m][i, j]
+                    mm = kinetics.michaelis_menten(oid, m, conc)
+                    limit = diet.uptake_limit(m)
+                    if limit is not None:
+                        mm = min(mm, limit)
+                    cap = conc / (xij * self.dt) if self.dt > 0 else np.inf
+                    uptake[m] = min(mm, cap)
+                reqs.append(SolveRequest(orgs[oid], uptake, member=int(i * nx + j)))
+                keys.append((i, j, oid, xij))
+        sols = self.backend.solve_step(reqs) if reqs else []
+        per_cell: Dict[Tuple[int, int], tuple] = {c: ({}, {m: 0.0 for m in env_mets}) for c in cells}
+        for (i, j, oid, xij), sol in zip(keys, sols):
+            new_x, dm_cell = per_cell[(i, j)]
+            mu = sol.growth_rate if sol.feasible else 0.0
+            new_x[oid] = max(0.0, xij + (mu - self.death_rate) * xij * self.dt)
+            for m in env_mets:
+                dm_cell[m] += sol.exchange_fluxes.get(m, 0.0) * xij
+        return [(i, j, per_cell[(i, j)][0], per_cell[(i, j)][1]) for (i, j) in cells]
 
     def _D(self, metabolite: str) -> float:
         return float(self.diffusivity.get(metabolite, self.default_diffusivity))
@@ -266,7 +302,10 @@ class SpatialDynamicFBA:
                 return i, j, new_x, dm_cell
 
             cells = [tuple(c) for c in np.argwhere(total > self.min_biomass)]
-            if pool is None or len(cells) <= 1:
+            if self.backend is not None:
+                results = self._solve_cells_batched(cells, org_ids, shared_orgs, X, M, env_mets,
+                                                    kinetics, diet)
+            elif pool is None or len(cells) <= 1:
                 results = [_solve_cell(c) for c in cells]
             else:
                 results = list(pool.map(_solve_cell, cells))
@@ -292,6 +331,9 @@ class SpatialDynamicFBA:
 
         if pool is not None:
             pool.shutdown()
+
+        if self.backend is not None and hasattr(self.backend, "close"):
+            self.backend.close()
 
         return SpatialResult(
             times=np.array(rec_times),
