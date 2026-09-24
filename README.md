@@ -115,6 +115,22 @@ muode demo --remove A_glucose    # watch the dependent species go secondarily ex
 - A **native Static-Optimization-Approach integrator** (Mahadevan et al., 2002) updates extracellular metabolite concentrations and per-species biomass at discrete time steps.
 - Species interact through a shared extracellular pool (COMETS-style compartmentalised community). **MICOM** is used for what it is designed for — steady-state cross-feeding / abundance-constrained community snapshots — and can serve as a per-step solver; it is *not* itself the time integrator. **COMETS** is supported as an export target for independent cross-validation (`muode export-comets`).
 - Applies a defined "diet" (e.g., human gut Western diet) as the environmental boundary condition.
+- **Pluggable, batch-aware LP backends.** Each time step hands *all* of its FBA LPs (every species, and in
+  `DynamicFBA.run_ensemble` every ensemble member) to a `SolverBackend` at once. The default backend reproduces the
+  historical per-organism solves byte for byte. The [manylp](https://github.com/cumbof/manylp) backend
+  (`make_backend("manylp-gpu")` / `"manylp-cpu"`) certifies whole batches against cached optimal bases, returns
+  certified-unique fluxes (`flux_rule="pfba-unique"`), can persist its bases across runs (`atlas_dir=`), and can
+  integrate alternative-optima envelopes (`policies=[...]`):
+
+  ```python
+  from muode import DynamicFBA
+  from muode.backends import make_backend
+
+  engine = DynamicFBA(t_end=48, dt=0.1)
+  result = engine.run(community, diet, kinetics, backend=make_backend("manylp-gpu"))
+  runs = engine.run_ensemble(community, diets, kinetics,
+                             backend=make_backend("manylp-gpu", atlas_dir="~/.muode/atlas"))
+  ```
 
 ### Phase 5 — Perturbation, Intervention & Ecology
 - Dynamic knockouts (e.g. a broad-spectrum antibiotic constraining a target pathway's flux toward 0 at a given *efficacy*); **secondary extinctions** from disrupted cross-feeding emerge naturally.
