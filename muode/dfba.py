@@ -33,16 +33,15 @@ model can be plugged in as the per-step solver.
 
 from __future__ import annotations
 
-import os
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Callable, Dict, Generator, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 
+from muode.backends import LegacyBackend, SolveRequest, SolverBackend
 from muode.community import Community
 from muode.diet import Diet
 from muode.ecology import EcologyModel
@@ -285,7 +284,14 @@ class DynamicFBA:
         runs sequentially; ``-1`` uses all available cores.  The species' solves
         are independent within a step, so any value yields identical results --
         the speed-up is realised on genome-scale models, whose solver calls
-        dominate each step and release the GIL.
+        dominate each step and release the GIL.  Only used by the default
+        (legacy) backend.
+    backend:
+        The :class:`~muode.backends.SolverBackend` that solves each step's LPs
+        (``None``: the historical per-organism path, bit-identical to earlier
+        muODE).  The engine hands the backend *every* LP of a step at once --
+        all species, and in :meth:`run_ensemble` all ensemble members -- which is
+        what a batched (e.g. GPU) solver needs.
     """
 
     t_end: float = 24.0
@@ -295,7 +301,9 @@ class DynamicFBA:
     min_biomass: float = 1e-9
     record_fluxes: bool = True
     n_jobs: int = 1
+    backend: Optional[SolverBackend] = None
 
+    # -- drivers ------------------------------------------------------------------
     def run(
         self,
         community: Community,
@@ -304,13 +312,82 @@ class DynamicFBA:
         perturbation: Optional[Perturbation] = None,
         injections: Optional[Sequence[Injection]] = None,
         ecology: Optional[EcologyModel] = None,
+        backend: Optional[SolverBackend] = None,
     ) -> SimulationResult:
-        kinetics = kinetics or KineticParameters()
-
+        """Integrate one trajectory (see the class docstring)."""
         # Apply any perturbation to the baseline bounds *once*, up front, so it
         # persists across every step (an antibiotic does not wear off mid-run).
         if perturbation is not None:
             perturbation.apply(community)
+        gen = self._integrate(community, diet, kinetics, perturbation, injections, ecology, member=0)
+        be, owned = self._resolve_backend(backend)
+        try:
+            return _drive([gen], be)[0]
+        finally:
+            if owned:
+                be.close()
+
+    def run_ensemble(
+        self,
+        community: Community,
+        diets: Union[Diet, Sequence[Diet]],
+        kinetics: Union[None, KineticParameters, Sequence[KineticParameters]] = None,
+        n_members: Optional[int] = None,
+        perturbation: Optional[Perturbation] = None,
+        injections: Optional[Sequence[Injection]] = None,
+        ecology: Optional[Callable[[], EcologyModel]] = None,
+        backend: Optional[SolverBackend] = None,
+    ) -> List[SimulationResult]:
+        """Integrate an ensemble of trajectories *in lockstep*.
+
+        Members share the community's organism models (and any ``perturbation``,
+        applied once) and differ in diet and/or kinetics -- the parameter-sweep /
+        Monte-Carlo setting.  Every step, the LPs of all species of all members
+        go to the backend as one batch.  Each member's result is identical to
+        running :meth:`run` on it alone (the members never interact).
+
+        ``diets`` / ``kinetics``: one object shared by all members, or one per
+        member.  ``ecology``: a zero-argument factory, since ecology layers carry
+        per-trajectory state.
+        """
+        diets_l = list(diets) if isinstance(diets, (list, tuple)) else None
+        kin_l = list(kinetics) if isinstance(kinetics, (list, tuple)) else None
+        E = n_members or len(diets_l or kin_l or [0])
+        if E < 1:
+            raise ValueError("ensemble needs at least one member")
+        if perturbation is not None:
+            perturbation.apply(community)
+        gens = []
+        for e in range(E):
+            d = diets_l[e] if diets_l is not None else diets
+            k = kin_l[e] if kin_l is not None else kinetics
+            eco = ecology() if ecology is not None else None
+            gens.append(self._integrate(community, d, k, perturbation, injections, eco, member=e))
+        be, owned = self._resolve_backend(backend)
+        try:
+            return _drive(gens, be)
+        finally:
+            if owned:
+                be.close()
+
+    def _resolve_backend(self, backend: Optional[SolverBackend]):
+        be = backend or self.backend
+        if be is not None:
+            return be, False
+        return LegacyBackend(n_jobs=self.n_jobs), True
+
+    # -- the integrator (a coroutine: yields each step's LPs, receives solutions) ----
+    def _integrate(
+        self,
+        community: Community,
+        diet: Diet,
+        kinetics: Optional[KineticParameters],
+        perturbation: Optional[Perturbation],
+        injections: Optional[Sequence[Injection]],
+        ecology: Optional[EcologyModel],
+        member: int,
+    ) -> Generator[List[SolveRequest], list, SimulationResult]:
+        kinetics = kinetics or KineticParameters()
 
         # Timed biomass injections (transplants / probiotic doses).  They are
         # state events, not bound changes: each fires at the first step reaching
@@ -362,18 +439,30 @@ class DynamicFBA:
         depletion_warned = False
         anything_grew = False
 
-        # Per-step LP solves are independent across species -- within a step they
-        # share only the read-only medium M and biomasses X -- so they can run on
-        # a thread pool.  Results are keyed by species and order-independent, so a
-        # parallel run is numerically identical to a sequential one; the speed-up
-        # is realised on genome-scale models, whose solver calls dominate the step
-        # and release the GIL.  n_jobs=1 (default) keeps the sequential path.
-        if self.n_jobs < 0:
-            n_workers = os.cpu_count() or 1
-        else:
-            n_workers = self.n_jobs
-        n_workers = max(1, min(n_workers, len(organisms)))
-        pool = ThreadPoolExecutor(max_workers=n_workers) if n_workers > 1 else None
+        # Fast path: without ecology layers every ecology hook is the identity, so the
+        # per-metabolite Python loops below can run as NumPy vector operations.  They
+        # perform the same IEEE operations in the same order, so results are bit-for-bit
+        # identical to the scalar path; metabolites an organism cannot exchange are
+        # skipped (``set_uptake_bound`` ignores them anyway).
+        fast = ecology.is_empty()
+        if fast:
+            env_index = {m: i for i, m in enumerate(env_mets)}
+            org_mets, org_idx, org_vmax, org_km = [], [], [], []
+            for o in organisms:
+                mets = tuple(m for m in o.exchange_metabolites() if m in env_index)
+                org_mets.append(mets)
+                org_idx.append(np.array([env_index[m] for m in mets], dtype=np.int64))
+                pars = [kinetics.get(o.id, m) for m in mets]
+                org_vmax.append(np.array([p[0] for p in pars], dtype=float))
+                org_km.append(np.array([p[1] for p in pars], dtype=float))
+            lim_all = np.array([np.inf if diet.uptake_limit(m) is None else diet.uptake_limit(m)
+                                for m in env_mets], dtype=float)
+            influx_all = np.array([diet.influx_rate(m) for m in env_mets], dtype=float)
+            Marr = np.array([M[m] for m in env_mets], dtype=float)
+            met_arr = np.empty((n_steps + 1, len(env_mets)))
+            flux_arr = ({o.id: np.zeros((n_steps + 1, len(env_mets))) for o in organisms}
+                        if self.record_fluxes else {})
+            org_pos = {o.id: k for k, o in enumerate(organisms)}
 
         for step in range(n_steps + 1):
             t_now = times[step]
@@ -391,18 +480,84 @@ class DynamicFBA:
             # record current state
             for o in organisms:
                 bio_hist[o.id][step] = X[o.id]
-            for m in env_mets:
-                met_hist[m][step] = M[m]
+            if fast:
+                met_arr[step] = Marr
+            else:
+                for m in env_mets:
+                    met_hist[m][step] = M[m]
             if record_eco:
                 obs_hist.append(ecology.observables(t_now, M, X))
                 spore_hist.append(dict(ecology.spores()))
 
             # --- solve each species' FBA under current medium ---------------
-            # Set one species' uptake bounds from the current medium and solve
-            # its LP.  Reads only the read-only snapshots M and X and mutates only
-            # this organism's own bounds, so distinct species solve concurrently.
-            def _solve(o):
-                o.reset_bounds()
+            # Uptake bound of every environment metabolite for every active
+            # species; the LPs themselves go to the backend as one batch.
+            step_growth: Dict[str, float] = {}
+            step_flux: Dict[str, Dict[str, float]] = {}
+
+            # Species below the biomass floor are dormant: no flux, no solve.
+            active = [o for o in organisms if X[o.id] > self.min_biomass]
+            for o in organisms:
+                if X[o.id] <= self.min_biomass:
+                    step_growth[o.id] = 0.0
+                    if not fast:
+                        step_flux[o.id] = {m: 0.0 for m in env_mets}
+                    mu_hist[o.id][step] = 0.0
+
+            if fast:
+                F = np.zeros((len(organisms), len(env_mets)))
+                requests = []
+                for o in active:
+                    k = org_pos[o.id]
+                    idx = org_idx[k]
+                    conc = Marr[idx]
+                    vmax, km = org_vmax[k], org_km[k]
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        mm = np.where(conc <= 0.0, 0.0, vmax * conc / (km + conc))
+                        mm = np.minimum(mm, lim_all[idx])
+                        cap = conc / (X[o.id] * self.dt) if self.dt > 0 else np.full(conc.shape, np.inf)
+                    requests.append(SolveRequest(o, None, member, mets=org_mets[k], vec=np.minimum(mm, cap)))
+                sols = yield requests
+                for o, sol in zip(active, sols):
+                    k = org_pos[o.id]
+                    raw = sol.growth_rate if sol.feasible else 0.0
+                    step_growth[o.id] = raw
+                    mu_hist[o.id][step] = raw
+                    ex = sol.exchange_fluxes
+                    F[k, org_idx[k]] = [ex.get(m, 0.0) for m in org_mets[k]]
+                if any(step_growth[o.id] > 0.0 for o in active):
+                    anything_grew = True
+                if self.record_fluxes:
+                    for o in organisms:
+                        flux_arr[o.id][step] = F[org_pos[o.id]]
+                if step == n_steps:
+                    break
+                for o in organisms:
+                    mu = step_growth[o.id]
+                    death = self.death_rate + self.dilution_rate + ecology.extra_death(o.id, t_now, M, X)
+                    X[o.id] = max(0.0, X[o.id] + (mu - death) * X[o.id] * self.dt)
+                ecology.integrate(t_now, self.dt, X, M, step_growth)
+                dM = influx_all - self.dilution_rate * Marr + 0.0
+                for o in organisms:
+                    dM += F[org_pos[o.id]] * X[o.id]
+                new = Marr + dM * self.dt
+                neg = new < 0.0
+                if neg.any():
+                    new[neg] = 0.0
+                    if not depletion_warned:
+                        warnings.warn(
+                            "A metabolite was fully depleted within a step; consider a "
+                            "smaller dt for better accuracy.",
+                            RuntimeWarning,
+                            stacklevel=2,
+                        )
+                        depletion_warned = True
+                Marr = new
+                continue
+
+            requests = []
+            for o in active:
+                uptake = {}
                 for m in env_mets:
                     conc = M[m]
                     mm = kinetics.michaelis_menten(o.id, m, conc)
@@ -415,29 +570,17 @@ class DynamicFBA:
                     mm *= ecology.uptake_factor(o.id, m, t_now, M, X)
                     # CFL-style cap: do not let one species take more than exists.
                     cap = conc / (X[o.id] * self.dt) if self.dt > 0 else np.inf
-                    o.set_uptake_bound(m, min(mm, cap))
-                sol = o.optimize()
+                    uptake[m] = min(mm, cap)
+                requests.append(SolveRequest(o, uptake, member))
+            sols = yield requests
+
+            solved = []
+            for o, sol in zip(active, sols):
                 raw = sol.growth_rate if sol.feasible else 0.0
                 # environmental growth modifiers (pH, bile, bacteriocins, ...)
                 mu_eff = raw * ecology.growth_factor(o.id, t_now, M, X)
                 flux = {m: sol.exchange_fluxes.get(m, 0.0) for m in env_mets}
-                return mu_eff, flux
-
-            step_growth: Dict[str, float] = {}
-            step_flux: Dict[str, Dict[str, float]] = {}
-
-            # Species below the biomass floor are dormant: no flux, no solve.
-            active = [o for o in organisms if X[o.id] > self.min_biomass]
-            for o in organisms:
-                if X[o.id] <= self.min_biomass:
-                    step_growth[o.id] = 0.0
-                    step_flux[o.id] = {m: 0.0 for m in env_mets}
-                    mu_hist[o.id][step] = 0.0
-
-            if pool is None or len(active) <= 1:
-                solved = [(o, _solve(o)) for o in active]
-            else:
-                solved = list(zip(active, pool.map(_solve, active)))
+                solved.append((o, (mu_eff, flux)))
 
             for o, (mu_eff, flux) in solved:
                 step_growth[o.id] = mu_eff
@@ -486,9 +629,6 @@ class DynamicFBA:
                         depletion_warned = True
                 M[m] = new
 
-        if pool is not None:
-            pool.shutdown()
-
         # Not one species grew at any point in the whole run: biomass is exactly
         # what was seeded, and the output is a flat line that looks like a
         # successful simulation. Nearly always a setup error (a medium that does
@@ -504,6 +644,15 @@ class DynamicFBA:
                 RuntimeWarning,
                 stacklevel=2,
             )
+
+        if fast:
+            for i, m in enumerate(env_mets):
+                met_hist[m] = met_arr[:, i].copy()
+                M[m] = float(Marr[i])
+            if self.record_fluxes:
+                for o in organisms:
+                    for i, m in enumerate(env_mets):
+                        flux_hist[o.id][m] = flux_arr[o.id][:, i].copy()
 
         # --- assemble result -------------------------------------------------
         biomass_df = pd.DataFrame(bio_hist, index=times)
@@ -540,3 +689,29 @@ class DynamicFBA:
                 "ecology": ecology.describe() or None,
             },
         )
+
+
+def _drive(gens: List[Generator], backend: SolverBackend) -> List[SimulationResult]:
+    """Advance integrator coroutines in lockstep, one batched solve per step."""
+    results: List[Optional[SimulationResult]] = [None] * len(gens)
+    pending: Dict[int, List[SolveRequest]] = {}
+    for i, g in enumerate(gens):
+        try:
+            pending[i] = next(g)
+        except StopIteration as stop:
+            results[i] = stop.value
+    while pending:
+        order = list(pending)
+        flat = [r for i in order for r in pending[i]]
+        sols = backend.solve_step(flat) if flat else []
+        pos = 0
+        nxt: Dict[int, List[SolveRequest]] = {}
+        for i in order:
+            k = len(pending[i])
+            try:
+                nxt[i] = gens[i].send(sols[pos:pos + k])
+            except StopIteration as stop:
+                results[i] = stop.value
+            pos += k
+        pending = nxt
+    return results  # type: ignore[return-value]
