@@ -1,9 +1,9 @@
-# µODE — Spatial Dynamic FBA (2D Reaction-Diffusion)
+# µODE — Spatial dynamic FBA (2D reaction–diffusion)
 
-The spatial engine (`muode.spatial`) extends the community dFBA model to a 2D
-grid, adding metabolite diffusion between grid cells. This enables simulation of
-colony growth, biofilm formation, and spatially structured cross-feeding where
-metabolite gradients form naturally.
+The spatial engine (`muode.spatial`) extends the community dFBA model to a 2D grid
+with metabolite diffusion between cells. This resolves colony growth, biofilm
+formation, and spatially structured cross-feeding, where metabolite gradients form
+naturally.
 
 ---
 
@@ -11,9 +11,9 @@ metabolite gradients form naturally.
 
 ### Grid
 
-The simulation domain is a rectangular grid of `ny × nx` cells, each of size
-`dx × dx` mm. Every grid cell contains its own biomass field (one value per
-species) and metabolite concentrations. The cells are connected by diffusion.
+The domain is a rectangular grid of `ny × nx` cells, each `dx × dx` mm. Every cell
+holds its own biomass field (one value per species) and metabolite concentrations,
+and cells are connected by diffusion.
 
 ### Per-cell FBA
 
@@ -24,34 +24,32 @@ At each time step, the engine solves a **separate FBA** for every grid cell:
 2. Solve each species' FBA in that cell (growth rate + exchange fluxes).
 3. Integrate biomass and metabolites in that cell (Euler step).
 
-This means the engine solves `ny × nx × n_species` FBAs per step, which can be
-expensive for large grids.
+The engine therefore solves `ny × nx × n_species` FBAs per step.
 
 ### Metabolite diffusion
 
 After each Euler step, metabolite concentrations diffuse across the grid using a
-**finite-difference Laplacian** with **Neumann (no-flux) boundary conditions**
-(zero gradient at the domain edges — equivalent to an impermeable wall):
+**finite-difference Laplacian** with **Neumann (no-flux) boundary conditions** (zero
+gradient at the domain edges — an impermeable wall):
 
 $$\frac{\partial M_j}{\partial t} = D_j\, \nabla^2 M_j + \text{(FBA exchange fluxes)}$$
 
-Discretised as:
+discretized as
 
 $$M_j(y,x,t+\Delta t) = M_j(y,x,t) + D_j \frac{\Delta t}{\Delta x^2}
   \bigl[M_j(y+1,x) + M_j(y-1,x) + M_j(y,x+1) + M_j(y,x-1) - 4\,M_j(y,x)\bigr]$$
 
-with reflected boundary conditions at the edges.
-
-The diffusivity $D_j$ (mm²/h) is uniform by default (`default_diffusivity`);
-per-metabolite values can be passed via the `SpatialDynamicFBA` constructor.
+with reflected boundary conditions at the edges. The diffusivity $D_j$ (mm²/h) is
+uniform by default (`default_diffusivity`); per-metabolite values can be passed via
+the `SpatialDynamicFBA` constructor.
 
 ---
 
 ## Stability
 
-The finite-difference diffusion scheme is conditionally stable: the time step
-must satisfy the CFL condition $\Delta t \le \Delta x^2 / (4D)$. muODE warns
-if this condition is violated and the step is set too large.
+The finite-difference diffusion scheme is conditionally stable: the time step must
+satisfy the CFL condition $\Delta t \le \Delta x^2 / (4D)$. µODE warns when this
+condition is violated.
 
 ---
 
@@ -110,7 +108,7 @@ result.to_npz("results/spatial/")    # save compressed arrays
 ## CLI
 
 ```bash
-# toy cross-feeding demo on a 1D strip (no data needed):
+# built-in cross-feeding demo on a 1D strip (no data needed):
 muode spatial --nx 24 --time 12 --outdir ./results/spatial/
 
 # with real GEMs from a community manifest:
@@ -121,19 +119,18 @@ muode spatial --community simulation_env/community.json \
               --outdir ./results/spatial/
 ```
 
-The CLI uses the **halves inoculum** for the toy demo (producer on the left
-half, consumer on the right) to demonstrate that cross-feeding requires metabolite
+The CLI uses the **halves inoculum** for the built-in demo (producer on the left
+half, consumer on the right) to show that cross-feeding requires metabolite
 diffusion across the spatial gradient.
 
 ---
 
-## Spatial cross-feeding validation
+## Spatial cross-feeding gradient
 
-The demo reproduces the expected spatial pattern: the consumer species grows
-fastest **near the interface** with the producer (where the diffused metabolite
-concentration is highest), not at the far edge. This gradient is a validation of
-the diffusion model and confirms that spatial structure matters for cross-feeding
-efficiency.
+The demo reproduces the expected spatial pattern: the consumer grows fastest **near
+the interface** with the producer (where the diffused metabolite concentration is
+highest), not at the far edge. This gradient confirms the diffusion model and shows
+that spatial structure matters for cross-feeding efficiency.
 
 ---
 
@@ -150,11 +147,11 @@ efficiency.
 
 ## Performance notes
 
-A `30 × 30` grid with 3 species and 20 metabolites over 24 h at `dt=0.05`
-requires ~480 time steps × 900 cells × 3 FBA solves = ~1.3 million LP solves.
-With HiGHS on a modern workstation each small LP takes ~0.1 ms, so this run
-would take ~2 minutes. For larger GEMs or grids, the per-cell FBAs are the main
-lever for speedup: set `n_jobs` (or `muode spatial -j -1`) to solve the populated
-cells of each step across worker threads. The cells are independent, so the
-fields are identical for any `n_jobs`; each worker holds private model copies, so
-the gain scales with the grid and model size where the solver call dominates.
+A `30 × 30` grid with 3 species and 20 metabolites over 24 h at `dt=0.05` requires
+~480 time steps × 900 cells × 3 FBA solves ≈ 1.3 million LP solves. With HiGHS on a
+modern workstation each small LP takes ~0.1 ms, so this run takes ~2 minutes. For
+larger GEMs or grids, the per-cell FBAs are the main lever for speedup: set `n_jobs`
+(or `muode spatial -j -1`) to solve each step's populated cells across worker
+threads. The cells are independent, so the fields are identical for any `n_jobs`;
+each worker holds private model copies, so the gain scales with grid and model size
+where the solver call dominates.

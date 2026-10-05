@@ -141,7 +141,7 @@ upstream.
   (`muode.predict`) or accessory-gene knockouts if needed.
 - **No evolution.** Colicin gene gain/loss, immunity acquisition, resistance
   mutations and horizontal transfer are out of paradigm and are *not* faked — the
-  strain traits are fixed for the run (see `docs/LIMITATIONS.md`). That is why the
+  strain traits are fixed for the run. That is why the
   toy interference case settles to a fixed winner rather than a coevolutionary
   arms race.
 - **Contact-dependent killing (T6SS)** is spatial and belongs in

@@ -236,6 +236,5 @@ the perturbation arm by uncommenting the `perturbation:` block in `config.yaml`.
 
 - **GEM provenance** (accessions, gapseq version, sha256):
   [`gems/PROVENANCE.md`](gems/PROVENANCE.md).
-- **The honest caveats** (what dynamic FBA and this community cannot represent):
-  [LIMITATIONS.md](../../docs/LIMITATIONS.md). Every output is a mechanistic hypothesis,
-  not a patient-level prediction.
+- **The honest caveats.** Dynamic FBA and this community produce mechanistic
+  hypotheses, not patient-level predictions; every output is a hypothesis to test.

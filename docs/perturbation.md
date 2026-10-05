@@ -1,27 +1,28 @@
-# µODE — Perturbation Engine
+# µODE — Perturbation engine
 
-The perturbation engine lets you run a simulation under a modified condition and
-observe how the community responds. Common use cases include simulating
-antibiotic treatment, gene knockouts, probiotic interventions, and species
-removals.
+The perturbation engine runs a simulation under a modified condition and shows how
+the community responds. Typical uses include antibiotic treatment, gene knockouts,
+and species removals.
 
-> A perturbation changes reaction **bounds** at the start of the run. To
-> introduce **biomass** at a chosen time instead (a transplant or probiotic
-> dose), see [injection.md](injection.md) — the two can be combined in one run.
+> A perturbation changes reaction **bounds** at the start of the run. To introduce
+> **biomass** at a chosen time instead (a transplant or probiotic dose), see
+> [injection.md](injection.md); the two can be combined in one run. For
+> *time-varying* drug exposure with spore survival and recurrence, use the
+> `Antibiotic` ecology layer ([ecology.md](ecology.md)).
 
 ---
 
 ## How perturbations work
 
-A perturbation is applied **at the start of the simulation** by modifying the
-flux bounds of one or more reactions before the dFBA loop begins. The simulation
-then runs normally, and the community response (growth rate changes, metabolite
-shifts, secondary extinctions) emerges from the dynamics.
+A perturbation is applied **at the start of the simulation** by modifying the flux
+bounds of one or more reactions before the dFBA loop begins. The simulation then
+runs normally, and the community response — growth-rate changes, metabolite
+shifts, secondary extinctions — emerges from the dynamics.
 
-This is a *first-order* model of a perturbation: it assumes the perturbation is
-instantaneous and its magnitude is constant throughout the run. Time-varying
-perturbations (e.g. an antibiotic that is gradually metabolised) would require
-a custom hook into the loop — currently not implemented.
+This is a *first-order* model: the perturbation is instantaneous and its magnitude
+is constant through the run. For a perturbation whose strength changes over time
+(e.g. a drug that is gradually eliminated), use the `Antibiotic` ecology layer,
+which adds one-compartment pharmacokinetics and an Emax kill model.
 
 ---
 
@@ -34,9 +35,9 @@ fraction `efficacy` ($0 \le \text{efficacy} \le 1$):
 
 $$v_{r,\max}' = (1 - \text{efficacy}) \cdot v_{r,\max} \quad \forall r \in \text{pathway}$$
 
-An efficacy of 0 is no effect; an efficacy of 1 is a complete block (equivalent
-to a pathway knockout). This is an interpretable model of an antibiotic that
-targets a specific pathway (e.g. folate biosynthesis inhibited by trimethoprim).
+An efficacy of 0 is no effect; 1 is a complete block (equivalent to a pathway
+knockout). This is an interpretable model of an antibiotic that targets a specific
+pathway (e.g. folate biosynthesis inhibited by trimethoprim).
 
 ```bash
 muode perturb --community simulation_env/community.json \
@@ -47,8 +48,7 @@ muode perturb --community simulation_env/community.json \
 
 ### Reaction knockout
 
-Sets one or more named reaction fluxes to zero ($v_r = 0$, implemented as
-$v_{r,\max} = 0$ and $v_{r,\min} = 0$).
+Sets one or more named reaction fluxes to zero ($v_{r,\max} = v_{r,\min} = 0$).
 
 ```bash
 muode perturb --community simulation_env/community.json \
@@ -60,10 +60,9 @@ Reaction ids must match the BiGG ids in the models.
 
 ### Species removal
 
-Removes one or more species entirely from the community before the simulation
-starts (sets initial biomass to zero and removes the organism from the LP).
-Useful for modelling a species-level antibiotic effect or for studying which
-species are keystones.
+Removes one or more species entirely before the simulation starts (initial biomass
+set to zero and the organism removed from the LP). Useful for modeling a
+species-level antibiotic effect or for identifying keystone species.
 
 ```bash
 muode perturb --community simulation_env/community.json \
@@ -75,30 +74,27 @@ muode perturb --community simulation_env/community.json \
 
 ## Secondary extinctions
 
-The most scientifically interesting result of a perturbation is often a
-**secondary extinction**: a species that was not directly targeted by the
-perturbation goes extinct because a cross-feeding partner it depended on was
-disrupted.
+The most informative result of a perturbation is often a **secondary extinction**:
+a species the perturbation never touched goes extinct because a cross-feeding
+partner it depended on was disrupted.
 
-These emerge naturally from the simulation — they are not hard-coded. When
-species A produces metabolite M that species B requires for growth, and you
-knock out A's pathway for M, species B will eventually starve in the simulation.
-Use `result.extinct()` and `result.cross_feeding()` to diagnose which species
-went extinct and why.
+These emerge from the simulation — they are not hard-coded. When species A produces
+metabolite M that species B needs, and you knock out A's pathway for M, species B
+eventually starves. Use `result.extinct()` and `result.cross_feeding()` to
+diagnose which species went extinct and why.
 
 ```bash
 muode perturb --community simulation_env/community.json \
               --remove-species "Roseburia_intestinalis" \
               --outdir results/
-# then check the output
-cat results/biomass.csv | head
 ```
 
 ---
 
 ## Combining perturbation types
 
-Multiple perturbation types can be combined in one run:
+Multiple types can be combined in one run; all modifications are applied before the
+loop starts:
 
 ```bash
 muode perturb --community simulation_env/community.json \
@@ -107,14 +103,12 @@ muode perturb --community simulation_env/community.json \
               --remove-species "Prevotella_copri"
 ```
 
-All three modifications are applied simultaneously before the loop starts.
-
 ---
 
 ## Snakemake rule
 
-The `perturb` rule is optional. Enable it by providing a `perturbation:`
-mapping in the config:
+The `perturb` rule is optional. Enable it with a `perturbation:` mapping in the
+config:
 
 ```yaml
 # config/config.yaml
@@ -143,7 +137,7 @@ pert = Perturbation(name="antibiotic_combo", targets=targets)
 
 engine = DynamicFBA(t_end=24.0, dt=0.1)
 result = engine.run(community, diet, kinetics, perturbation=pert)
-print(pert.describe())          # "Folate Biosynthesis @ 95 % + DHFR knockout"
+print(pert.describe())          # "Folate Biosynthesis @ 95% + DHFR knockout"
 print(result.extinct())         # species that went extinct
 ```
 
@@ -151,8 +145,8 @@ print(result.extinct())         # species that went extinct
 
 ## Output files
 
-The perturbation run produces the same file set as a regular simulation, written
-to the `--outdir` directory:
+A perturbation run produces the same file set as a regular simulation, written to
+`--outdir`:
 
 | File | Content |
 |------|---------|

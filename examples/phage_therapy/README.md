@@ -69,7 +69,6 @@ python examples/phage_therapy/genome_scale.py --models examples/phage_therapy/re
   phage's kinetics if you pin the scenario to one (`PHAGE` in `genome_scale.py`).
 - **No evolution.** Host-range shifts, receptor-loss resistance, and CRISPR immunity are
   out of paradigm and *not* faked — the host range is fixed, which is why the phage
-  clears its host completely rather than settling into a coexistence oscillation. See
-  `docs/LIMITATIONS.md`.
+  clears its host completely rather than settling into a coexistence oscillation.
 - **Well-mixed.** Spatial refuge (a biofilm the phage cannot penetrate) is not
   represented; that belongs in `muode.spatial`.

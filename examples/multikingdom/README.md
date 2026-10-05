@@ -122,7 +122,7 @@ adsorption rate, burst size and latent period (as in `mechanistic_demo.py`).
 
 ## What is *not* modelled
 
-Honest scope (see `docs/LIMITATIONS.md`): phage **host-range evolution** and host
+Honest scope: phage **host-range evolution** and host
 **resistance evolution** are out-of-paradigm (evolution) and are *not* faked —
 the host range is fixed for the run, which is why the toy phage clears its host
 completely instead of settling into a coexistence oscillation. Auxiliary

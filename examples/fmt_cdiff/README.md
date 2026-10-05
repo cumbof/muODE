@@ -74,7 +74,7 @@ reaction, so C. scindens carries the role without needing a bile reaction in its
 | **Secondary bile acids** — *bai* 7α-dehydroxylation → deoxycholate inhibits growth and blocks germination | **Yes** | `BileAcidTransform` + `BileAcidInhibition` |
 | **Sporulation / germination** — a spore reservoir survives antibiotics, germinates only when bile permits | **Yes** | `SporeForming` |
 | **Antibiotic PK/PD** — kills vegetative cells, not spores | **Yes** | `Antibiotic` |
-| **Gene regulation, evolution, immune dynamics** | **No** | out of paradigm — see [LIMITATIONS.md](../../docs/LIMITATIONS.md) |
+| **Gene regulation, evolution, immune dynamics** | **No** | out of paradigm |
 
 The ecology parameters are the provenance-registered layer defaults (germination
 Km = 15.9 mM, inhibition Ki = 0.5 mM — see `muode/provenance.py`). No parameter is
@@ -296,6 +296,5 @@ once the workstation run has produced `summary.json`.
   [`gems/PROVENANCE.md`](gems/PROVENANCE.md).
 - **Provenance of the parameters** (which are MEASURED / DERIVED / INVENTED, and which
   the conclusion is sensitive to): `muode/provenance.py` and `tests/test_provenance.py`.
-- **The honest caveats** (what dynamic FBA and this scenario cannot represent):
-  [LIMITATIONS.md](../../docs/LIMITATIONS.md). Treat every output as a mechanistic
-  hypothesis, not a patient-level prediction.
+- **The honest caveats.** Dynamic FBA and this scenario produce mechanistic
+  hypotheses, not patient-level predictions; treat every output as a hypothesis to test.

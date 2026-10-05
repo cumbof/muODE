@@ -1,9 +1,8 @@
-# µODE — Genome-Scale Model Reconstruction
+# µODE — Genome-scale model reconstruction
 
-Phase 1 of the muODE pipeline turns raw MAG FASTA files into Genome-Scale
-Metabolic Models (GEMs) in SBML format. This document covers the engines, the
-namespace constraint, the stub engine for local testing, CheckM2 quality gating,
-and the LP gap-filling step.
+Phase 1 of the µODE pipeline turns raw MAG FASTA files into genome-scale metabolic
+models (GEMs) in SBML format. This document covers the reconstruction engines, the
+namespace constraint, CheckM2 quality gating, and the LP gap-filling step.
 
 ---
 
@@ -28,26 +27,26 @@ refined GEMs (*.xml, SBML)
 
 ### CarveMe (default)
 
-CarveMe performs **top-down** reconstruction: it starts from a universal
-template model (a superset of all known bacterial reactions) and prunes it to
-fit the genome's gene content. This produces a context-specific, ready-to-use
-GEM in seconds to minutes per genome.
+CarveMe performs **top-down** reconstruction: it starts from a universal template
+model — a superset of all known bacterial reactions — and prunes it to fit the
+genome's gene content, producing a context-specific, ready-to-use GEM in seconds
+to minutes per genome.
 
-- **Namespace: BiGG** — all metabolite and reaction identifiers follow the
+- **Namespace: BiGG.** All metabolite and reaction identifiers follow the
   community-standard BiGG namespace. This is *required* for multi-species
-  community modelling: all species must share one metabolite namespace so the
+  community modeling: every species must share one metabolite namespace so the
   shared extracellular pool works correctly.
-- **Gene calling prerequisite:** CarveMe expects a protein FASTA. muODE's
-  Snakemake workflow calls **Prodigal** first to predict genes from the raw
-  nucleotide FASTA.
+- **Gene-calling prerequisite.** CarveMe expects a protein FASTA. µODE's Snakemake
+  workflow calls **Prodigal** first to predict genes from the raw nucleotide
+  FASTA.
 
-**CLI (single MAG or small set):**
+CLI (single MAG or small set):
 
 ```bash
 muode build --mags ./data/raw_mags/ --outdir ./models/draft_gems/ --engine carveme
 ```
 
-**Snakemake (scale — hundreds of MAGs in parallel):**
+Snakemake (scale — hundreds of MAGs in parallel):
 
 ```bash
 snakemake --use-conda --cores 8 --configfile config/config.yaml
@@ -57,31 +56,27 @@ Config key: `engine: "carveme"`
 
 ### gapseq (alternative)
 
-gapseq performs **bottom-up** reconstruction: it predicts metabolic pathway
+gapseq performs **bottom-up** reconstruction: it predicts metabolic-pathway
 presence from a genome and builds a GEM from scratch. It is more sensitive to
 incomplete genomes but much slower (hours per genome).
 
-- **Namespace: ModelSEED** — *incompatible* with CarveMe models. Never mix
-  CarveMe (BiGG) and gapseq (ModelSEED) models in a single muODE run. Choose
-  one engine per run.
+- **Namespace: ModelSEED** — *incompatible* with CarveMe models. Never mix CarveMe
+  (BiGG) and gapseq (ModelSEED) models in a single µODE run; choose one engine per
+  run.
 - **When to use:** when a bottom-up approach is scientifically preferred (e.g.
   novel taxa with no close template). Requires the `gapseq` conda env.
 
 Config key: `engine: "gapseq"`
 
-### stub (local testing, any architecture)
+### Offline engine (dependency-free, any architecture)
 
-The `stub` engine is a **dependency-free** reconstruction backend built into
-muODE. It reads a special tag in the MAG's first FASTA header
-(`muode-stub:<role>`) and emits a tiny, pre-built SBML model for that role
-(e.g. `producer`, `consumer`, `both`). These models are functional
-`LinprogOrganism` instances that can run the full pipeline (reconstruct → refine
-→ QC → assemble → simulate) without CarveMe, gapseq, Prodigal, or any solver
-licence.
-
-**Use case:** validate the Snakemake DAG and the whole pipeline logic on any
-machine — including a laptop with no bioinformatics stack — before scaling out
-on a cluster.
+The built-in offline engine (`engine: "stub"`) is a dependency-free reconstruction
+backend. It reads a tag in the MAG's first FASTA header (`muode-stub:<role>`) and
+emits a compact, pre-built SBML model for that role (`producer`, `consumer`,
+`both`). These are functional `LinprogOrganism` instances that run the full
+pipeline (reconstruct → refine → QC → assemble → simulate) with no CarveMe,
+gapseq, Prodigal or solver license — so the entire Snakemake DAG runs on any
+machine, including one with no bioinformatics stack.
 
 ```bash
 snakemake --cores 4 --configfile config/config.demo.yaml
@@ -89,47 +84,47 @@ snakemake --cores 4 --configfile config/config.demo.yaml
 
 Config key: `engine: "stub"`
 
-### Eukaryote routes (fungi & protists)
+### Eukaryote routes (fungi and protists)
 
-CarveMe and gapseq are prokaryote-only, so muODE reconstructs eukaryotes through a
+CarveMe and gapseq are prokaryote-only, so µODE reconstructs eukaryotes through a
 separate genome→proteins→GEM path, selected per-MAG by domain (see
 [kingdoms.md](kingdoms.md)):
 
-- **fungi** (`engine: "carvefungi"`) — MetaEuk gene calling, then CarveFungi (a
-  fungal-specific reconstructor).
-- **other eukaryotes** (`engine: "eukaryote_generic"`) — MetaEuk gene calling, then
-  eggNOG-mapper orthology + a ModelSEEDpy draft. This route is **experimental**;
-  prefer a curated template (e.g. Yeast8) when one is available.
+- **fungi** (`engine: "carvefungi"`) — MetaEuk gene calling, then CarveFungi, a
+  fungal-specific reconstructor.
+- **other eukaryotes** (`engine: "eukaryote_generic"`) — MetaEuk gene calling,
+  then eggNOG-mapper orthology and a ModelSEEDpy draft. This route produces a
+  draft model; prefer a curated template (e.g. Yeast8) when one is available.
 
 Both need a MetaEuk protein reference database (`euk_ref_db`). The Snakemake
 workflow routes fungus/eukaryote MAGs to these engines automatically when
 `euk_ref_db` is set; a curated model supplied per-MAG in `eukaryote_models`
-overrides automated reconstruction. Viruses (phages) have no GEM and are skipped —
-model them as `PhageInfection` ecology layers instead.
+overrides automated reconstruction. Viruses (phages) have no GEM and are routed to
+the ecology layer as `PhageInfection` models instead.
 
 ---
 
 ## Namespace constraint — why you cannot mix engines
 
-A community simulation has one shared extracellular pool. When species A
-secretes `glc__D_e` (BiGG for D-glucose) and species B tries to take up
-`cpd00027_e` (ModelSEED for D-glucose), the engine sees them as *different*
-metabolites — no cross-feeding occurs, and the simulation is scientifically
-meaningless. **Always use the same engine for every MAG in a run.**
+A community simulation has one shared extracellular pool. When species A secretes
+`glc__D_e` (BiGG for D-glucose) and species B tries to take up `cpd00027_e`
+(ModelSEED for D-glucose), the engine sees them as *different* metabolites, no
+cross-feeding occurs, and the simulation is meaningless. **Always use the same
+engine for every MAG in a run.**
 
 ---
 
 ## LP gap-filling (`muode.gapfill`)
 
-Draft GEMs frequently cannot produce biomass on any defined medium due to gaps
+Draft GEMs frequently cannot produce biomass on a defined medium because of gaps
 in the genome assembly or annotation. The `refine` step runs an LP gap-fill:
 
-1. Identifies all reactions whose addition would restore a positive biomass flux.
+1. Identifies the reactions whose addition would restore a positive biomass flux.
 2. Solves a minimal-cardinality LP to find the smallest set to add.
 3. Writes the result to the refined model.
 
-An optional **universal model** (SBML, any source) can seed the candidate
-reaction set. Specify it with `--universal` (CLI) or `universal_model:` (config).
+An optional **universal model** (SBML, any source) seeds the candidate reaction
+set. Specify it with `--universal` (CLI) or `universal_model:` (config).
 
 ```bash
 muode refine --models ./models/draft_gems/ --outdir ./models/refined_gems/
@@ -145,20 +140,20 @@ The `refine` command also runs fast structural QC on each model and writes a
 Before spending compute on reconstruction, low-quality MAG bins can be filtered
 out by CheckM2 completeness and contamination scores.
 
-CheckM2 is **always part of the pipeline** but is **off by default** (`run_checkm2:
-false`) because it requires a Diamond database and a bioinformatics stack that is
-not present in every environment. Enable it on a capable machine:
+CheckM2 is **part of the pipeline** but **off by default** (`run_checkm2: false`)
+because it requires a Diamond database and a bioinformatics stack not present in
+every environment. Enable it on a capable machine:
 
 ```yaml
 # config/config.yaml
 run_checkm2: true
-min_completeness: 50.0   # drop MAGs below 50 % completeness
-max_contamination: 10.0  # drop MAGs above 10 % contamination
+min_completeness: 50.0   # drop MAGs below 50% completeness
+max_contamination: 10.0  # drop MAGs above 10% contamination
 ```
 
-When CheckM2 is disabled all MAGs pass the quality gate automatically. The
-checkpoint `select_mags` in the Snakemake workflow writes the passing list
-to `{outdir}/qc/passing_mags.txt` regardless of whether CheckM2 ran.
+When CheckM2 is disabled, all MAGs pass the quality gate. The `select_mags`
+checkpoint in the Snakemake workflow writes the passing list to
+`{outdir}/qc/passing_mags.txt` regardless of whether CheckM2 ran.
 
 ---
 
@@ -171,14 +166,13 @@ every `{stem}.qc.json` into one TSV. Columns include:
 |--------|-------------|
 | `mag_id` | MAG stem name |
 | `grows_now` | Can the model produce biomass after gap-fill? |
-| `n_reactions_added` | Number of reactions added by LP gap-fill |
+| `n_reactions_added` | Reactions added by LP gap-fill |
 | `energy_generating_cycle` | True if an EGC artefact was detected |
 | `simulatable` | Overall pass/fail used by `assemble` |
 
 The `assemble` step reads the `simulatable` column and silently drops
-non-simulatable models instead of aborting the whole run. This is the
-**failure-isolation** mechanism for large-scale runs where a few bad MAGs are
-expected.
+non-simulatable models instead of aborting the whole run — the failure-isolation
+mechanism for large-scale runs where a few bad MAGs are expected.
 
 ---
 
