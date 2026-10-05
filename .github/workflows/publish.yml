@@ -1,0 +1,61 @@
+name: publish
+
+# Publish muode to PyPI whenever a GitHub Release is published.
+#
+# No API token lives anywhere: this uses PyPI Trusted Publishing (OIDC).  The
+# `id-token: write` permission lets GitHub mint a short-lived identity token that
+# PyPI verifies against a trusted publisher you register once (see below), so there
+# is no secret to create, rotate, or leak.
+#
+# ONE-TIME SETUP on PyPI (https://pypi.org/manage/account/publishing/), no key involved:
+#   PyPI Project Name:  muode
+#   Owner:              cumbof
+#   Repository name:    muODE
+#   Workflow name:      publish.yml
+#   Environment name:   pypi
+# For the very first release, the project does not exist on PyPI yet -- add it as a
+# "pending" trusted publisher on that same page and the first run will create it.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Guard -- the release tag must match the package version
+        run: |
+          pkg_version="$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$pkg_version" != "$tag" ]; then
+            echo "::error::Release tag '$GITHUB_REF_NAME' does not match pyproject version '$pkg_version'. Bump [project].version before tagging."
+            exit 1
+          fi
+      - run: pip install build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/muode/
+    permissions:
+      id-token: write          # mint the OIDC token Trusted Publishing verifies
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
