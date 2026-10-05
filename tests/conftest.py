@@ -29,7 +29,12 @@ a vitamin bound limiting? -- and that needs a model that is alive.  Hence a scaf
 
 from __future__ import annotations
 
+import gzip
+import tempfile
+from pathlib import Path
+
 import cobra
+import httpx
 import pytest
 
 from muode.diet import Diet, load_diet
@@ -50,6 +55,26 @@ from muode.diet import Diet, load_diet
 # ---------------------------------------------------------------------------
 
 
+def _download_bigg_model(name: str) -> cobra.Model:
+    """Fetch a BiGG model over HTTPS, following redirects, and parse it.
+
+    cobra's own web loader (``cobra.io.load_model`` -> ``BiGGModels``) still points at
+    ``http://bigg.ucsd.edu/static/models/`` and, unlike cobra's BioModels loader, does
+    NOT pass ``follow_redirects=True``.  BiGG now 301-redirects every http URL to https,
+    so the loader raises ``RuntimeError: The connection to the BiGG Models repository
+    failed.`` for any model not bundled with cobra (e.g. iCN900).  This is what turned
+    the nightly full suite red.  We fetch the https URL ourselves and hand the SBML to
+    ``read_sbml_model``, which is redirect-agnostic.
+    """
+    url = f"https://bigg.ucsd.edu/static/models/{name}.xml.gz"
+    response = httpx.get(url, timeout=60, follow_redirects=True)
+    response.raise_for_status()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / f"{name}.xml"
+        path.write_bytes(gzip.decompress(response.content))
+        return cobra.io.read_sbml_model(str(path))
+
+
 @pytest.fixture(scope="session")
 def bigg():
     """Load a BiGG model by name, at most once per test session.
@@ -60,6 +85,10 @@ def bigg():
     iJO1366, which is ~20s of the suite spent parsing the same file five times -- and on
     a slow or throttled CI network the download path turns that into minutes.
 
+    For models cobra ships locally (textbook, iJO1366) we use its fast loader; for the
+    rest we download over https ourselves because cobra's BiGG loader cannot follow the
+    http->https redirect (see ``_download_bigg_model``).
+
     Sharing one instance is safe because nothing here mutates a model persistently:
     every consumer changes bounds inside cobra's ``with model:`` block, which rolls them
     back on exit (pinned by test_growth_on_diet_does_not_mutate_the_model).
@@ -68,7 +97,12 @@ def bigg():
 
     def _load(name: str):
         if name not in cache:
-            cache[name] = cobra.io.load_model(name)
+            try:
+                cache[name] = cobra.io.load_model(name)
+            except RuntimeError:
+                # cobra's BiGG web loader choked (its http URL now 301-redirects);
+                # fall back to a redirect-following https fetch.
+                cache[name] = _download_bigg_model(name)
         return cache[name]
 
     return _load
